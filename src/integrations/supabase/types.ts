@@ -14,7 +14,197 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      clients: {
+        Row: {
+          balance: number
+          code: string
+          created_at: string
+          email: string | null
+          id: string
+          name: string
+          phone: string
+          updated_at: string
+        }
+        Insert: {
+          balance?: number
+          code: string
+          created_at?: string
+          email?: string | null
+          id?: string
+          name: string
+          phone?: string
+          updated_at?: string
+        }
+        Update: {
+          balance?: number
+          code?: string
+          created_at?: string
+          email?: string | null
+          id?: string
+          name?: string
+          phone?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      deposits: {
+        Row: {
+          amount: number
+          client_id: string
+          created_at: string
+          id: string
+          note: string | null
+        }
+        Insert: {
+          amount: number
+          client_id: string
+          created_at?: string
+          id?: string
+          note?: string | null
+        }
+        Update: {
+          amount?: number
+          client_id?: string
+          created_at?: string
+          id?: string
+          note?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "deposits_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      jewelry: {
+        Row: {
+          category: Database["public"]["Enums"]["jewelry_category"]
+          created_at: string
+          id: string
+          name: string
+          photo: string | null
+          purchase_price: number
+          sale_price: number
+          status: Database["public"]["Enums"]["jewelry_status"]
+          updated_at: string
+          weight: number
+        }
+        Insert: {
+          category?: Database["public"]["Enums"]["jewelry_category"]
+          created_at?: string
+          id?: string
+          name: string
+          photo?: string | null
+          purchase_price?: number
+          sale_price?: number
+          status?: Database["public"]["Enums"]["jewelry_status"]
+          updated_at?: string
+          weight?: number
+        }
+        Update: {
+          category?: Database["public"]["Enums"]["jewelry_category"]
+          created_at?: string
+          id?: string
+          name?: string
+          photo?: string | null
+          purchase_price?: number
+          sale_price?: number
+          status?: Database["public"]["Enums"]["jewelry_status"]
+          updated_at?: string
+          weight?: number
+        }
+        Relationships: []
+      }
+      reservations: {
+        Row: {
+          client_id: string
+          created_at: string
+          deposit_amount: number
+          id: string
+          jewelry_id: string
+          remaining_amount: number
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          deposit_amount?: number
+          id?: string
+          jewelry_id: string
+          remaining_amount?: number
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          deposit_amount?: number
+          id?: string
+          jewelry_id?: string
+          remaining_amount?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reservations_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reservations_jewelry_id_fkey"
+            columns: ["jewelry_id"]
+            isOneToOne: false
+            referencedRelation: "jewelry"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sales: {
+        Row: {
+          client_id: string
+          created_at: string
+          id: string
+          jewelry_id: string
+          paid_cash: number
+          paid_from_balance: number
+          total_price: number
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          id?: string
+          jewelry_id: string
+          paid_cash?: number
+          paid_from_balance?: number
+          total_price: number
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          id?: string
+          jewelry_id?: string
+          paid_cash?: number
+          paid_from_balance?: number
+          total_price?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_jewelry_id_fkey"
+            columns: ["jewelry_id"]
+            isOneToOne: false
+            referencedRelation: "jewelry"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -23,7 +213,14 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      jewelry_category:
+        | "rings"
+        | "necklaces"
+        | "bracelets"
+        | "earrings"
+        | "watches"
+        | "other"
+      jewelry_status: "available" | "reserved" | "sold"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +347,16 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      jewelry_category: [
+        "rings",
+        "necklaces",
+        "bracelets",
+        "earrings",
+        "watches",
+        "other",
+      ],
+      jewelry_status: ["available", "reserved", "sold"],
+    },
   },
 } as const
