@@ -4,51 +4,68 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { mockClients } from '@/data/mock';
+import { useClients, useAddDeposit, useUpdateClientBalance } from '@/hooks/useDatabase';
 import { toast } from 'sonner';
 import { formatCFA } from '@/lib/format';
 import NumericKeypad from '@/components/NumericKeypad';
 import ReceiptModal, { ReceiptData } from '@/components/ReceiptModal';
+import type { Client } from '@/hooks/useDatabase';
 
 const DepositsPage = () => {
   const [clientSearch, setClientSearch] = useState('');
-  const [selectedClient, setSelectedClient] = useState<typeof mockClients[0] | null>(null);
+  const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [amount, setAmount] = useState('');
   const [note, setNote] = useState('');
   const [showResults, setShowResults] = useState(false);
   const [receiptData, setReceiptData] = useState<ReceiptData | null>(null);
   const [showReceipt, setShowReceipt] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
+  const { data: clients = [] } = useClients();
+  const addDeposit = useAddDeposit();
+  const updateBalance = useUpdateClientBalance();
 
   useEffect(() => { searchRef.current?.focus(); }, []);
 
-  const results = clientSearch.length > 0 ? mockClients.filter(c =>
+  const results = clientSearch.length > 0 ? clients.filter(c =>
     c.name.toLowerCase().includes(clientSearch.toLowerCase()) ||
     c.code.includes(clientSearch) ||
     c.phone.replace(/\s/g, '').includes(clientSearch.replace(/\s/g, ''))
   ) : [];
 
-  const handleValidate = () => {
+  const handleValidate = async () => {
     if (!selectedClient || !amount) return;
-    const receipt: ReceiptData = {
-      type: 'deposit',
-      clientName: selectedClient.name,
-      clientCode: selectedClient.code,
-      amount: Number(amount),
-      date: new Date().toLocaleDateString('fr-FR'),
-      note: note || undefined,
-      details: [
-        { label: 'Ancien solde', value: formatCFA(selectedClient.balance) },
-        { label: 'Nouveau solde', value: formatCFA(selectedClient.balance + Number(amount)) },
-      ],
-    };
-    setReceiptData(receipt);
-    setShowReceipt(true);
-    toast.success(`Dépôt de ${formatCFA(Number(amount))} enregistré pour ${selectedClient.name}`);
-    setSelectedClient(null);
-    setAmount('');
-    setNote('');
-    setClientSearch('');
+    const amountNum = Number(amount);
+    try {
+      await addDeposit.mutateAsync({ client_id: selectedClient.id, amount: amountNum, note: note || null });
+      await updateBalance.mutateAsync({ id: selectedClient.id, balance: selectedClient.balance + amountNum });
+      
+      const receipt: ReceiptData = {
+        type: 'deposit',
+        clientName: selectedClient.name,
+        clientCode: selectedClient.code,
+        amount: amountNum,
+        date: new Date().toLocaleDateString('fr-FR'),
+        note: note || undefined,
+        details: [
+          { label: 'Ancien solde', value: formatCFA(selectedClient.balance) },
+          { label: 'Nouveau solde', value: formatCFA(selectedClient.balance + amountNum) },
+        ],
+      };
+      setReceiptData(receipt);
+      setShowReceipt(true);
+      toast.success(`Dépôt de ${formatCFA(amountNum)} enregistré pour ${selectedClient.name}`);
+      setSelectedClient(null);
+      setAmount('');
+      setNote('');
+      setClientSearch('');
+    } catch (e: any) {
+      toast.error(e.message);
+    }
+  };
+
+  const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const raw = e.target.value.replace(/\D/g, '');
+    setAmount(raw);
   };
 
   return (
@@ -56,7 +73,6 @@ const DepositsPage = () => {
       <h1 className="text-2xl font-bold tracking-tight">Dépôt Libre</h1>
 
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-        {/* Form */}
         <div className="lg:col-span-3 bg-card rounded-xl p-6 card-shadow space-y-5">
           <div className="space-y-2 relative">
             <Label>Client</Label>
@@ -96,8 +112,8 @@ const DepositsPage = () => {
               type="text"
               inputMode="numeric"
               value={amount ? Number(amount).toLocaleString('fr-FR') : ''}
-              readOnly
-              placeholder="0"
+              onChange={handleAmountChange}
+              placeholder="Tapez le montant..."
               className="text-2xl font-bold h-14 text-center"
             />
             <NumericKeypad value={amount} onChange={setAmount} />
@@ -108,12 +124,11 @@ const DepositsPage = () => {
             <Textarea value={note} onChange={e => setNote(e.target.value)} placeholder="Acompte pour bague..." rows={2} />
           </div>
 
-          <Button onClick={handleValidate} disabled={!selectedClient || !amount} className="w-full h-14 gold-gradient text-accent-foreground hover:opacity-90 font-bold text-lg">
-            <CheckCircle className="h-5 w-5 mr-2" /> Valider le Dépôt
+          <Button onClick={handleValidate} disabled={!selectedClient || !amount || addDeposit.isPending} className="w-full h-14 gold-gradient text-accent-foreground hover:opacity-90 font-bold text-lg">
+            <CheckCircle className="h-5 w-5 mr-2" /> {addDeposit.isPending ? 'Enregistrement...' : 'Valider le Dépôt'}
           </Button>
         </div>
 
-        {/* Receipt Preview */}
         <div className="lg:col-span-2 bg-card rounded-xl p-6 card-shadow border-2 border-dashed border-border">
           <h3 className="text-sm font-semibold mb-4">Aperçu du Reçu</h3>
           {selectedClient && amount ? (

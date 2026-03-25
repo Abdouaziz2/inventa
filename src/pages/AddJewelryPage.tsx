@@ -6,15 +6,28 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
+import { useAddJewelry } from '@/hooks/useDatabase';
 
 const AddJewelryPage = () => {
   const navigate = useNavigate();
   const [form, setForm] = useState({ name: '', weight: '', purchasePrice: '', salePrice: '', category: '' });
+  const addJewelry = useAddJewelry();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    toast.success('Bijou ajouté avec succès');
-    navigate('/jewelry');
+    try {
+      await addJewelry.mutateAsync({
+        name: form.name,
+        weight: parseFloat(form.weight) || 0,
+        purchase_price: parseInt(form.purchasePrice) || 0,
+        sale_price: parseInt(form.salePrice) || 0,
+        category: (form.category || 'other') as any,
+      });
+      toast.success('Bijou ajouté avec succès');
+      navigate('/jewelry');
+    } catch (e: any) {
+      toast.error(e.message);
+    }
   };
 
   return (
@@ -72,7 +85,9 @@ const AddJewelryPage = () => {
 
         <div className="flex justify-end gap-3 pt-2">
           <Button type="button" variant="outline" onClick={() => navigate('/jewelry')}>Annuler</Button>
-          <Button type="submit" className="gold-gradient text-accent-foreground hover:opacity-90">Enregistrer</Button>
+          <Button type="submit" disabled={addJewelry.isPending} className="gold-gradient text-accent-foreground hover:opacity-90">
+            {addJewelry.isPending ? 'Enregistrement...' : 'Enregistrer'}
+          </Button>
         </div>
       </form>
     </div>

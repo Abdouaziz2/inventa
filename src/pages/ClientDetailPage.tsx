@@ -1,15 +1,16 @@
 import { useParams, Link } from 'react-router-dom';
 import { ArrowLeft, Wallet, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { mockClients, mockDeposits, mockSales } from '@/data/mock';
+import { useClient, useDeposits, useSales } from '@/hooks/useDatabase';
 import { formatCFA } from '@/lib/format';
 
 const ClientDetailPage = () => {
   const { id } = useParams();
-  const client = mockClients.find(c => c.id === id);
-  const deposits = mockDeposits.filter(d => d.clientId === id);
-  const sales = mockSales.filter(s => s.clientId === id);
+  const { data: client, isLoading } = useClient(id);
+  const { data: deposits = [] } = useDeposits(id);
+  const { data: sales = [] } = useSales(id);
 
+  if (isLoading) return <div className="p-6 text-muted-foreground">Chargement...</div>;
   if (!client) return <div className="p-6">Client introuvable</div>;
 
   return (
@@ -22,7 +23,6 @@ const ClientDetailPage = () => {
         </div>
       </div>
 
-      {/* Balance highlight */}
       <div className="bg-card rounded-xl p-6 card-shadow flex items-center justify-between">
         <div className="flex items-center gap-4">
           <div className="p-3 rounded-xl gold-gradient">
@@ -39,11 +39,8 @@ const ClientDetailPage = () => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Deposits */}
         <div className="bg-card rounded-xl card-shadow overflow-hidden">
-          <div className="px-5 py-4 border-b border-border">
-            <h3 className="text-sm font-semibold">Historique des Dépôts</h3>
-          </div>
+          <div className="px-5 py-4 border-b border-border"><h3 className="text-sm font-semibold">Historique des Dépôts</h3></div>
           {deposits.length === 0 ? (
             <p className="px-5 py-8 text-sm text-muted-foreground text-center">Aucun dépôt</p>
           ) : (
@@ -54,9 +51,9 @@ const ClientDetailPage = () => {
                 <th className="text-left text-xs font-semibold text-muted-foreground px-5 py-2">NOTE</th>
               </tr></thead>
               <tbody>
-                {deposits.map(d => (
+                {deposits.map((d: any) => (
                   <tr key={d.id} className="border-b border-border last:border-0">
-                    <td className="px-5 py-3 text-sm">{d.date}</td>
+                    <td className="px-5 py-3 text-sm">{new Date(d.created_at).toLocaleDateString('fr-FR')}</td>
                     <td className="px-5 py-3 text-sm font-semibold text-right text-success">+{formatCFA(d.amount)}</td>
                     <td className="px-5 py-3 text-sm text-muted-foreground">{d.note || '—'}</td>
                   </tr>
@@ -66,11 +63,8 @@ const ClientDetailPage = () => {
           )}
         </div>
 
-        {/* Sales */}
         <div className="bg-card rounded-xl card-shadow overflow-hidden">
-          <div className="px-5 py-4 border-b border-border">
-            <h3 className="text-sm font-semibold">Historique des Achats</h3>
-          </div>
+          <div className="px-5 py-4 border-b border-border"><h3 className="text-sm font-semibold">Historique des Achats</h3></div>
           {sales.length === 0 ? (
             <p className="px-5 py-8 text-sm text-muted-foreground text-center">Aucun achat</p>
           ) : (
@@ -81,11 +75,11 @@ const ClientDetailPage = () => {
                 <th className="text-right text-xs font-semibold text-muted-foreground px-5 py-2">MONTANT</th>
               </tr></thead>
               <tbody>
-                {sales.map(s => (
+                {sales.map((s: any) => (
                   <tr key={s.id} className="border-b border-border last:border-0">
-                    <td className="px-5 py-3 text-sm">{s.date}</td>
-                    <td className="px-5 py-3 text-sm font-medium">{s.jewelryName}</td>
-                    <td className="px-5 py-3 text-sm font-semibold text-right">{formatCFA(s.totalPrice)}</td>
+                    <td className="px-5 py-3 text-sm">{new Date(s.created_at).toLocaleDateString('fr-FR')}</td>
+                    <td className="px-5 py-3 text-sm font-medium">{s.jewelry?.name}</td>
+                    <td className="px-5 py-3 text-sm font-semibold text-right">{formatCFA(s.total_price)}</td>
                   </tr>
                 ))}
               </tbody>
