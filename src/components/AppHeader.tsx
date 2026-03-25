@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { Search, Bell } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/contexts/AuthContext';
-import { mockClients } from '@/data/mock';
+import { useClients } from '@/hooks/useDatabase';
 import { useNavigate } from 'react-router-dom';
 import { formatCFA } from '@/lib/format';
 
@@ -12,8 +12,9 @@ const AppHeader = () => {
   const [query, setQuery] = useState('');
   const [showResults, setShowResults] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
+  const { data: clients = [] } = useClients();
 
-  const results = query.length >= 1 ? mockClients.filter(c =>
+  const results = query.length >= 1 ? clients.filter(c =>
     c.name.toLowerCase().includes(query.toLowerCase()) ||
     c.code.includes(query) ||
     c.phone.replace(/\s/g, '').includes(query.replace(/\s/g, ''))

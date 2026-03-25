@@ -3,7 +3,7 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { mockClients, mockJewelry } from '@/data/mock';
+import { useClients, useJewelry, useAddReservation, useUpdateJewelryStatus } from '@/hooks/useDatabase';
 import { toast } from 'sonner';
 import { BookmarkCheck } from 'lucide-react';
 import { formatCFA } from '@/lib/format';
@@ -16,28 +16,45 @@ const ReservationsPage = () => {
   const [receiptData, setReceiptData] = useState<ReceiptData | null>(null);
   const [showReceipt, setShowReceipt] = useState(false);
 
-  const client = mockClients.find(c => c.id === clientId);
-  const jewelry = mockJewelry.find(j => j.id === jewelryId);
-  const remaining = jewelry ? jewelry.salePrice - Number(deposit || 0) : 0;
+  const { data: clients = [] } = useClients();
+  const { data: jewelryList = [] } = useJewelry();
+  const addReservation = useAddReservation();
+  const updateStatus = useUpdateJewelryStatus();
 
-  const handleSubmit = () => {
+  const client = clients.find(c => c.id === clientId);
+  const jewelry = jewelryList.find(j => j.id === jewelryId);
+  const remaining = jewelry ? jewelry.sale_price - Number(deposit || 0) : 0;
+
+  const handleSubmit = async () => {
     if (!client || !jewelry || !deposit) return;
-    const receipt: ReceiptData = {
-      type: 'reservation',
-      clientName: client.name,
-      clientCode: client.code,
-      amount: Number(deposit),
-      date: new Date().toLocaleDateString('fr-FR'),
-      details: [
-        { label: 'Bijou', value: jewelry.name },
-        { label: 'Prix total', value: formatCFA(jewelry.salePrice) },
-        { label: 'Reste à payer', value: formatCFA(remaining) },
-      ],
-    };
-    setReceiptData(receipt);
-    setShowReceipt(true);
-    toast.success('Réservation enregistrée');
-    setClientId(''); setJewelryId(''); setDeposit('');
+    try {
+      await addReservation.mutateAsync({
+        client_id: client.id,
+        jewelry_id: jewelry.id,
+        deposit_amount: Number(deposit),
+        remaining_amount: remaining,
+      });
+      await updateStatus.mutateAsync({ id: jewelry.id, status: 'reserved' });
+
+      const receipt: ReceiptData = {
+        type: 'reservation',
+        clientName: client.name,
+        clientCode: client.code,
+        amount: Number(deposit),
+        date: new Date().toLocaleDateString('fr-FR'),
+        details: [
+          { label: 'Bijou', value: jewelry.name },
+          { label: 'Prix total', value: formatCFA(jewelry.sale_price) },
+          { label: 'Reste à payer', value: formatCFA(remaining) },
+        ],
+      };
+      setReceiptData(receipt);
+      setShowReceipt(true);
+      toast.success('Réservation enregistrée');
+      setClientId(''); setJewelryId(''); setDeposit('');
+    } catch (e: any) {
+      toast.error(e.message);
+    }
   };
 
   return (
@@ -50,7 +67,7 @@ const ReservationsPage = () => {
           <Select value={clientId} onValueChange={setClientId}>
             <SelectTrigger className="h-12"><SelectValue placeholder="Sélectionner un client..." /></SelectTrigger>
             <SelectContent>
-              {mockClients.map(c => <SelectItem key={c.id} value={c.id}>{c.code} — {c.name}</SelectItem>)}
+              {clients.map(c => <SelectItem key={c.id} value={c.id}>{c.code} — {c.name}</SelectItem>)}
             </SelectContent>
           </Select>
         </div>
@@ -60,8 +77,8 @@ const ReservationsPage = () => {
           <Select value={jewelryId} onValueChange={setJewelryId}>
             <SelectTrigger className="h-12"><SelectValue placeholder="Sélectionner un bijou..." /></SelectTrigger>
             <SelectContent>
-              {mockJewelry.filter(j => j.status === 'available').map(j => (
-                <SelectItem key={j.id} value={j.id}>{j.name} — {formatCFA(j.salePrice)}</SelectItem>
+              {jewelryList.filter(j => j.status === 'available').map(j => (
+                <SelectItem key={j.id} value={j.id}>{j.name} — {formatCFA(j.sale_price)}</SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -74,14 +91,14 @@ const ReservationsPage = () => {
 
         {jewelry && deposit && (
           <div className="bg-muted rounded-xl p-5 space-y-2">
-            <div className="flex justify-between text-sm"><span className="text-muted-foreground">Prix total:</span><span className="font-semibold">{formatCFA(jewelry.salePrice)}</span></div>
+            <div className="flex justify-between text-sm"><span className="text-muted-foreground">Prix total:</span><span className="font-semibold">{formatCFA(jewelry.sale_price)}</span></div>
             <div className="flex justify-between text-sm"><span className="text-muted-foreground">Acompte:</span><span className="font-semibold text-success">{formatCFA(Number(deposit))}</span></div>
             <div className="flex justify-between text-lg font-bold border-t border-border pt-3"><span>Reste à payer:</span><span>{formatCFA(remaining)}</span></div>
           </div>
         )}
 
-        <Button onClick={handleSubmit} disabled={!clientId || !jewelryId || !deposit} className="w-full h-14 gold-gradient text-accent-foreground hover:opacity-90 font-bold text-lg">
-          <BookmarkCheck className="h-5 w-5 mr-2" /> Confirmer la Réservation
+        <Button onClick={handleSubmit} disabled={!clientId || !jewelryId || !deposit || addReservation.isPending} className="w-full h-14 gold-gradient text-accent-foreground hover:opacity-90 font-bold text-lg">
+          <BookmarkCheck className="h-5 w-5 mr-2" /> {addReservation.isPending ? 'Enregistrement...' : 'Confirmer la Réservation'}
         </Button>
       </div>
 
