@@ -1,6 +1,7 @@
 import { mockSales, mockDeposits } from '@/data/mock';
 import { Receipt, Printer } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { formatCFA } from '@/lib/format';
 
 const ReceiptsPage = () => {
   const allOps = [
@@ -35,7 +36,7 @@ const ReceiptsPage = () => {
                 </td>
                 <td className="px-5 py-3.5 text-sm font-medium">{op.client}</td>
                 <td className="px-5 py-3.5 text-sm text-muted-foreground">{op.date}</td>
-                <td className="px-5 py-3.5 text-sm font-semibold text-right">{op.amount.toLocaleString()} MAD</td>
+                <td className="px-5 py-3.5 text-sm font-semibold text-right">{formatCFA(op.amount)}</td>
                 <td className="px-5 py-3.5 text-right">
                   <Button variant="ghost" size="sm" onClick={() => window.print()}>
                     <Printer className="h-4 w-4" />

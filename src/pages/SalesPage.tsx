@@ -4,11 +4,16 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { mockClients, mockJewelry } from '@/data/mock';
 import { toast } from 'sonner';
-import { ShoppingBag } from 'lucide-react';
+import { ShoppingBag, CheckCircle2, AlertCircle } from 'lucide-react';
+import { formatCFA } from '@/lib/format';
+import StatusBadge from '@/components/StatusBadge';
+import ReceiptModal, { ReceiptData } from '@/components/ReceiptModal';
 
 const SalesPage = () => {
   const [clientId, setClientId] = useState('');
   const [jewelryId, setJewelryId] = useState('');
+  const [receiptData, setReceiptData] = useState<ReceiptData | null>(null);
+  const [showReceipt, setShowReceipt] = useState(false);
 
   const client = mockClients.find(c => c.id === clientId);
   const jewelry = mockJewelry.find(j => j.id === jewelryId);
@@ -17,6 +22,21 @@ const SalesPage = () => {
   const remaining = jewelry ? jewelry.salePrice - balanceUsed : 0;
 
   const handleSubmit = () => {
+    if (!client || !jewelry) return;
+    const receipt: ReceiptData = {
+      type: 'sale',
+      clientName: client.name,
+      clientCode: client.code,
+      amount: jewelry.salePrice,
+      date: new Date().toLocaleDateString('fr-FR'),
+      details: [
+        { label: 'Bijou', value: jewelry.name },
+        { label: 'Payé via solde', value: formatCFA(balanceUsed) },
+        { label: 'Reste payé en espèces', value: formatCFA(remaining) },
+      ],
+    };
+    setReceiptData(receipt);
+    setShowReceipt(true);
     toast.success('Vente enregistrée avec succès');
     setClientId(''); setJewelryId('');
   };
@@ -29,41 +49,73 @@ const SalesPage = () => {
         <div className="space-y-2">
           <Label>Client</Label>
           <Select value={clientId} onValueChange={setClientId}>
-            <SelectTrigger><SelectValue placeholder="Sélectionner un client..." /></SelectTrigger>
+            <SelectTrigger className="h-12"><SelectValue placeholder="Sélectionner un client..." /></SelectTrigger>
             <SelectContent>
-              {mockClients.map(c => <SelectItem key={c.id} value={c.id}>{c.code} — {c.name} ({c.balance.toLocaleString()} MAD)</SelectItem>)}
+              {mockClients.map(c => <SelectItem key={c.id} value={c.id}>{c.code} — {c.name} ({formatCFA(c.balance)})</SelectItem>)}
             </SelectContent>
           </Select>
+          {client && (
+            <div className="flex items-center gap-2 mt-1 px-1">
+              <span className="text-xs text-muted-foreground">Solde disponible:</span>
+              <span className={`text-sm font-bold ${client.balance > 0 ? 'text-success' : 'text-destructive'}`}>{formatCFA(client.balance)}</span>
+            </div>
+          )}
         </div>
 
         <div className="space-y-2">
           <Label>Bijou</Label>
           <Select value={jewelryId} onValueChange={setJewelryId}>
-            <SelectTrigger><SelectValue placeholder="Sélectionner un bijou..." /></SelectTrigger>
+            <SelectTrigger className="h-12"><SelectValue placeholder="Sélectionner un bijou..." /></SelectTrigger>
             <SelectContent>
               {mockJewelry.filter(j => j.status === 'available' || j.status === 'reserved').map(j => (
-                <SelectItem key={j.id} value={j.id}>{j.name} — {j.salePrice.toLocaleString()} MAD</SelectItem>
+                <SelectItem key={j.id} value={j.id}>
+                  {j.name} — {formatCFA(j.salePrice)}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
+          {jewelry && (
+            <div className="flex items-center gap-2 mt-1 px-1">
+              <StatusBadge status={jewelry.status} />
+              <span className="text-xs text-muted-foreground">·</span>
+              <span className="text-sm font-bold">{formatCFA(jewelry.salePrice)}</span>
+            </div>
+          )}
         </div>
 
         {client && jewelry && (
-          <div className="bg-muted rounded-lg p-4 space-y-2">
-            <div className="flex justify-between text-sm"><span className="text-muted-foreground">Prix du bijou:</span><span className="font-medium">{jewelry.salePrice.toLocaleString()} MAD</span></div>
-            <div className="flex justify-between text-sm"><span className="text-muted-foreground">Solde client:</span><span className="font-medium">{client.balance.toLocaleString()} MAD</span></div>
-            <div className="flex justify-between text-sm"><span className="text-muted-foreground">Payé via solde:</span><span className="font-medium text-success">-{balanceUsed.toLocaleString()} MAD</span></div>
-            <div className="flex justify-between text-base font-bold border-t border-border pt-2">
+          <div className="bg-muted rounded-xl p-5 space-y-3">
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">Prix du bijou:</span>
+              <span className="font-semibold">{formatCFA(jewelry.salePrice)}</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">Solde client:</span>
+              <span className="font-semibold">{formatCFA(client.balance)}</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">Payé via solde:</span>
+              <span className="font-semibold text-success">-{formatCFA(balanceUsed)}</span>
+            </div>
+            <div className="flex justify-between text-lg font-bold border-t border-border pt-3">
               <span>Reste à régler:</span>
-              <span className={remaining === 0 ? 'text-success' : ''}>{remaining.toLocaleString()} MAD</span>
+              <span className="flex items-center gap-2">
+                {remaining === 0 ? (
+                  <><CheckCircle2 className="h-5 w-5 text-success" /><span className="text-success">{formatCFA(remaining)}</span></>
+                ) : (
+                  <><AlertCircle className="h-5 w-5 text-warning" /><span>{formatCFA(remaining)}</span></>
+                )}
+              </span>
             </div>
           </div>
         )}
 
-        <Button onClick={handleSubmit} disabled={!clientId || !jewelryId} className="w-full h-11 gold-gradient text-accent-foreground hover:opacity-90 font-semibold">
-          <ShoppingBag className="h-4 w-4 mr-2" /> Valider la Vente
+        <Button onClick={handleSubmit} disabled={!clientId || !jewelryId} className="w-full h-14 gold-gradient text-accent-foreground hover:opacity-90 font-bold text-lg">
+          <ShoppingBag className="h-5 w-5 mr-2" /> Valider la Vente
         </Button>
       </div>
+
+      <ReceiptModal open={showReceipt} onClose={() => setShowReceipt(false)} data={receiptData} />
     </div>
   );
 };

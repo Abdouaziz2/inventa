@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Search, CheckCircle } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -6,6 +6,9 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { mockClients } from '@/data/mock';
 import { toast } from 'sonner';
+import { formatCFA } from '@/lib/format';
+import NumericKeypad from '@/components/NumericKeypad';
+import ReceiptModal, { ReceiptData } from '@/components/ReceiptModal';
 
 const DepositsPage = () => {
   const [clientSearch, setClientSearch] = useState('');
@@ -13,14 +16,35 @@ const DepositsPage = () => {
   const [amount, setAmount] = useState('');
   const [note, setNote] = useState('');
   const [showResults, setShowResults] = useState(false);
+  const [receiptData, setReceiptData] = useState<ReceiptData | null>(null);
+  const [showReceipt, setShowReceipt] = useState(false);
+  const searchRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => { searchRef.current?.focus(); }, []);
 
   const results = clientSearch.length > 0 ? mockClients.filter(c =>
-    c.name.toLowerCase().includes(clientSearch.toLowerCase()) || c.code.includes(clientSearch)
+    c.name.toLowerCase().includes(clientSearch.toLowerCase()) ||
+    c.code.includes(clientSearch) ||
+    c.phone.replace(/\s/g, '').includes(clientSearch.replace(/\s/g, ''))
   ) : [];
 
   const handleValidate = () => {
     if (!selectedClient || !amount) return;
-    toast.success(`Dépôt de ${Number(amount).toLocaleString()} MAD enregistré pour ${selectedClient.name}`);
+    const receipt: ReceiptData = {
+      type: 'deposit',
+      clientName: selectedClient.name,
+      clientCode: selectedClient.code,
+      amount: Number(amount),
+      date: new Date().toLocaleDateString('fr-FR'),
+      note: note || undefined,
+      details: [
+        { label: 'Ancien solde', value: formatCFA(selectedClient.balance) },
+        { label: 'Nouveau solde', value: formatCFA(selectedClient.balance + Number(amount)) },
+      ],
+    };
+    setReceiptData(receipt);
+    setShowReceipt(true);
+    toast.success(`Dépôt de ${formatCFA(Number(amount))} enregistré pour ${selectedClient.name}`);
     setSelectedClient(null);
     setAmount('');
     setNote('');
@@ -39,20 +63,27 @@ const DepositsPage = () => {
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Rechercher un client..."
+                ref={searchRef}
+                placeholder="Nom, code ou numéro de téléphone..."
                 value={selectedClient ? `${selectedClient.code} - ${selectedClient.name}` : clientSearch}
                 onChange={e => { setClientSearch(e.target.value); setSelectedClient(null); setShowResults(true); }}
                 onFocus={() => setShowResults(true)}
-                className="pl-9"
+                className="pl-9 h-12 text-base"
               />
             </div>
             {showResults && results.length > 0 && !selectedClient && (
-              <div className="absolute z-10 mt-1 w-full bg-card border border-border rounded-lg shadow-lg overflow-hidden">
+              <div className="absolute z-10 mt-1 w-full bg-card border border-border rounded-xl shadow-lg overflow-hidden">
                 {results.map(c => (
                   <button key={c.id} onClick={() => { setSelectedClient(c); setShowResults(false); }}
-                    className="w-full px-4 py-2.5 text-left hover:bg-muted flex justify-between items-center text-sm">
-                    <span><span className="font-mono font-medium">{c.code}</span> — {c.name}</span>
-                    <span className="text-muted-foreground">{c.balance.toLocaleString()} MAD</span>
+                    className="w-full px-4 py-3 text-left hover:bg-muted flex justify-between items-center text-sm transition-colors">
+                    <div className="flex items-center gap-3">
+                      <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center text-xs font-bold">{c.name.charAt(0)}</div>
+                      <div>
+                        <span className="font-medium">{c.name}</span>
+                        <p className="text-xs text-muted-foreground">{c.code} · {c.phone}</p>
+                      </div>
+                    </div>
+                    <span className="text-xs font-semibold text-success">{formatCFA(c.balance)}</span>
                   </button>
                 ))}
               </div>
@@ -60,17 +91,25 @@ const DepositsPage = () => {
           </div>
 
           <div className="space-y-2">
-            <Label>Montant (MAD)</Label>
-            <Input type="number" value={amount} onChange={e => setAmount(e.target.value)} placeholder="5000" className="text-lg font-semibold h-12" />
+            <Label>Montant (FCFA)</Label>
+            <Input
+              type="text"
+              inputMode="numeric"
+              value={amount ? Number(amount).toLocaleString('fr-FR') : ''}
+              readOnly
+              placeholder="0"
+              className="text-2xl font-bold h-14 text-center"
+            />
+            <NumericKeypad value={amount} onChange={setAmount} />
           </div>
 
           <div className="space-y-2">
             <Label>Note (optionnel)</Label>
-            <Textarea value={note} onChange={e => setNote(e.target.value)} placeholder="Acompte pour bague..." rows={3} />
+            <Textarea value={note} onChange={e => setNote(e.target.value)} placeholder="Acompte pour bague..." rows={2} />
           </div>
 
-          <Button onClick={handleValidate} disabled={!selectedClient || !amount} className="w-full h-11 gold-gradient text-accent-foreground hover:opacity-90 font-semibold">
-            <CheckCircle className="h-4 w-4 mr-2" /> Valider le Dépôt
+          <Button onClick={handleValidate} disabled={!selectedClient || !amount} className="w-full h-14 gold-gradient text-accent-foreground hover:opacity-90 font-bold text-lg">
+            <CheckCircle className="h-5 w-5 mr-2" /> Valider le Dépôt
           </Button>
         </div>
 
@@ -91,7 +130,7 @@ const DepositsPage = () => {
               <div className="border-t border-border pt-3">
                 <div className="flex justify-between text-lg font-bold">
                   <span>Montant:</span>
-                  <span>{Number(amount).toLocaleString()} MAD</span>
+                  <span>{formatCFA(Number(amount))}</span>
                 </div>
               </div>
               {note && <p className="text-xs text-muted-foreground italic">Note: {note}</p>}
@@ -101,6 +140,8 @@ const DepositsPage = () => {
           )}
         </div>
       </div>
+
+      <ReceiptModal open={showReceipt} onClose={() => setShowReceipt(false)} data={receiptData} />
     </div>
   );
 };

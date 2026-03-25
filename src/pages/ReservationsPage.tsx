@@ -6,17 +6,36 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { mockClients, mockJewelry } from '@/data/mock';
 import { toast } from 'sonner';
 import { BookmarkCheck } from 'lucide-react';
+import { formatCFA } from '@/lib/format';
+import ReceiptModal, { ReceiptData } from '@/components/ReceiptModal';
 
 const ReservationsPage = () => {
   const [clientId, setClientId] = useState('');
   const [jewelryId, setJewelryId] = useState('');
   const [deposit, setDeposit] = useState('');
+  const [receiptData, setReceiptData] = useState<ReceiptData | null>(null);
+  const [showReceipt, setShowReceipt] = useState(false);
 
   const client = mockClients.find(c => c.id === clientId);
   const jewelry = mockJewelry.find(j => j.id === jewelryId);
   const remaining = jewelry ? jewelry.salePrice - Number(deposit || 0) : 0;
 
   const handleSubmit = () => {
+    if (!client || !jewelry || !deposit) return;
+    const receipt: ReceiptData = {
+      type: 'reservation',
+      clientName: client.name,
+      clientCode: client.code,
+      amount: Number(deposit),
+      date: new Date().toLocaleDateString('fr-FR'),
+      details: [
+        { label: 'Bijou', value: jewelry.name },
+        { label: 'Prix total', value: formatCFA(jewelry.salePrice) },
+        { label: 'Reste à payer', value: formatCFA(remaining) },
+      ],
+    };
+    setReceiptData(receipt);
+    setShowReceipt(true);
     toast.success('Réservation enregistrée');
     setClientId(''); setJewelryId(''); setDeposit('');
   };
@@ -29,7 +48,7 @@ const ReservationsPage = () => {
         <div className="space-y-2">
           <Label>Client</Label>
           <Select value={clientId} onValueChange={setClientId}>
-            <SelectTrigger><SelectValue placeholder="Sélectionner un client..." /></SelectTrigger>
+            <SelectTrigger className="h-12"><SelectValue placeholder="Sélectionner un client..." /></SelectTrigger>
             <SelectContent>
               {mockClients.map(c => <SelectItem key={c.id} value={c.id}>{c.code} — {c.name}</SelectItem>)}
             </SelectContent>
@@ -39,32 +58,34 @@ const ReservationsPage = () => {
         <div className="space-y-2">
           <Label>Bijou</Label>
           <Select value={jewelryId} onValueChange={setJewelryId}>
-            <SelectTrigger><SelectValue placeholder="Sélectionner un bijou..." /></SelectTrigger>
+            <SelectTrigger className="h-12"><SelectValue placeholder="Sélectionner un bijou..." /></SelectTrigger>
             <SelectContent>
               {mockJewelry.filter(j => j.status === 'available').map(j => (
-                <SelectItem key={j.id} value={j.id}>{j.name} — {j.salePrice.toLocaleString()} MAD</SelectItem>
+                <SelectItem key={j.id} value={j.id}>{j.name} — {formatCFA(j.salePrice)}</SelectItem>
               ))}
             </SelectContent>
           </Select>
         </div>
 
         <div className="space-y-2">
-          <Label>Montant de l'acompte (MAD)</Label>
-          <Input type="number" value={deposit} onChange={e => setDeposit(e.target.value)} placeholder="10000" className="h-11" />
+          <Label>Montant de l'acompte (FCFA)</Label>
+          <Input type="number" value={deposit} onChange={e => setDeposit(e.target.value)} placeholder="500000" className="h-12 text-lg font-semibold" />
         </div>
 
         {jewelry && deposit && (
-          <div className="bg-muted rounded-lg p-4 space-y-2">
-            <div className="flex justify-between text-sm"><span className="text-muted-foreground">Prix total:</span><span className="font-medium">{jewelry.salePrice.toLocaleString()} MAD</span></div>
-            <div className="flex justify-between text-sm"><span className="text-muted-foreground">Acompte:</span><span className="font-medium text-success">{Number(deposit).toLocaleString()} MAD</span></div>
-            <div className="flex justify-between text-base font-bold border-t border-border pt-2"><span>Reste à payer:</span><span>{remaining.toLocaleString()} MAD</span></div>
+          <div className="bg-muted rounded-xl p-5 space-y-2">
+            <div className="flex justify-between text-sm"><span className="text-muted-foreground">Prix total:</span><span className="font-semibold">{formatCFA(jewelry.salePrice)}</span></div>
+            <div className="flex justify-between text-sm"><span className="text-muted-foreground">Acompte:</span><span className="font-semibold text-success">{formatCFA(Number(deposit))}</span></div>
+            <div className="flex justify-between text-lg font-bold border-t border-border pt-3"><span>Reste à payer:</span><span>{formatCFA(remaining)}</span></div>
           </div>
         )}
 
-        <Button onClick={handleSubmit} disabled={!clientId || !jewelryId || !deposit} className="w-full h-11 gold-gradient text-accent-foreground hover:opacity-90 font-semibold">
-          <BookmarkCheck className="h-4 w-4 mr-2" /> Confirmer la Réservation
+        <Button onClick={handleSubmit} disabled={!clientId || !jewelryId || !deposit} className="w-full h-14 gold-gradient text-accent-foreground hover:opacity-90 font-bold text-lg">
+          <BookmarkCheck className="h-5 w-5 mr-2" /> Confirmer la Réservation
         </Button>
       </div>
+
+      <ReceiptModal open={showReceipt} onClose={() => setShowReceipt(false)} data={receiptData} />
     </div>
   );
 };
