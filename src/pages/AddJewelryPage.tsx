@@ -53,12 +53,12 @@ const AddJewelryPage = () => {
 
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
-            <Label>Prix d'achat (MAD)</Label>
-            <Input type="number" value={form.purchasePrice} onChange={e => setForm({ ...form, purchasePrice: e.target.value })} placeholder="12000" required />
+            <Label>Prix d'achat (FCFA)</Label>
+            <Input type="number" value={form.purchasePrice} onChange={e => setForm({ ...form, purchasePrice: e.target.value })} placeholder="600000" required />
           </div>
           <div className="space-y-2">
-            <Label>Prix de vente (MAD)</Label>
-            <Input type="number" value={form.salePrice} onChange={e => setForm({ ...form, salePrice: e.target.value })} placeholder="18500" required />
+            <Label>Prix de vente (FCFA)</Label>
+            <Input type="number" value={form.salePrice} onChange={e => setForm({ ...form, salePrice: e.target.value })} placeholder="925000" required />
           </div>
         </div>
 

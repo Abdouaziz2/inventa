@@ -4,6 +4,7 @@ import { TrendingUp, Wallet, Gem, BookmarkCheck, Plus, ShoppingBag } from 'lucid
 import StatCard from '@/components/StatCard';
 import { Button } from '@/components/ui/button';
 import { mockDeposits, mockSales, mockJewelry, mockReservations, dailySalesData } from '@/data/mock';
+import { formatCFA } from '@/lib/format';
 
 const Dashboard = () => {
   const totalStock = mockJewelry.filter(j => j.status === 'available').reduce((s, j) => s + j.salePrice, 0);
@@ -29,9 +30,9 @@ const Dashboard = () => {
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard title="Ventes du jour" value="78 000 MAD" icon={TrendingUp} variant="gold" trend={{ value: '+12%', positive: true }} />
-        <StatCard title="Total Dépôts" value={`${totalDeposits.toLocaleString()} MAD`} icon={Wallet} trend={{ value: '+5 aujourd\'hui', positive: true }} />
-        <StatCard title="Valeur du Stock" value={`${totalStock.toLocaleString()} MAD`} icon={Gem} subtitle={`${mockJewelry.filter(j => j.status === 'available').length} pièces disponibles`} />
+        <StatCard title="Ventes du jour" value={formatCFA(3900000)} icon={TrendingUp} variant="gold" trend={{ value: '+12%', positive: true }} />
+        <StatCard title="Total Dépôts" value={formatCFA(totalDeposits)} icon={Wallet} trend={{ value: '+5 aujourd\'hui', positive: true }} />
+        <StatCard title="Valeur du Stock" value={formatCFA(totalStock)} icon={Gem} subtitle={`${mockJewelry.filter(j => j.status === 'available').length} pièces disponibles`} />
         <StatCard title="Réservations" value={String(reserved)} icon={BookmarkCheck} variant="dark" subtitle={`${mockReservations.length} en cours`} />
       </div>
 
@@ -43,8 +44,8 @@ const Dashboard = () => {
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={dailySalesData}>
                 <XAxis dataKey="day" axisLine={false} tickLine={false} className="text-xs" />
-                <YAxis axisLine={false} tickLine={false} className="text-xs" tickFormatter={(v) => `${v / 1000}k`} />
-                <Tooltip formatter={(v: number) => [`${v.toLocaleString()} MAD`, 'Ventes']} />
+                <YAxis axisLine={false} tickLine={false} className="text-xs" tickFormatter={(v) => `${(v / 1000000).toFixed(1)}M`} />
+                <Tooltip formatter={(v: number) => [formatCFA(v), 'Ventes']} />
                 <Bar dataKey="amount" fill="hsl(43 100% 50%)" radius={[6, 6, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
@@ -61,7 +62,7 @@ const Dashboard = () => {
                   <p className="text-sm font-medium">{d.clientName}</p>
                   <p className="text-xs text-muted-foreground">{d.date}</p>
                 </div>
-                <span className="text-sm font-semibold text-success">+{d.amount.toLocaleString()}</span>
+                <span className="text-sm font-semibold text-success">+{formatCFA(d.amount)}</span>
               </div>
             ))}
           </div>

@@ -2,6 +2,7 @@ import { useParams, Link } from 'react-router-dom';
 import { ArrowLeft, Wallet, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { mockClients, mockDeposits, mockSales } from '@/data/mock';
+import { formatCFA } from '@/lib/format';
 
 const ClientDetailPage = () => {
   const { id } = useParams();
@@ -29,7 +30,7 @@ const ClientDetailPage = () => {
           </div>
           <div>
             <p className="text-sm text-muted-foreground">Solde disponible</p>
-            <p className="text-3xl font-bold">{client.balance.toLocaleString()} <span className="text-lg text-muted-foreground">MAD</span></p>
+            <p className="text-3xl font-bold">{formatCFA(client.balance)}</p>
           </div>
         </div>
         <Button asChild size="sm" className="gold-gradient text-accent-foreground hover:opacity-90">
@@ -56,7 +57,7 @@ const ClientDetailPage = () => {
                 {deposits.map(d => (
                   <tr key={d.id} className="border-b border-border last:border-0">
                     <td className="px-5 py-3 text-sm">{d.date}</td>
-                    <td className="px-5 py-3 text-sm font-semibold text-right text-success">+{d.amount.toLocaleString()}</td>
+                    <td className="px-5 py-3 text-sm font-semibold text-right text-success">+{formatCFA(d.amount)}</td>
                     <td className="px-5 py-3 text-sm text-muted-foreground">{d.note || '—'}</td>
                   </tr>
                 ))}
@@ -84,7 +85,7 @@ const ClientDetailPage = () => {
                   <tr key={s.id} className="border-b border-border last:border-0">
                     <td className="px-5 py-3 text-sm">{s.date}</td>
                     <td className="px-5 py-3 text-sm font-medium">{s.jewelryName}</td>
-                    <td className="px-5 py-3 text-sm font-semibold text-right">{s.totalPrice.toLocaleString()}</td>
+                    <td className="px-5 py-3 text-sm font-semibold text-right">{formatCFA(s.totalPrice)}</td>
                   </tr>
                 ))}
               </tbody>

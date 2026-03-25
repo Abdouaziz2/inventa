@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { Search, Filter } from 'lucide-react';
+import { Search } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import StatusBadge from '@/components/StatusBadge';
 import { mockJewelry } from '@/data/mock';
 import { JewelryStatus } from '@/types';
 import { cn } from '@/lib/utils';
+import { formatCFA } from '@/lib/format';
 
 const JewelryPage = () => {
   const [search, setSearch] = useState('');
@@ -69,7 +70,7 @@ const JewelryPage = () => {
                 <StatusBadge status={item.status} />
               </div>
               <p className="text-xs text-muted-foreground capitalize">{item.category} · {item.weight}g</p>
-              <p className="text-lg font-bold">{item.salePrice.toLocaleString()} <span className="text-xs text-muted-foreground font-normal">MAD</span></p>
+              <p className="text-lg font-bold">{formatCFA(item.salePrice)}</p>
             </div>
           </div>
         ))}
