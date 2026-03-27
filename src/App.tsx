@@ -5,6 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import AppLayout from "@/components/AppLayout";
 import LoginPage from "@/pages/LoginPage";
+import ChangePasswordPage from "@/pages/ChangePasswordPage";
 import Dashboard from "@/pages/Dashboard";
 import ClientsPage from "@/pages/ClientsPage";
 import ClientDetailPage from "@/pages/ClientDetailPage";
@@ -14,20 +15,42 @@ import DepositsPage from "@/pages/DepositsPage";
 import ReservationsPage from "@/pages/ReservationsPage";
 import SalesPage from "@/pages/SalesPage";
 import ReceiptsPage from "@/pages/ReceiptsPage";
+import AdminUsersPage from "@/pages/AdminUsersPage";
 import NotFound from "@/pages/NotFound";
+import { Loader2 } from "lucide-react";
 
 const queryClient = new QueryClient();
 
 const ProtectedRoutes = () => {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, loading, user } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
   if (!isAuthenticated) return <Navigate to="/login" replace />;
-  return (
-    <AppLayout />
-  );
+
+  // Force password change
+  if (user?.mustChangePassword) return <ChangePasswordPage />;
+
+  return <AppLayout />;
 };
 
 const AppRoutes = () => {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
   return (
     <Routes>
       <Route path="/login" element={isAuthenticated ? <Navigate to="/" replace /> : <LoginPage />} />
@@ -41,6 +64,7 @@ const AppRoutes = () => {
         <Route path="/reservations" element={<ReservationsPage />} />
         <Route path="/sales" element={<SalesPage />} />
         <Route path="/receipts" element={<ReceiptsPage />} />
+        <Route path="/admin/users" element={<AdminUsersPage />} />
       </Route>
       <Route path="*" element={<NotFound />} />
     </Routes>
