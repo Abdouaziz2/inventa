@@ -118,6 +118,69 @@ export type Database = {
         }
         Relationships: []
       }
+      login_logs: {
+        Row: {
+          created_at: string
+          email: string | null
+          id: string
+          ip_address: string | null
+          status: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          id?: string
+          ip_address?: string | null
+          status: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          id?: string
+          ip_address?: string | null
+          status?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          failed_login_attempts: number
+          full_name: string
+          id: string
+          locked_until: string | null
+          must_change_password: boolean
+          phone: string | null
+          status: Database["public"]["Enums"]["user_status"]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          failed_login_attempts?: number
+          full_name: string
+          id: string
+          locked_until?: string | null
+          must_change_password?: boolean
+          phone?: string | null
+          status?: Database["public"]["Enums"]["user_status"]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          failed_login_attempts?: number
+          full_name?: string
+          id?: string
+          locked_until?: string | null
+          must_change_password?: boolean
+          phone?: string | null
+          status?: Database["public"]["Enums"]["user_status"]
+          updated_at?: string
+        }
+        Relationships: []
+      }
       reservations: {
         Row: {
           client_id: string
@@ -205,14 +268,74 @@ export type Database = {
           },
         ]
       }
+      user_roles: {
+        Row: {
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_my_profile: {
+        Args: never
+        Returns: {
+          created_at: string
+          failed_login_attempts: number
+          full_name: string
+          id: string
+          locked_until: string | null
+          must_change_password: boolean
+          phone: string | null
+          status: Database["public"]["Enums"]["user_status"]
+          updated_at: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "profiles"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      get_my_roles: {
+        Args: never
+        Returns: {
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "user_roles"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
+      is_super_admin: { Args: { _user_id: string }; Returns: boolean }
     }
     Enums: {
+      app_role: "super_admin" | "admin" | "manager" | "seller"
       jewelry_category:
         | "rings"
         | "necklaces"
@@ -221,6 +344,7 @@ export type Database = {
         | "watches"
         | "other"
       jewelry_status: "available" | "reserved" | "sold"
+      user_status: "active" | "inactive" | "suspended"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -348,6 +472,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      app_role: ["super_admin", "admin", "manager", "seller"],
       jewelry_category: [
         "rings",
         "necklaces",
@@ -357,6 +482,7 @@ export const Constants = {
         "other",
       ],
       jewelry_status: ["available", "reserved", "sold"],
+      user_status: ["active", "inactive", "suspended"],
     },
   },
 } as const
