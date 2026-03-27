@@ -2,24 +2,25 @@ import { useLocation, Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import {
   LayoutDashboard, Users, Gem, PlusCircle, Wallet,
-  BookmarkCheck, ShoppingBag, Receipt, LogOut, Diamond
+  BookmarkCheck, ShoppingBag, Receipt, LogOut, Diamond, ShieldCheck
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-const navItems = [
-  { label: 'Tableau de bord', path: '/', icon: LayoutDashboard },
-  { label: 'Clients', path: '/clients', icon: Users },
-  { label: 'Bijoux', path: '/jewelry', icon: Gem },
-  { label: 'Ajouter Bijou', path: '/jewelry/add', icon: PlusCircle },
-  { label: 'Dépôt Libre', path: '/deposits', icon: Wallet },
-  { label: 'Réservation', path: '/reservations', icon: BookmarkCheck },
-  { label: 'Vente', path: '/sales', icon: ShoppingBag },
-  { label: 'Reçus', path: '/receipts', icon: Receipt },
-];
-
 const AppSidebar = () => {
   const location = useLocation();
-  const { user, logout } = useAuth();
+  const { user, logout, isSuperAdmin } = useAuth();
+
+  const navItems = [
+    { label: 'Tableau de bord', path: '/', icon: LayoutDashboard },
+    { label: 'Clients', path: '/clients', icon: Users },
+    { label: 'Bijoux', path: '/jewelry', icon: Gem },
+    { label: 'Ajouter Bijou', path: '/jewelry/add', icon: PlusCircle },
+    { label: 'Dépôt Libre', path: '/deposits', icon: Wallet },
+    { label: 'Réservation', path: '/reservations', icon: BookmarkCheck },
+    { label: 'Vente', path: '/sales', icon: ShoppingBag },
+    { label: 'Reçus', path: '/receipts', icon: Receipt },
+    ...(isSuperAdmin ? [{ label: 'Utilisateurs', path: '/admin/users', icon: ShieldCheck }] : []),
+  ];
 
   return (
     <aside className="w-[260px] min-h-screen bg-sidebar flex flex-col border-r border-sidebar-border">
@@ -58,11 +59,11 @@ const AppSidebar = () => {
       <div className="p-3 border-t border-sidebar-border">
         <div className="flex items-center gap-3 px-3 py-2">
           <div className="h-8 w-8 rounded-full gold-gradient flex items-center justify-center text-xs font-bold text-primary">
-            {user?.name.charAt(0)}
+            {user?.fullName?.charAt(0) || '?'}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-sidebar-accent-foreground truncate">{user?.name}</p>
-            <p className="text-xs text-sidebar-muted capitalize">{user?.role}</p>
+            <p className="text-sm font-medium text-sidebar-accent-foreground truncate">{user?.fullName}</p>
+            <p className="text-xs text-sidebar-muted capitalize">{user?.role?.replace('_', ' ')}</p>
           </div>
           <button onClick={logout} className="p-1.5 rounded-md text-sidebar-muted hover:text-sidebar-accent-foreground hover:bg-sidebar-accent transition-colors">
             <LogOut className="h-4 w-4" />
