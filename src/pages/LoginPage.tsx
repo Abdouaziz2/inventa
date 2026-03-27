@@ -1,26 +1,27 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useAuth } from '@/contexts/AuthContext';
-import { Diamond } from 'lucide-react';
+import { Diamond, Loader2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
+import { useAuth } from '@/contexts/AuthContext';
 
 const LoginPage = () => {
-  const [code, setCode] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
   const { login } = useAuth();
-  const navigate = useNavigate();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    if (login(code, password)) {
-      navigate('/');
-    } else {
-      setError('Code utilisateur invalide');
+    setIsLoading(true);
+
+    const result = await login(email, password);
+    if (result.error) {
+      setError(result.error);
     }
+    setIsLoading(false);
   };
 
   return (
@@ -52,18 +53,20 @@ const LoginPage = () => {
 
           <div className="space-y-2 text-center">
             <h2 className="text-2xl font-bold tracking-tight">Connexion</h2>
-            <p className="text-muted-foreground text-sm">Entrez votre code utilisateur pour accéder au système</p>
+            <p className="text-muted-foreground text-sm">Entrez vos identifiants pour accéder au système</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="code">Code Utilisateur</Label>
+              <Label htmlFor="email">Email</Label>
               <Input
-                id="code"
-                placeholder="Ex: ADM001"
-                value={code}
-                onChange={(e) => setCode(e.target.value)}
+                id="email"
+                type="email"
+                placeholder="votre@email.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 className="h-11"
+                required
               />
             </div>
             <div className="space-y-2">
@@ -75,18 +78,31 @@ const LoginPage = () => {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="h-11"
+                required
               />
             </div>
 
-            {error && <p className="text-sm text-destructive">{error}</p>}
+            {error && (
+              <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20">
+                <p className="text-sm text-destructive font-medium">{error}</p>
+              </div>
+            )}
 
-            <Button type="submit" className="w-full h-11 gold-gradient text-accent-foreground font-semibold hover:opacity-90 transition-opacity">
-              Se connecter
+            <Button
+              type="submit"
+              disabled={isLoading}
+              className="w-full h-11 gold-gradient text-accent-foreground font-semibold hover:opacity-90 transition-opacity"
+            >
+              {isLoading ? (
+                <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Connexion...</>
+              ) : (
+                'Se connecter'
+              )}
             </Button>
           </form>
 
           <p className="text-xs text-center text-muted-foreground">
-            Codes démo: ADM001, VND001, MGR001 (tout mot de passe)
+            Accès réservé aux utilisateurs autorisés uniquement.
           </p>
         </div>
       </div>
