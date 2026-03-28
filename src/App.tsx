@@ -16,6 +16,7 @@ import ReservationsPage from "@/pages/ReservationsPage";
 import SalesPage from "@/pages/SalesPage";
 import ReceiptsPage from "@/pages/ReceiptsPage";
 import AdminUsersPage from "@/pages/AdminUsersPage";
+import CompanySettingsPage from "@/pages/CompanySettingsPage";
 import NotFound from "@/pages/NotFound";
 import { Loader2 } from "lucide-react";
 
@@ -65,6 +66,7 @@ const AppRoutes = () => {
         <Route path="/sales" element={<SalesPage />} />
         <Route path="/receipts" element={<ReceiptsPage />} />
         <Route path="/admin/users" element={<AdminUsersPage />} />
+        <Route path="/admin/settings" element={<CompanySettingsPage />} />
       </Route>
       <Route path="*" element={<NotFound />} />
     </Routes>
