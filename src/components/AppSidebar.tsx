@@ -1,14 +1,18 @@
 import { useLocation, Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { useCompanySettings } from '@/hooks/useCompanySettings';
 import {
   LayoutDashboard, Users, Gem, PlusCircle, Wallet,
-  BookmarkCheck, ShoppingBag, Receipt, LogOut, Diamond, ShieldCheck
+  BookmarkCheck, ShoppingBag, Receipt, LogOut, Diamond, ShieldCheck, Building2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const AppSidebar = () => {
   const location = useLocation();
   const { user, logout, isSuperAdmin } = useAuth();
+  const { data: company } = useCompanySettings();
+
+  const companyName = company?.name || 'JewelStock';
 
   const navItems = [
     { label: 'Tableau de bord', path: '/', icon: LayoutDashboard },
@@ -19,7 +23,10 @@ const AppSidebar = () => {
     { label: 'Réservation', path: '/reservations', icon: BookmarkCheck },
     { label: 'Vente', path: '/sales', icon: ShoppingBag },
     { label: 'Reçus', path: '/receipts', icon: Receipt },
-    ...(isSuperAdmin ? [{ label: 'Utilisateurs', path: '/admin/users', icon: ShieldCheck }] : []),
+    ...(isSuperAdmin ? [
+      { label: 'Utilisateurs', path: '/admin/users', icon: ShieldCheck },
+      { label: 'Entreprise', path: '/admin/settings', icon: Building2 },
+    ] : []),
   ];
 
   return (
@@ -27,8 +34,8 @@ const AppSidebar = () => {
       {/* Logo */}
       <div className="h-16 flex items-center gap-2.5 px-5 border-b border-sidebar-border">
         <Diamond className="h-7 w-7 text-sidebar-primary" />
-        <span className="text-lg font-bold text-sidebar-accent-foreground tracking-tight">
-          Jewel<span className="text-sidebar-primary">Stock</span>
+        <span className="text-lg font-bold text-sidebar-accent-foreground tracking-tight truncate">
+          {companyName}
         </span>
       </div>
 

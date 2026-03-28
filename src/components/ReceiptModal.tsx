@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Printer, Download, X, CheckCircle2 } from 'lucide-react';
 import { formatCFA } from '@/lib/format';
 import { useRef } from 'react';
+import { useCompanySettings } from '@/hooks/useCompanySettings';
 
 export interface ReceiptData {
   type: 'deposit' | 'sale' | 'reservation';
@@ -28,6 +29,10 @@ const typeLabels = {
 
 const ReceiptModal = ({ open, onClose, data }: ReceiptModalProps) => {
   const receiptRef = useRef<HTMLDivElement>(null);
+  const { data: company } = useCompanySettings();
+  const companyName = company?.name || 'JewelStock';
+  const companyPhone = company?.phone || '';
+  const companyAddress = company?.address || '';
 
   if (!data) return null;
 
@@ -44,7 +49,7 @@ const ReceiptModal = ({ open, onClose, data }: ReceiptModalProps) => {
         .receipt { max-width: 350px; margin: 0 auto; }
         .header { text-align: center; border-bottom: 2px solid #d4af37; padding-bottom: 16px; margin-bottom: 16px; }
         .logo { font-size: 22px; font-weight: 800; letter-spacing: -0.5px; }
-        .logo span { color: #d4af37; }
+        .company-info { font-size: 11px; color: #666; margin-top: 6px; }
         .type { font-size: 12px; color: #666; margin-top: 4px; text-transform: uppercase; letter-spacing: 1px; }
         .row { display: flex; justify-content: space-between; padding: 6px 0; font-size: 13px; }
         .row .label { color: #666; }
@@ -56,7 +61,8 @@ const ReceiptModal = ({ open, onClose, data }: ReceiptModalProps) => {
       </style></head><body>
       <div class="receipt">
         <div class="header">
-          <div class="logo">Jewel<span>Stock</span></div>
+          <div class="logo">${companyName}</div>
+          ${companyPhone || companyAddress ? `<div class="company-info">${[companyPhone, companyAddress].filter(Boolean).join(' · ')}</div>` : ''}
           <div class="type">${typeLabels[data.type]}</div>
         </div>
         <div class="row"><span class="label">Client:</span><span class="val">${data.clientName}</span></div>
@@ -66,7 +72,7 @@ const ReceiptModal = ({ open, onClose, data }: ReceiptModalProps) => {
         <div class="divider"></div>
         <div class="total">${formatCFA(data.amount)}</div>
         ${data.note ? `<div class="note">Note: ${data.note}</div>` : ''}
-        <div class="footer">Merci pour votre confiance · JewelStock</div>
+        <div class="footer">Merci pour votre confiance · ${companyName}</div>
       </div>
       </body></html>
     `);
@@ -97,7 +103,10 @@ const ReceiptModal = ({ open, onClose, data }: ReceiptModalProps) => {
         {/* Receipt preview */}
         <div ref={receiptRef} className="border border-border rounded-xl p-5 space-y-3 bg-muted/30">
           <div className="text-center border-b border-border pb-3">
-            <p className="font-display text-xl font-bold">Jewel<span className="gold-text">Stock</span></p>
+            <p className="font-display text-xl font-bold">{companyName}</p>
+            {(companyPhone || companyAddress) && (
+              <p className="text-xs text-muted-foreground mt-0.5">{[companyPhone, companyAddress].filter(Boolean).join(' · ')}</p>
+            )}
             <p className="text-xs text-muted-foreground uppercase tracking-wider mt-1">{typeLabels[data.type]}</p>
           </div>
           <div className="space-y-1.5 text-sm">
