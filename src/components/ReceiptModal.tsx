@@ -45,17 +45,16 @@ const ReceiptModal = ({ open, onClose, data }: ReceiptModalProps) => {
   const companyName = company?.name || 'JewelStock';
   const companyPhone = company?.phone || '';
   const companyAddress = company?.address || '';
+  const companyLogo = (company as any)?.logo || '';
 
   const receiptId = useRef(generateReceiptId());
 
-  // Reset receipt ID when new data comes in
   useEffect(() => {
     if (open && data) {
       receiptId.current = data.receiptId || generateReceiptId();
     }
   }, [open, data]);
 
-  // Generate barcode
   useEffect(() => {
     if (open && barcodeRef.current && receiptId.current) {
       try {
@@ -80,7 +79,6 @@ const ReceiptModal = ({ open, onClose, data }: ReceiptModalProps) => {
     const content = receiptRef.current;
     if (!content) return;
 
-    // Generate barcode SVG string for print
     const svgEl = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     try {
       JsBarcode(svgEl, receiptId.current, {
@@ -94,6 +92,10 @@ const ReceiptModal = ({ open, onClose, data }: ReceiptModalProps) => {
       });
     } catch (e) { /* ignore */ }
     const barcodeSvg = svgEl.outerHTML;
+
+    const logoHtml = companyLogo
+      ? `<img src="${companyLogo}" alt="${companyName}" style="height: 48px; width: 48px; object-fit: cover; border-radius: 8px; margin: 0 auto 8px;" />`
+      : '';
 
     const w = window.open('', '_blank', 'width=400,height=700');
     if (!w) return;
@@ -120,6 +122,7 @@ const ReceiptModal = ({ open, onClose, data }: ReceiptModalProps) => {
       </style></head><body>
       <div class="receipt">
         <div class="header">
+          ${logoHtml}
           <div class="logo">${companyName}</div>
           ${companyPhone || companyAddress ? `<div class="company-info">${[companyPhone, companyAddress].filter(Boolean).join(' · ')}</div>` : ''}
           <div class="type">${typeLabels[data.type]}</div>
@@ -163,6 +166,9 @@ const ReceiptModal = ({ open, onClose, data }: ReceiptModalProps) => {
         {/* Receipt preview */}
         <div ref={receiptRef} className="border border-border rounded-xl p-5 space-y-3 bg-muted/30">
           <div className="text-center border-b border-border pb-3">
+            {companyLogo && (
+              <img src={companyLogo} alt={companyName} className="h-12 w-12 rounded-lg object-cover mx-auto mb-2" />
+            )}
             <p className="font-display text-xl font-bold">{companyName}</p>
             {(companyPhone || companyAddress) && (
               <p className="text-xs text-muted-foreground mt-0.5">{[companyPhone, companyAddress].filter(Boolean).join(' · ')}</p>
@@ -182,7 +188,6 @@ const ReceiptModal = ({ open, onClose, data }: ReceiptModalProps) => {
             <p className="text-2xl font-bold">{formatCFA(data.amount)}</p>
           </div>
           {data.note && <p className="text-xs text-muted-foreground italic">Note: {data.note}</p>}
-          {/* Barcode */}
           <div className="flex justify-center pt-2">
             <svg ref={barcodeRef}></svg>
           </div>

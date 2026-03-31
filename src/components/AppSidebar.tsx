@@ -13,6 +13,7 @@ const AppSidebar = () => {
   const { data: company } = useCompanySettings();
 
   const companyName = company?.name || 'JewelStock';
+  const companyLogo = (company as any)?.logo || '';
 
   const navItems = [
     { label: 'Tableau de bord', path: '/', icon: LayoutDashboard },
@@ -33,7 +34,11 @@ const AppSidebar = () => {
     <aside className="w-[260px] min-h-screen bg-sidebar flex flex-col border-r border-sidebar-border">
       {/* Logo */}
       <div className="h-16 flex items-center gap-2.5 px-5 border-b border-sidebar-border">
-        <Diamond className="h-7 w-7 text-sidebar-primary" />
+        {companyLogo ? (
+          <img src={companyLogo} alt={companyName} className="h-8 w-8 rounded-lg object-cover" />
+        ) : (
+          <Diamond className="h-7 w-7 text-sidebar-primary" />
+        )}
         <span className="text-lg font-bold text-sidebar-accent-foreground tracking-tight truncate">
           {companyName}
         </span>
