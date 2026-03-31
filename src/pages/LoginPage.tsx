@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Diamond, Loader2 } from 'lucide-react';
+import { Diamond, Loader2, ShieldAlert } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -35,10 +35,10 @@ const LoginPage = () => {
         <div className="relative text-center space-y-6 px-12">
           <Diamond className="h-16 w-16 text-gold mx-auto" />
           <h1 className="text-4xl font-display font-bold text-primary-foreground">
-            Jewel<span className="text-gold">Stock</span>
+            Gestion <span className="text-gold">Bijouterie</span>
           </h1>
           <p className="text-primary-foreground/60 text-lg max-w-md">
-            Gérez votre stock de bijoux, vos ventes et vos clients avec élégance et précision.
+            Plateforme professionnelle de gestion de bijouterie. Sécurisée, rapide et multi-entreprises.
           </p>
         </div>
       </div>
@@ -48,7 +48,7 @@ const LoginPage = () => {
         <div className="w-full max-w-sm space-y-8">
           <div className="lg:hidden flex items-center gap-2.5 justify-center mb-4">
             <Diamond className="h-8 w-8 text-gold" />
-            <span className="text-2xl font-bold">Jewel<span className="gold-text">Stock</span></span>
+            <span className="text-2xl font-bold">Gestion <span className="gold-text">Bijouterie</span></span>
           </div>
 
           <div className="space-y-2 text-center">
@@ -67,6 +67,7 @@ const LoginPage = () => {
                 onChange={(e) => setEmail(e.target.value)}
                 className="h-11"
                 required
+                autoFocus
               />
             </div>
             <div className="space-y-2">
@@ -83,7 +84,8 @@ const LoginPage = () => {
             </div>
 
             {error && (
-              <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20">
+              <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20 flex items-start gap-2">
+                <ShieldAlert className="h-4 w-4 text-destructive mt-0.5 shrink-0" />
                 <p className="text-sm text-destructive font-medium">{error}</p>
               </div>
             )}
@@ -102,7 +104,7 @@ const LoginPage = () => {
           </form>
 
           <p className="text-xs text-center text-muted-foreground">
-            Accès réservé aux utilisateurs autorisés uniquement.
+            Accès réservé aux utilisateurs autorisés. Contactez votre administrateur pour obtenir un accès.
           </p>
         </div>
       </div>

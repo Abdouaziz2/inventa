@@ -10,6 +10,7 @@ export interface AppUser {
   fullName: string;
   role: AppRole;
   mustChangePassword: boolean;
+  companyId: string | null;
 }
 
 interface AuthContextType {
@@ -49,6 +50,7 @@ async function fetchUserProfile(supabaseUser: SupabaseUser): Promise<AppUser | n
     fullName: profile.full_name,
     role,
     mustChangePassword: profile.must_change_password,
+    companyId: profile.company_id,
   };
 }
 
@@ -59,7 +61,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     let initialized = false;
 
-    // First get the current session
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (session?.user) {
         try {
@@ -76,9 +77,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       initialized = true;
     });
 
-    // Then listen for changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      // Skip the initial event since getSession handles it
       if (!initialized) return;
 
       if (session?.user) {
@@ -103,9 +102,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
       if (error) {
-        // Check if it's invalid credentials
         if (error.message.includes('Invalid login credentials')) {
-          // Try to find user and increment failed attempts via edge function
           await logLogin(email, 'failed_password');
           return { error: 'Mot de passe incorrect' };
         }
@@ -114,7 +111,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         }
         if (error.message.includes('Signups not allowed')) {
           await logLogin(email, 'account_not_found');
-          return { error: 'Compte introuvable' };
+          return { error: 'Compte introuvable. Seul l\'administrateur peut créer des comptes.' };
         }
         return { error: error.message };
       }
@@ -123,7 +120,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         return { error: 'Compte introuvable' };
       }
 
-      // Fetch profile to check status
       const appUser = await fetchUserProfile(data.user);
       if (!appUser) {
         await supabase.auth.signOut();
@@ -131,7 +127,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         return { error: 'Profil introuvable. Contactez l\'administrateur.' };
       }
 
-      // Check profile status via direct query (use service-side check)
+      // Check profile status
       const { data: profileData } = await supabase.rpc('get_my_profile');
       const profile = (profileData as any)?.[0];
 
@@ -145,14 +141,22 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (profile?.locked_until && new Date(profile.locked_until) > new Date()) {
         await supabase.auth.signOut();
         await logLogin(email, 'account_locked', data.user.id);
-        return { error: 'Compte temporairement verrouillé. Réessayez plus tard.' };
+        const mins = Math.ceil((new Date(profile.locked_until).getTime() - Date.now()) / 60000);
+        return { error: `Compte verrouillé. Réessayez dans ${mins} minute(s).` };
+      }
+
+      // Check company assignment
+      if (!profile?.company_id) {
+        await supabase.auth.signOut();
+        await logLogin(email, 'no_company', data.user.id);
+        return { error: 'Aucune entreprise assignée. Contactez l\'administrateur.' };
       }
 
       // Reset failed attempts on successful login
       if (profile?.failed_login_attempts > 0) {
-        await supabase.from('profiles').update({ 
-          failed_login_attempts: 0, 
-          locked_until: null 
+        await supabase.from('profiles').update({
+          failed_login_attempts: 0,
+          locked_until: null
         } as any).eq('id', data.user.id);
       }
 
@@ -173,7 +177,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const { error } = await supabase.auth.updateUser({ password: newPassword });
     if (error) return { error: error.message };
 
-    // Mark password as changed
     if (user) {
       await supabase.from('profiles').update({ must_change_password: false } as any).eq('id', user.id);
       setUser({ ...user, mustChangePassword: false });

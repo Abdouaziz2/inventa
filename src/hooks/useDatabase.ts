@@ -8,6 +8,14 @@ export type Deposit = Tables<'deposits'>;
 export type Sale = Tables<'sales'>;
 export type Reservation = Tables<'reservations'>;
 
+// Helper to get company_id from current user profile
+async function getMyCompanyId(): Promise<string> {
+  const { data } = await supabase.rpc('get_my_profile');
+  const profile = (data as any)?.[0];
+  if (!profile?.company_id) throw new Error('Aucune entreprise assignée');
+  return profile.company_id;
+}
+
 // ─── Clients ─────────────────────────────────────────
 export const useClients = () =>
   useQuery({
@@ -34,7 +42,8 @@ export const useAddClient = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (client: { name: string; phone: string; email?: string }) => {
-      const { data, error } = await supabase.from('clients').insert({ ...client, code: '' }).select().single();
+      const companyId = await getMyCompanyId();
+      const { data, error } = await supabase.from('clients').insert({ ...client, code: '', company_id: companyId } as any).select().single();
       if (error) throw error;
       return data;
     },
@@ -68,7 +77,8 @@ export const useAddJewelry = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (item: TablesInsert<'jewelry'>) => {
-      const { data, error } = await supabase.from('jewelry').insert(item).select().single();
+      const companyId = await getMyCompanyId();
+      const { data, error } = await supabase.from('jewelry').insert({ ...item, company_id: companyId } as any).select().single();
       if (error) throw error;
       return data;
     },
@@ -104,7 +114,8 @@ export const useAddDeposit = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (deposit: TablesInsert<'deposits'>) => {
-      const { data, error } = await supabase.from('deposits').insert(deposit).select().single();
+      const companyId = await getMyCompanyId();
+      const { data, error } = await supabase.from('deposits').insert({ ...deposit, company_id: companyId } as any).select().single();
       if (error) throw error;
       return data;
     },
@@ -132,7 +143,8 @@ export const useAddSale = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (sale: TablesInsert<'sales'>) => {
-      const { data, error } = await supabase.from('sales').insert(sale).select().single();
+      const companyId = await getMyCompanyId();
+      const { data, error } = await supabase.from('sales').insert({ ...sale, company_id: companyId } as any).select().single();
       if (error) throw error;
       return data;
     },
@@ -159,7 +171,8 @@ export const useAddReservation = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (reservation: TablesInsert<'reservations'>) => {
-      const { data, error } = await supabase.from('reservations').insert(reservation).select().single();
+      const companyId = await getMyCompanyId();
+      const { data, error } = await supabase.from('reservations').insert({ ...reservation, company_id: companyId } as any).select().single();
       if (error) throw error;
       return data;
     },
