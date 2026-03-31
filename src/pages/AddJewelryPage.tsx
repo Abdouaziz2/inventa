@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Upload } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -7,11 +7,18 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { useAddJewelry } from '@/hooks/useDatabase';
+import { formatCFA } from '@/lib/format';
 
 const AddJewelryPage = () => {
   const navigate = useNavigate();
-  const [form, setForm] = useState({ name: '', weight: '', purchasePrice: '', salePrice: '', category: '' });
+  const [form, setForm] = useState({ name: '', weight: '', pricePerGram: '', purchasePrice: '', category: '' });
   const addJewelry = useAddJewelry();
+
+  const calculatedSalePrice = useMemo(() => {
+    const w = parseFloat(form.weight) || 0;
+    const ppg = parseInt(form.pricePerGram) || 0;
+    return Math.round(w * ppg);
+  }, [form.weight, form.pricePerGram]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -19,8 +26,9 @@ const AddJewelryPage = () => {
       await addJewelry.mutateAsync({
         name: form.name,
         weight: parseFloat(form.weight) || 0,
+        price_per_gram: parseInt(form.pricePerGram) || 0,
         purchase_price: parseInt(form.purchasePrice) || 0,
-        sale_price: parseInt(form.salePrice) || 0,
+        sale_price: calculatedSalePrice,
         category: (form.category || 'other') as any,
       });
       toast.success('Bijou ajouté avec succès');
@@ -70,8 +78,21 @@ const AddJewelryPage = () => {
             <Input type="number" value={form.purchasePrice} onChange={e => setForm({ ...form, purchasePrice: e.target.value })} placeholder="600000" required />
           </div>
           <div className="space-y-2">
-            <Label>Prix de vente (FCFA)</Label>
-            <Input type="number" value={form.salePrice} onChange={e => setForm({ ...form, salePrice: e.target.value })} placeholder="925000" required />
+            <Label>Prix unitaire / gramme (FCFA)</Label>
+            <Input type="number" value={form.pricePerGram} onChange={e => setForm({ ...form, pricePerGram: e.target.value })} placeholder="50000" required />
+          </div>
+        </div>
+
+        {/* Calculated sale price */}
+        <div className="bg-muted/50 rounded-lg p-4 border border-border">
+          <div className="flex justify-between items-center">
+            <div>
+              <p className="text-sm text-muted-foreground">Prix de vente calculé</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {form.weight || '0'}g × {formatCFA(parseInt(form.pricePerGram) || 0)}/g
+              </p>
+            </div>
+            <p className="text-2xl font-bold">{formatCFA(calculatedSalePrice)}</p>
           </div>
         </div>
 
