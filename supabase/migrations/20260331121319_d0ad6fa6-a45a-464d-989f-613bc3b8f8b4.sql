@@ -1,0 +1,1 @@
+ALTER TABLE public.jewelry ADD COLUMN price_per_gram bigint NOT NULL DEFAULT 0;

@@ -48,6 +48,8 @@ const SalesPage = () => {
         date: new Date().toLocaleDateString('fr-FR'),
         details: [
           { label: 'Bijou', value: jewelry.name },
+          { label: 'Poids', value: `${jewelry.weight}g` },
+          ...(jewelry.price_per_gram > 0 ? [{ label: 'Prix/gramme', value: formatCFA(jewelry.price_per_gram) }] : []),
           { label: 'Payé via solde', value: formatCFA(balanceUsed) },
           { label: 'Reste payé en espèces', value: formatCFA(remaining) },
         ],

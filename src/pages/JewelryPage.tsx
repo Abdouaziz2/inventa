@@ -75,6 +75,9 @@ const JewelryPage = () => {
                   <StatusBadge status={item.status} />
                 </div>
                 <p className="text-xs text-muted-foreground capitalize">{item.category} · {item.weight}g</p>
+                {item.price_per_gram > 0 && (
+                  <p className="text-xs text-muted-foreground">{formatCFA(item.price_per_gram)}/g</p>
+                )}
                 <p className="text-lg font-bold">{formatCFA(item.sale_price)}</p>
               </div>
             </div>

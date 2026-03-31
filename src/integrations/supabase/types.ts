@@ -113,6 +113,7 @@ export type Database = {
           id: string
           name: string
           photo: string | null
+          price_per_gram: number
           purchase_price: number
           sale_price: number
           status: Database["public"]["Enums"]["jewelry_status"]
@@ -125,6 +126,7 @@ export type Database = {
           id?: string
           name: string
           photo?: string | null
+          price_per_gram?: number
           purchase_price?: number
           sale_price?: number
           status?: Database["public"]["Enums"]["jewelry_status"]
@@ -137,6 +139,7 @@ export type Database = {
           id?: string
           name?: string
           photo?: string | null
+          price_per_gram?: number
           purchase_price?: number
           sale_price?: number
           status?: Database["public"]["Enums"]["jewelry_status"]
