@@ -35,7 +35,6 @@ serve(async (req) => {
       });
     }
 
-    // Use service role to check role
     const adminClient = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
@@ -55,11 +54,23 @@ serve(async (req) => {
       });
     }
 
+    // Get caller's company_id
+    const { data: callerProfile } = await adminClient
+      .from("profiles")
+      .select("company_id")
+      .eq("id", caller.id)
+      .single();
+
+    const callerCompanyId = callerProfile?.company_id;
+
     const { action, ...params } = await req.json();
 
     switch (action) {
       case "create_user": {
-        const { email, password, full_name, phone, role } = params;
+        const { email, password, full_name, phone, role, company_id } = params;
+
+        // Use caller's company if not specified
+        const targetCompanyId = company_id || callerCompanyId;
 
         // Create auth user
         const { data: newUser, error: createError } = await adminClient.auth.admin.createUser({
@@ -75,13 +86,14 @@ serve(async (req) => {
           });
         }
 
-        // Create profile
+        // Create profile with company_id
         await adminClient.from("profiles").insert({
           id: newUser.user.id,
           full_name,
           phone: phone || "",
           status: "active",
           must_change_password: true,
+          company_id: targetCompanyId,
         });
 
         // Assign role
@@ -111,7 +123,6 @@ serve(async (req) => {
         });
         if (error) throw error;
 
-        // Force password change on next login
         await adminClient.from("profiles").update({ must_change_password: true }).eq("id", user_id);
 
         return new Response(JSON.stringify({ success: true }), {
@@ -120,9 +131,11 @@ serve(async (req) => {
       }
 
       case "list_users": {
+        // Only list users from the same company
         const { data: profiles } = await adminClient
           .from("profiles")
           .select("*, user_roles(role)")
+          .eq("company_id", callerCompanyId)
           .order("created_at", { ascending: false });
 
         // Get emails from auth
@@ -142,6 +155,20 @@ serve(async (req) => {
 
       case "delete_user": {
         const { user_id } = params;
+        // Verify user belongs to same company before deleting
+        const { data: targetProfile } = await adminClient
+          .from("profiles")
+          .select("company_id")
+          .eq("id", user_id)
+          .single();
+
+        if (targetProfile?.company_id !== callerCompanyId) {
+          return new Response(JSON.stringify({ error: "Utilisateur non trouvé" }), {
+            status: 404,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+
         const { error } = await adminClient.auth.admin.deleteUser(user_id);
         if (error) throw error;
         return new Response(JSON.stringify({ success: true }), {
