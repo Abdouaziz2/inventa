@@ -18,6 +18,7 @@ export type Database = {
         Row: {
           balance: number
           code: string
+          company_id: string | null
           created_at: string
           email: string | null
           id: string
@@ -28,6 +29,7 @@ export type Database = {
         Insert: {
           balance?: number
           code: string
+          company_id?: string | null
           created_at?: string
           email?: string | null
           id?: string
@@ -38,6 +40,7 @@ export type Database = {
         Update: {
           balance?: number
           code?: string
+          company_id?: string | null
           created_at?: string
           email?: string | null
           id?: string
@@ -45,13 +48,22 @@ export type Database = {
           phone?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "clients_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "company_settings"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       company_settings: {
         Row: {
           address: string
           created_at: string
           id: string
+          logo: string | null
           name: string
           phone: string
           updated_at: string
@@ -60,6 +72,7 @@ export type Database = {
           address?: string
           created_at?: string
           id?: string
+          logo?: string | null
           name?: string
           phone?: string
           updated_at?: string
@@ -68,6 +81,7 @@ export type Database = {
           address?: string
           created_at?: string
           id?: string
+          logo?: string | null
           name?: string
           phone?: string
           updated_at?: string
@@ -78,6 +92,7 @@ export type Database = {
         Row: {
           amount: number
           client_id: string
+          company_id: string | null
           created_at: string
           id: string
           note: string | null
@@ -85,6 +100,7 @@ export type Database = {
         Insert: {
           amount: number
           client_id: string
+          company_id?: string | null
           created_at?: string
           id?: string
           note?: string | null
@@ -92,6 +108,7 @@ export type Database = {
         Update: {
           amount?: number
           client_id?: string
+          company_id?: string | null
           created_at?: string
           id?: string
           note?: string | null
@@ -104,11 +121,19 @@ export type Database = {
             referencedRelation: "clients"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "deposits_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "company_settings"
+            referencedColumns: ["id"]
+          },
         ]
       }
       jewelry: {
         Row: {
           category: Database["public"]["Enums"]["jewelry_category"]
+          company_id: string | null
           created_at: string
           id: string
           name: string
@@ -122,6 +147,7 @@ export type Database = {
         }
         Insert: {
           category?: Database["public"]["Enums"]["jewelry_category"]
+          company_id?: string | null
           created_at?: string
           id?: string
           name: string
@@ -135,6 +161,7 @@ export type Database = {
         }
         Update: {
           category?: Database["public"]["Enums"]["jewelry_category"]
+          company_id?: string | null
           created_at?: string
           id?: string
           name?: string
@@ -146,7 +173,15 @@ export type Database = {
           updated_at?: string
           weight?: number
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "jewelry_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "company_settings"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       login_logs: {
         Row: {
@@ -177,6 +212,7 @@ export type Database = {
       }
       profiles: {
         Row: {
+          company_id: string | null
           created_at: string
           failed_login_attempts: number
           full_name: string
@@ -188,6 +224,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          company_id?: string | null
           created_at?: string
           failed_login_attempts?: number
           full_name: string
@@ -199,6 +236,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          company_id?: string | null
           created_at?: string
           failed_login_attempts?: number
           full_name?: string
@@ -209,11 +247,20 @@ export type Database = {
           status?: Database["public"]["Enums"]["user_status"]
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "profiles_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "company_settings"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       reservations: {
         Row: {
           client_id: string
+          company_id: string | null
           created_at: string
           deposit_amount: number
           id: string
@@ -222,6 +269,7 @@ export type Database = {
         }
         Insert: {
           client_id: string
+          company_id?: string | null
           created_at?: string
           deposit_amount?: number
           id?: string
@@ -230,6 +278,7 @@ export type Database = {
         }
         Update: {
           client_id?: string
+          company_id?: string | null
           created_at?: string
           deposit_amount?: number
           id?: string
@@ -245,6 +294,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "reservations_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "company_settings"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "reservations_jewelry_id_fkey"
             columns: ["jewelry_id"]
             isOneToOne: false
@@ -256,6 +312,7 @@ export type Database = {
       sales: {
         Row: {
           client_id: string
+          company_id: string | null
           created_at: string
           id: string
           jewelry_id: string
@@ -265,6 +322,7 @@ export type Database = {
         }
         Insert: {
           client_id: string
+          company_id?: string | null
           created_at?: string
           id?: string
           jewelry_id: string
@@ -274,6 +332,7 @@ export type Database = {
         }
         Update: {
           client_id?: string
+          company_id?: string | null
           created_at?: string
           id?: string
           jewelry_id?: string
@@ -287,6 +346,13 @@ export type Database = {
             columns: ["client_id"]
             isOneToOne: false
             referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "company_settings"
             referencedColumns: ["id"]
           },
           {
@@ -321,9 +387,11 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_my_company_id: { Args: never; Returns: string }
       get_my_profile: {
         Args: never
         Returns: {
+          company_id: string | null
           created_at: string
           failed_login_attempts: number
           full_name: string
