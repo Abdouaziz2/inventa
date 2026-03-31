@@ -6,6 +6,7 @@ export interface CompanySettings {
   name: string;
   phone: string;
   address: string;
+  logo: string;
 }
 
 export const useCompanySettings = () => {
@@ -15,7 +16,6 @@ export const useCompanySettings = () => {
       const { data, error } = await supabase
         .from('company_settings')
         .select('*')
-        .limit(1)
         .single();
       if (error) throw error;
       return {
@@ -23,6 +23,7 @@ export const useCompanySettings = () => {
         name: data.name,
         phone: data.phone,
         address: data.address,
+        logo: (data as any).logo || '',
       };
     },
   });
@@ -35,7 +36,7 @@ export const useUpdateCompanySettings = () => {
       const { id, ...updates } = settings;
       const { error } = await supabase
         .from('company_settings')
-        .update(updates)
+        .update(updates as any)
         .eq('id', id);
       if (error) throw error;
     },
