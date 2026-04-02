@@ -11,15 +11,16 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { UserPlus, Shield, ShieldOff, KeyRound, Trash2, Loader2, Users } from 'lucide-react';
 import { toast } from 'sonner';
+import { normalizeUsername } from '@/lib/auth';
 
 interface ManagedUser {
   id: string;
   full_name: string;
+  username: string;
   email: string;
   phone: string;
   status: 'active' | 'inactive' | 'suspended';
   role: string;
-  must_change_password: boolean;
   created_at: string;
 }
 
@@ -31,7 +32,7 @@ const AdminUsersPage = () => {
   const [showCreate, setShowCreate] = useState(false);
 
   // Create form
-  const [newEmail, setNewEmail] = useState('');
+  const [newUsername, setNewUsername] = useState('');
   const [newName, setNewName] = useState('');
   const [newPhone, setNewPhone] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -71,15 +72,15 @@ const AdminUsersPage = () => {
     try {
       await callAdmin({
         action: 'create_user',
-        email: newEmail,
+        username: newUsername,
         password: newPassword,
         full_name: newName,
         phone: newPhone,
         role: newRole,
       });
-      toast.success('Utilisateur créé avec succès');
+      toast.success('Compte créé. L’utilisateur peut se connecter immédiatement.');
       setShowCreate(false);
-      setNewEmail(''); setNewName(''); setNewPhone(''); setNewPassword(''); setNewRole('seller');
+      setNewUsername(''); setNewName(''); setNewPhone(''); setNewPassword(''); setNewRole('seller');
       loadUsers();
     } catch (err: any) {
       toast.error(err.message);
@@ -104,7 +105,7 @@ const AdminUsersPage = () => {
     setActionLoading(resetUserId);
     try {
       await callAdmin({ action: 'reset_password', user_id: resetUserId, new_password: resetPassword });
-      toast.success('Mot de passe réinitialisé');
+      toast.success('Mot de passe mis à jour');
       setResetUserId(null);
       setResetPasswordVal('');
     } catch (err: any) {
@@ -178,16 +179,26 @@ const AdminUsersPage = () => {
                 <Input value={newName} onChange={e => setNewName(e.target.value)} required />
               </div>
               <div className="space-y-2">
-                <Label>Email</Label>
-                <Input type="email" value={newEmail} onChange={e => setNewEmail(e.target.value)} required />
+                <Label>Nom d'utilisateur</Label>
+                <Input
+                  value={newUsername}
+                  onChange={e => setNewUsername(e.target.value)}
+                  onBlur={() => setNewUsername((current) => normalizeUsername(current))}
+                  required
+                  minLength={3}
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  placeholder="ex: vendeur1"
+                />
               </div>
               <div className="space-y-2">
                 <Label>Téléphone</Label>
                 <Input value={newPhone} onChange={e => setNewPhone(e.target.value)} />
               </div>
               <div className="space-y-2">
-                <Label>Mot de passe temporaire</Label>
+                <Label>Mot de passe</Label>
                 <Input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} required minLength={6} />
+                <p className="text-xs text-muted-foreground">L'utilisateur se connectera directement avec ce nom d'utilisateur et ce mot de passe.</p>
               </div>
               <div className="space-y-2">
                 <Label>Rôle</Label>
@@ -217,11 +228,11 @@ const AdminUsersPage = () => {
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label>Nouveau mot de passe temporaire</Label>
+              <Label>Nouveau mot de passe</Label>
               <Input type="password" value={resetPassword} onChange={e => setResetPasswordVal(e.target.value)} minLength={6} />
             </div>
             <Button onClick={handleResetPassword} disabled={!resetPassword || resetPassword.length < 6} className="w-full gold-gradient text-accent-foreground font-semibold">
-              Réinitialiser
+              Enregistrer le mot de passe
             </Button>
           </div>
         </DialogContent>
@@ -238,7 +249,7 @@ const AdminUsersPage = () => {
               <TableHeader>
                 <TableRow>
                   <TableHead>Nom</TableHead>
-                  <TableHead>Email</TableHead>
+                  <TableHead>Identifiant</TableHead>
                   <TableHead>Rôle</TableHead>
                   <TableHead>Statut</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
@@ -248,7 +259,7 @@ const AdminUsersPage = () => {
                 {users.map((u) => (
                   <TableRow key={u.id}>
                     <TableCell className="font-medium">{u.full_name}</TableCell>
-                    <TableCell className="text-muted-foreground">{u.email}</TableCell>
+                    <TableCell className="text-muted-foreground">{u.username || '—'}</TableCell>
                     <TableCell>
                       <Badge variant="outline" className="text-xs">{roleLabel[u.role] || u.role}</Badge>
                     </TableCell>
