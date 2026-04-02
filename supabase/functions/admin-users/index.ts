@@ -6,6 +6,64 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+const MANAGED_LOGIN_DOMAIN = "users.local";
+const MANAGED_LOGIN_SUFFIX = `@${MANAGED_LOGIN_DOMAIN}`;
+const ALLOWED_ROLES = new Set(["super_admin", "admin", "manager", "seller"]);
+const ALLOWED_STATUSES = new Set(["active", "inactive", "suspended"]);
+
+const json = (body: unknown, status = 200) =>
+  new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+
+const normalizeUsername = (value: string) =>
+  value
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9._-]+/g, "")
+    .replace(/^[._-]+|[._-]+$/g, "")
+    .slice(0, 30);
+
+const buildManagedLoginEmail = (username: string) => `${normalizeUsername(username)}${MANAGED_LOGIN_SUFFIX}`;
+
+const getUsernameFromAuthUser = (authUser: { email?: string | null; user_metadata?: Record<string, unknown> }) => {
+  const metadataUsername = authUser.user_metadata?.username;
+  if (typeof metadataUsername === "string" && metadataUsername.trim()) {
+    return metadataUsername;
+  }
+
+  if (authUser.email?.endsWith(MANAGED_LOGIN_SUFFIX)) {
+    return authUser.email.slice(0, -MANAGED_LOGIN_SUFFIX.length);
+  }
+
+  return authUser.email ?? "";
+};
+
+const ensureTargetBelongsToCompany = async (
+  adminClient: ReturnType<typeof createClient>,
+  userId: string,
+  callerCompanyId: string | null,
+) => {
+  const { data: targetProfile, error } = await adminClient
+    .from("profiles")
+    .select("company_id")
+    .eq("id", userId)
+    .single();
+
+  if (error) {
+    throw error;
+  }
+
+  if (!targetProfile || targetProfile.company_id !== callerCompanyId) {
+    return false;
+  }
+
+  return true;
+};
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -14,10 +72,7 @@ serve(async (req) => {
   try {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
-      return new Response(JSON.stringify({ error: "Non autorisé" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return json({ error: "Non autorisé" }, 401);
     }
 
     // Verify calling user is super_admin
@@ -29,10 +84,7 @@ serve(async (req) => {
 
     const { data: { user: caller } } = await anonClient.auth.getUser();
     if (!caller) {
-      return new Response(JSON.stringify({ error: "Non autorisé" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return json({ error: "Non autorisé" }, 401);
     }
 
     const adminClient = createClient(
@@ -48,10 +100,7 @@ serve(async (req) => {
       .single();
 
     if (!roleData) {
-      return new Response(JSON.stringify({ error: "Accès réservé au Super Admin" }), {
-        status: 403,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return json({ error: "Accès réservé au Super Admin" }, 403);
     }
 
     // Get caller's company_id
@@ -62,130 +111,190 @@ serve(async (req) => {
       .single();
 
     const callerCompanyId = callerProfile?.company_id;
+    if (!callerCompanyId) {
+      return json({ error: "Aucune entreprise associée au compte administrateur" }, 400);
+    }
 
     const { action, ...params } = await req.json();
 
     switch (action) {
       case "create_user": {
-        const { email, password, full_name, phone, role, company_id } = params;
+        const username = normalizeUsername(String(params.username ?? ""));
+        const password = String(params.password ?? "");
+        const fullName = String(params.full_name ?? "").trim();
+        const phone = String(params.phone ?? "").trim();
+        const role = ALLOWED_ROLES.has(String(params.role)) ? String(params.role) : "seller";
 
-        // Use caller's company if not specified
-        const targetCompanyId = company_id || callerCompanyId;
+        if (username.length < 3) {
+          return json({ error: "Le nom d'utilisateur doit contenir au moins 3 caractères." }, 400);
+        }
 
-        // Create auth user
+        if (password.length < 6) {
+          return json({ error: "Le mot de passe doit contenir au moins 6 caractères." }, 400);
+        }
+
+        if (!fullName) {
+          return json({ error: "Le nom complet est obligatoire." }, 400);
+        }
+
+        const loginEmail = buildManagedLoginEmail(username);
+
         const { data: newUser, error: createError } = await adminClient.auth.admin.createUser({
-          email,
+          email: loginEmail,
           password,
           email_confirm: true,
+          user_metadata: {
+            username,
+          },
         });
 
         if (createError) {
-          return new Response(JSON.stringify({ error: createError.message }), {
-            status: 400,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          });
+          const errorMessage = createError.message.toLowerCase().includes("already")
+            ? "Ce nom d'utilisateur existe déjà."
+            : createError.message;
+          return json({ error: errorMessage }, 400);
         }
 
-        // Create profile with company_id
-        await adminClient.from("profiles").insert({
-          id: newUser.user.id,
-          full_name,
+        const createdUserId = newUser.user.id;
+
+        const { error: profileError } = await adminClient.from("profiles").insert({
+          id: createdUserId,
+          full_name: fullName,
           phone: phone || "",
           status: "active",
-          must_change_password: true,
-          company_id: targetCompanyId,
+          must_change_password: false,
+          company_id: callerCompanyId,
         });
 
-        // Assign role
-        await adminClient.from("user_roles").insert({
-          user_id: newUser.user.id,
-          role: role || "seller",
+        if (profileError) {
+          await adminClient.auth.admin.deleteUser(createdUserId);
+          return json({ error: profileError.message }, 400);
+        }
+
+        const { error: roleError } = await adminClient.from("user_roles").insert({
+          user_id: createdUserId,
+          role,
         });
 
-        return new Response(JSON.stringify({ success: true, user_id: newUser.user.id }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+        if (roleError) {
+          await adminClient.auth.admin.deleteUser(createdUserId);
+          return json({ error: roleError.message }, 400);
+        }
+
+        return json({ success: true, user_id: createdUserId, username });
       }
 
       case "update_status": {
         const { user_id, status } = params;
+        if (!ALLOWED_STATUSES.has(String(status))) {
+          return json({ error: "Statut invalide" }, 400);
+        }
+
+        const belongsToCompany = await ensureTargetBelongsToCompany(adminClient, String(user_id), callerCompanyId);
+        if (!belongsToCompany) {
+          return json({ error: "Utilisateur non trouvé" }, 404);
+        }
+
         const { error } = await adminClient.from("profiles").update({ status }).eq("id", user_id);
         if (error) throw error;
-        return new Response(JSON.stringify({ success: true }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+        return json({ success: true });
       }
 
       case "reset_password": {
         const { user_id, new_password } = params;
+        if (String(new_password ?? "").length < 6) {
+          return json({ error: "Le mot de passe doit contenir au moins 6 caractères." }, 400);
+        }
+
+        const belongsToCompany = await ensureTargetBelongsToCompany(adminClient, String(user_id), callerCompanyId);
+        if (!belongsToCompany) {
+          return json({ error: "Utilisateur non trouvé" }, 404);
+        }
+
         const { error } = await adminClient.auth.admin.updateUserById(user_id, {
           password: new_password,
         });
         if (error) throw error;
 
-        await adminClient.from("profiles").update({ must_change_password: true }).eq("id", user_id);
+        const { error: profileError } = await adminClient
+          .from("profiles")
+          .update({ must_change_password: false })
+          .eq("id", user_id);
 
-        return new Response(JSON.stringify({ success: true }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+        if (profileError) {
+          throw profileError;
+        }
+
+        return json({ success: true });
       }
 
       case "list_users": {
-        // Only list users from the same company
-        const { data: profiles } = await adminClient
+        const { data: profiles, error: profilesError } = await adminClient
           .from("profiles")
-          .select("*, user_roles(role)")
+          .select("id, full_name, phone, status, must_change_password, created_at")
           .eq("company_id", callerCompanyId)
           .order("created_at", { ascending: false });
 
-        // Get emails from auth
-        const { data: { users: authUsers } } = await adminClient.auth.admin.listUsers();
-        const emailMap = new Map(authUsers?.map((u: any) => [u.id, u.email]) || []);
+        if (profilesError) {
+          throw profilesError;
+        }
 
-        const enriched = (profiles || []).map((p: any) => ({
-          ...p,
-          email: emailMap.get(p.id) || "",
-          role: p.user_roles?.[0]?.role || "seller",
-        }));
+        const profileIds = (profiles ?? []).map((profile) => profile.id);
 
-        return new Response(JSON.stringify({ users: enriched }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        const { data: roleRows, error: rolesError } = profileIds.length === 0
+          ? { data: [], error: null }
+          : await adminClient
+              .from("user_roles")
+              .select("user_id, role")
+              .in("user_id", profileIds);
+
+        if (rolesError) {
+          throw rolesError;
+        }
+
+        const { data: authUsersData, error: authUsersError } = await adminClient.auth.admin.listUsers({
+          page: 1,
+          perPage: 1000,
         });
+
+        if (authUsersError) {
+          throw authUsersError;
+        }
+
+        const authUserMap = new Map((authUsersData.users ?? []).map((authUser: any) => [authUser.id, authUser]));
+        const roleMap = new Map((roleRows ?? []).map((roleRow) => [roleRow.user_id, roleRow.role]));
+
+        const enriched = (profiles || []).map((profile: any) => {
+          const authUser = authUserMap.get(profile.id);
+
+          return {
+            ...profile,
+            email: authUser?.email || "",
+            username: authUser ? getUsernameFromAuthUser(authUser) : "",
+            role: roleMap.get(profile.id) || "seller",
+          };
+        });
+
+        return json({ users: enriched });
       }
 
       case "delete_user": {
         const { user_id } = params;
-        // Verify user belongs to same company before deleting
-        const { data: targetProfile } = await adminClient
-          .from("profiles")
-          .select("company_id")
-          .eq("id", user_id)
-          .single();
-
-        if (targetProfile?.company_id !== callerCompanyId) {
-          return new Response(JSON.stringify({ error: "Utilisateur non trouvé" }), {
-            status: 404,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          });
+        const belongsToCompany = await ensureTargetBelongsToCompany(adminClient, String(user_id), callerCompanyId);
+        if (!belongsToCompany) {
+          return json({ error: "Utilisateur non trouvé" }, 404);
         }
 
         const { error } = await adminClient.auth.admin.deleteUser(user_id);
         if (error) throw error;
-        return new Response(JSON.stringify({ success: true }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+        return json({ success: true });
       }
 
       default:
-        return new Response(JSON.stringify({ error: "Action inconnue" }), {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+        return json({ error: "Action inconnue" }, 400);
     }
   } catch (error) {
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    const message = error instanceof Error ? error.message : "Erreur serveur";
+    return json({ error: message }, 500);
   }
 });

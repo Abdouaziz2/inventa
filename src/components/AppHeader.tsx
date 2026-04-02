@@ -79,7 +79,10 @@ const AppHeader = () => {
           <span className="absolute top-1 right-1 h-2 w-2 bg-accent rounded-full" />
         </button>
         <div className="h-6 w-px bg-border" />
-        <span className="text-sm text-muted-foreground">{user?.email}</span>
+        <div className="text-right leading-tight">
+          <p className="text-sm font-medium">{user?.fullName}</p>
+          <p className="text-xs text-muted-foreground">{user?.username ?? user?.email}</p>
+        </div>
       </div>
     </header>
   );

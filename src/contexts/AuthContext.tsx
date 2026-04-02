@@ -1,12 +1,14 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import type { User as SupabaseUser } from '@supabase/supabase-js';
+import { buildManagedLoginEmail, isEmailIdentifier, usernameFromManagedLoginEmail } from '@/lib/auth';
 
 export type AppRole = 'super_admin' | 'admin' | 'manager' | 'seller';
 
 export interface AppUser {
   id: string;
   email: string;
+  username: string | null;
   fullName: string;
   role: AppRole;
   mustChangePassword: boolean;
@@ -16,7 +18,7 @@ export interface AppUser {
 interface AuthContextType {
   user: AppUser | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<{ error?: string }>;
+  login: (identifier: string, password: string) => Promise<{ error?: string }>;
   logout: () => Promise<void>;
   isAuthenticated: boolean;
   isSuperAdmin: boolean;
@@ -43,10 +45,14 @@ async function fetchUserProfile(supabaseUser: SupabaseUser): Promise<AppUser | n
 
   const { data: roles } = await supabase.rpc('get_my_roles');
   const role = (roles as any)?.[0]?.role || 'seller';
+  const username = typeof supabaseUser.user_metadata?.username === 'string'
+    ? supabaseUser.user_metadata.username
+    : usernameFromManagedLoginEmail(supabaseUser.email);
 
   return {
     id: supabaseUser.id,
     email: supabaseUser.email || '',
+    username,
     fullName: profile.full_name,
     role,
     mustChangePassword: profile.must_change_password,
@@ -97,20 +103,25 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return () => subscription.unsubscribe();
   }, []);
 
-  const login = async (email: string, password: string): Promise<{ error?: string }> => {
+  const login = async (identifier: string, password: string): Promise<{ error?: string }> => {
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      const trimmedIdentifier = identifier.trim();
+      const loginEmail = isEmailIdentifier(trimmedIdentifier)
+        ? trimmedIdentifier.toLowerCase()
+        : buildManagedLoginEmail(trimmedIdentifier);
+
+      const { data, error } = await supabase.auth.signInWithPassword({ email: loginEmail, password });
 
       if (error) {
         if (error.message.includes('Invalid login credentials')) {
-          await logLogin(email, 'failed_password');
-          return { error: 'Mot de passe incorrect' };
+          await logLogin(trimmedIdentifier, 'failed_credentials');
+          return { error: 'Identifiant ou mot de passe incorrect' };
         }
         if (error.message.includes('Email not confirmed')) {
           return { error: 'Compte non confirmé' };
         }
         if (error.message.includes('Signups not allowed')) {
-          await logLogin(email, 'account_not_found');
+          await logLogin(trimmedIdentifier, 'account_not_found');
           return { error: 'Compte introuvable. Seul l\'administrateur peut créer des comptes.' };
         }
         return { error: error.message };
@@ -123,7 +134,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const appUser = await fetchUserProfile(data.user);
       if (!appUser) {
         await supabase.auth.signOut();
-        await logLogin(email, 'account_not_found', data.user.id);
+        await logLogin(trimmedIdentifier, 'account_not_found', data.user.id);
         return { error: 'Profil introuvable. Contactez l\'administrateur.' };
       }
 
@@ -133,14 +144,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       if (profile?.status === 'inactive' || profile?.status === 'suspended') {
         await supabase.auth.signOut();
-        await logLogin(email, 'account_inactive', data.user.id);
+        await logLogin(trimmedIdentifier, 'account_inactive', data.user.id);
         return { error: 'Compte désactivé. Contactez l\'administrateur.' };
       }
 
       // Check if locked
       if (profile?.locked_until && new Date(profile.locked_until) > new Date()) {
         await supabase.auth.signOut();
-        await logLogin(email, 'account_locked', data.user.id);
+        await logLogin(trimmedIdentifier, 'account_locked', data.user.id);
         const mins = Math.ceil((new Date(profile.locked_until).getTime() - Date.now()) / 60000);
         return { error: `Compte verrouillé. Réessayez dans ${mins} minute(s).` };
       }
@@ -148,7 +159,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       // Check company assignment
       if (!profile?.company_id) {
         await supabase.auth.signOut();
-        await logLogin(email, 'no_company', data.user.id);
+        await logLogin(trimmedIdentifier, 'no_company', data.user.id);
         return { error: 'Aucune entreprise assignée. Contactez l\'administrateur.' };
       }
 
@@ -160,7 +171,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         } as any).eq('id', data.user.id);
       }
 
-      await logLogin(email, 'success', data.user.id);
+      await logLogin(trimmedIdentifier, 'success', data.user.id);
       setUser(appUser);
       return {};
     } catch (err: any) {

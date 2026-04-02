@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { useAuth } from '@/contexts/AuthContext';
 
 const LoginPage = () => {
-  const [email, setEmail] = useState('');
+  const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -17,7 +17,7 @@ const LoginPage = () => {
     setError('');
     setIsLoading(true);
 
-    const result = await login(email, password);
+    const result = await login(identifier, password);
     if (result.error) {
       setError(result.error);
     }
@@ -58,16 +58,18 @@ const LoginPage = () => {
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="identifier">Nom d'utilisateur ou email</Label>
               <Input
-                id="email"
-                type="email"
-                placeholder="votre@email.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                id="identifier"
+                type="text"
+                placeholder="nomutilisateur"
+                value={identifier}
+                onChange={(e) => setIdentifier(e.target.value)}
                 className="h-11"
                 required
                 autoFocus
+                autoCapitalize="none"
+                autoCorrect="off"
               />
             </div>
             <div className="space-y-2">
@@ -104,7 +106,7 @@ const LoginPage = () => {
           </form>
 
           <p className="text-xs text-center text-muted-foreground">
-            Accès réservé aux utilisateurs autorisés. Contactez votre administrateur pour obtenir un accès.
+            Le superadmin vous fournit votre identifiant et votre mot de passe pour vous connecter.
           </p>
         </div>
       </div>
