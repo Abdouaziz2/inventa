@@ -160,13 +160,20 @@ serve(async (req) => {
 
         const createdUserId = newUser.user.id;
 
+        // Get caller's company_id to assign to new user
+        const { data: callerProfile } = await adminClient
+          .from("profiles")
+          .select("company_id")
+          .eq("id", caller.id)
+          .single();
+
         const { error: profileError } = await adminClient.from("profiles").insert({
           id: createdUserId,
           full_name: fullName,
           phone: phone || "",
           status: "active",
           must_change_password: false,
-          business_name: fullName,
+          company_id: callerProfile?.company_id ?? null,
         });
 
         if (profileError) {
