@@ -57,8 +57,9 @@ const getUsernameFromAuthUser = (authUser: AuthUserSummary) => {
   return authUser.email ?? "";
 };
 
+// deno-lint-ignore no-explicit-any
 const ensureTargetProfileExists = async (
-  adminClient: ReturnType<typeof createClient>,
+  adminClient: any,
   userId: string,
 ) => {
   const { data: targetProfile, error } = await adminClient
