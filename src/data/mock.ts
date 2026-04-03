@@ -2,8 +2,7 @@ import { Client, Jewelry, Deposit, Sale, Reservation, User } from '@/types';
 
 export const mockUsers: User[] = [
   { id: '1', code: 'ADM001', name: 'Admin Principal', role: 'admin' },
-  { id: '2', code: 'VND001', name: 'Fatima Diallo', role: 'seller' },
-  { id: '3', code: 'MGR001', name: 'Moussa Ndiaye', role: 'manager' },
+  { id: '2', code: 'SUP001', name: 'Super Admin', role: 'super_admin' },
 ];
 
 export const mockClients: Client[] = [

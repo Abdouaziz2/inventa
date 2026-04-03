@@ -1,7 +1,7 @@
 import { useParams, Link } from 'react-router-dom';
 import { ArrowLeft, Wallet, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useClient, useDeposits, useSales } from '@/hooks/useDatabase';
+import { useClient, useDeposits, useSales, type DepositWithClient, type SaleWithRelations } from '@/hooks/useDatabase';
 import { formatCFA } from '@/lib/format';
 
 const ClientDetailPage = () => {
@@ -51,7 +51,7 @@ const ClientDetailPage = () => {
                 <th className="text-left text-xs font-semibold text-muted-foreground px-5 py-2">NOTE</th>
               </tr></thead>
               <tbody>
-                {deposits.map((d: any) => (
+                {deposits.map((d: DepositWithClient) => (
                   <tr key={d.id} className="border-b border-border last:border-0">
                     <td className="px-5 py-3 text-sm">{new Date(d.created_at).toLocaleDateString('fr-FR')}</td>
                     <td className="px-5 py-3 text-sm font-semibold text-right text-success">+{formatCFA(d.amount)}</td>
@@ -75,7 +75,7 @@ const ClientDetailPage = () => {
                 <th className="text-right text-xs font-semibold text-muted-foreground px-5 py-2">MONTANT</th>
               </tr></thead>
               <tbody>
-                {sales.map((s: any) => (
+                {sales.map((s: SaleWithRelations) => (
                   <tr key={s.id} className="border-b border-border last:border-0">
                     <td className="px-5 py-3 text-sm">{new Date(s.created_at).toLocaleDateString('fr-FR')}</td>
                     <td className="px-5 py-3 text-sm font-medium">{s.jewelry?.name}</td>

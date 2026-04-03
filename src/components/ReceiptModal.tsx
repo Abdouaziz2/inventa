@@ -3,8 +3,9 @@ import { Button } from '@/components/ui/button';
 import { Printer, Download, X, CheckCircle2 } from 'lucide-react';
 import { formatCFA } from '@/lib/format';
 import { useRef, useEffect } from 'react';
-import { useCompanySettings } from '@/hooks/useCompanySettings';
+import { useProfileSettings } from '@/hooks/useProfileSettings';
 import JsBarcode from 'jsbarcode';
+import { getErrorMessage } from '@/lib/errors';
 
 export interface ReceiptData {
   type: 'deposit' | 'sale' | 'reservation';
@@ -41,11 +42,11 @@ const generateReceiptId = () => {
 const ReceiptModal = ({ open, onClose, data }: ReceiptModalProps) => {
   const receiptRef = useRef<HTMLDivElement>(null);
   const barcodeRef = useRef<SVGSVGElement>(null);
-  const { data: company } = useCompanySettings();
-  const companyName = company?.name || 'JewelStock';
-  const companyPhone = company?.phone || '';
-  const companyAddress = company?.address || '';
-  const companyLogo = (company as any)?.logo || '';
+  const { data: profile } = useProfileSettings();
+  const businessName = profile?.business_name || profile?.full_name || 'Ma boutique';
+  const phoneNumbers = [profile?.phone, profile?.secondary_phone].filter(Boolean).join(' · ');
+  const businessAddress = profile?.address || '';
+  const businessLogo = profile?.logo ?? '';
 
   const receiptId = useRef(generateReceiptId());
 
@@ -67,8 +68,8 @@ const ReceiptModal = ({ open, onClose, data }: ReceiptModalProps) => {
           margin: 5,
           textMargin: 2,
         });
-      } catch (e) {
-        console.error('Barcode generation error:', e);
+      } catch (error) {
+        console.error('Barcode generation error:', getErrorMessage(error));
       }
     }
   }, [open, data]);
@@ -93,8 +94,8 @@ const ReceiptModal = ({ open, onClose, data }: ReceiptModalProps) => {
     } catch (e) { /* ignore */ }
     const barcodeSvg = svgEl.outerHTML;
 
-    const logoHtml = companyLogo
-      ? `<img src="${companyLogo}" alt="${companyName}" style="height: 48px; width: 48px; object-fit: cover; border-radius: 8px; margin: 0 auto 8px;" />`
+    const logoHtml = businessLogo
+      ? `<img src="${businessLogo}" alt="${businessName}" style="height: 48px; width: 48px; object-fit: cover; border-radius: 8px; margin: 0 auto 8px;" />`
       : '';
 
     const w = window.open('', '_blank', 'width=400,height=700');
@@ -123,8 +124,8 @@ const ReceiptModal = ({ open, onClose, data }: ReceiptModalProps) => {
       <div class="receipt">
         <div class="header">
           ${logoHtml}
-          <div class="logo">${companyName}</div>
-          ${companyPhone || companyAddress ? `<div class="company-info">${[companyPhone, companyAddress].filter(Boolean).join(' · ')}</div>` : ''}
+          <div class="logo">${businessName}</div>
+          ${phoneNumbers || businessAddress ? `<div class="company-info">${[phoneNumbers, businessAddress].filter(Boolean).join(' · ')}</div>` : ''}
           <div class="type">${typeLabels[data.type]}</div>
           <div class="receipt-num">N° ${receiptId.current}</div>
         </div>
@@ -136,7 +137,7 @@ const ReceiptModal = ({ open, onClose, data }: ReceiptModalProps) => {
         <div class="total">${formatCFA(data.amount)}</div>
         ${data.note ? `<div class="note">Note: ${data.note}</div>` : ''}
         <div class="barcode">${barcodeSvg}</div>
-        <div class="footer">Merci pour votre confiance · ${companyName}</div>
+        <div class="footer">Merci pour votre confiance · ${businessName}</div>
       </div>
       </body></html>
     `);
@@ -166,12 +167,12 @@ const ReceiptModal = ({ open, onClose, data }: ReceiptModalProps) => {
         {/* Receipt preview */}
         <div ref={receiptRef} className="border border-border rounded-xl p-5 space-y-3 bg-muted/30">
           <div className="text-center border-b border-border pb-3">
-            {companyLogo && (
-              <img src={companyLogo} alt={companyName} className="h-12 w-12 rounded-lg object-cover mx-auto mb-2" />
+            {businessLogo && (
+              <img src={businessLogo} alt={businessName} className="h-12 w-12 rounded-lg object-cover mx-auto mb-2" />
             )}
-            <p className="font-display text-xl font-bold">{companyName}</p>
-            {(companyPhone || companyAddress) && (
-              <p className="text-xs text-muted-foreground mt-0.5">{[companyPhone, companyAddress].filter(Boolean).join(' · ')}</p>
+            <p className="font-display text-xl font-bold">{businessName}</p>
+            {(phoneNumbers || businessAddress) && (
+              <p className="text-xs text-muted-foreground mt-0.5">{[phoneNumbers, businessAddress].filter(Boolean).join(' · ')}</p>
             )}
             <p className="text-xs text-muted-foreground uppercase tracking-wider mt-1">{typeLabels[data.type]}</p>
             <p className="text-[10px] text-muted-foreground mt-0.5">N° {receiptId.current}</p>

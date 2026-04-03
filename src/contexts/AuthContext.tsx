@@ -1,9 +1,14 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import type { User as SupabaseUser } from '@supabase/supabase-js';
+import type { Database, TablesInsert, TablesUpdate } from '@/integrations/supabase/types';
 import { buildManagedLoginEmail, isEmailIdentifier, usernameFromManagedLoginEmail } from '@/lib/auth';
+import { getErrorMessage } from '@/lib/errors';
 
-export type AppRole = 'super_admin' | 'admin' | 'manager' | 'seller';
+export type AppRole = 'super_admin' | 'admin';
+type LoginLogInsert = TablesInsert<'login_logs'>;
+type Profile = Database['public']['Functions']['get_my_profile']['Returns'][number];
+type RoleRow = Database['public']['Functions']['get_my_roles']['Returns'][number];
 
 export interface AppUser {
   id: string;
@@ -31,20 +36,21 @@ const MAX_ATTEMPTS = 5;
 const LOCK_DURATION_MINUTES = 15;
 
 async function logLogin(email: string, status: string, userId?: string) {
-  await supabase.from('login_logs').insert({
+  const payload: LoginLogInsert = {
     email,
     status,
     user_id: userId || null,
-  } as any);
+  };
+  await supabase.from('login_logs').insert(payload);
 }
 
 async function fetchUserProfile(supabaseUser: SupabaseUser): Promise<AppUser | null> {
   const { data: profiles } = await supabase.rpc('get_my_profile');
-  const profile = (profiles as any)?.[0];
+  const profile = profiles?.[0] as Profile | undefined;
   if (!profile) return null;
 
   const { data: roles } = await supabase.rpc('get_my_roles');
-  const role = (roles as any)?.[0]?.role || 'seller';
+  const role = (roles?.[0] as RoleRow | undefined)?.role === 'super_admin' ? 'super_admin' : 'admin';
   const username = typeof supabaseUser.user_metadata?.username === 'string'
     ? supabaseUser.user_metadata.username
     : usernameFromManagedLoginEmail(supabaseUser.email);
@@ -83,7 +89,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       initialized = true;
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       if (!initialized) return;
 
       if (session?.user) {
@@ -140,7 +146,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       // Check profile status
       const { data: profileData } = await supabase.rpc('get_my_profile');
-      const profile = (profileData as any)?.[0];
+      const profile = profileData?.[0] as Profile | undefined;
 
       if (profile?.status === 'inactive' || profile?.status === 'suspended') {
         await supabase.auth.signOut();
@@ -156,26 +162,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         return { error: `Compte verrouillé. Réessayez dans ${mins} minute(s).` };
       }
 
-      // Check company assignment
-      if (!profile?.company_id) {
-        await supabase.auth.signOut();
-        await logLogin(trimmedIdentifier, 'no_company', data.user.id);
-        return { error: 'Aucune entreprise assignée. Contactez l\'administrateur.' };
-      }
-
       // Reset failed attempts on successful login
       if (profile?.failed_login_attempts > 0) {
-        await supabase.from('profiles').update({
+        const payload: TablesUpdate<'profiles'> = {
           failed_login_attempts: 0,
           locked_until: null
-        } as any).eq('id', data.user.id);
+        };
+        await supabase.from('profiles').update(payload).eq('id', data.user.id);
       }
 
       await logLogin(trimmedIdentifier, 'success', data.user.id);
       setUser(appUser);
       return {};
-    } catch (err: any) {
-      return { error: 'Erreur de connexion' };
+    } catch (error: unknown) {
+      return { error: getErrorMessage(error, 'Erreur de connexion') };
     }
   };
 
@@ -189,7 +189,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     if (error) return { error: error.message };
 
     if (user) {
-      await supabase.from('profiles').update({ must_change_password: false } as any).eq('id', user.id);
+      const payload: TablesUpdate<'profiles'> = { must_change_password: false };
+      await supabase.from('profiles').update(payload).eq('id', user.id);
       setUser({ ...user, mustChangePassword: false });
     }
     return {};

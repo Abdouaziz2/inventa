@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -12,6 +12,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { UserPlus, Shield, ShieldOff, KeyRound, Trash2, Loader2, Users } from 'lucide-react';
 import { toast } from 'sonner';
 import { normalizeUsername } from '@/lib/auth';
+import { getErrorMessage } from '@/lib/errors';
+import type { Enums } from '@/integrations/supabase/types';
 
 interface ManagedUser {
   id: string;
@@ -23,6 +25,9 @@ interface ManagedUser {
   role: string;
   created_at: string;
 }
+
+type UserStatus = Enums<'user_status'>;
+type AdminActionPayload = Record<string, unknown>;
 
 const AdminUsersPage = () => {
   const { user } = useAuth();
@@ -36,35 +41,35 @@ const AdminUsersPage = () => {
   const [newName, setNewName] = useState('');
   const [newPhone, setNewPhone] = useState('');
   const [newPassword, setNewPassword] = useState('');
-  const [newRole, setNewRole] = useState('seller');
+  const [newRole, setNewRole] = useState('admin');
   const [creating, setCreating] = useState(false);
 
   // Reset password dialog
   const [resetUserId, setResetUserId] = useState<string | null>(null);
   const [resetPassword, setResetPasswordVal] = useState('');
 
-  const callAdmin = async (body: any) => {
+  const callAdmin = async <T,>(body: AdminActionPayload): Promise<T> => {
     const { data: { session } } = await supabase.auth.getSession();
     const res = await supabase.functions.invoke('admin-users', {
       body,
       headers: { Authorization: `Bearer ${session?.access_token}` },
     });
     if (res.error) throw new Error(res.error.message);
-    return res.data;
+    return res.data as T;
   };
 
-  const loadUsers = async () => {
+  const loadUsers = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await callAdmin({ action: 'list_users' });
+      const data = await callAdmin<{ users?: ManagedUser[] }>({ action: 'list_users' });
       setUsers(data.users || []);
-    } catch (err: any) {
-      toast.error('Erreur chargement utilisateurs: ' + err.message);
+    } catch (error: unknown) {
+      toast.error('Erreur chargement utilisateurs: ' + getErrorMessage(error));
     }
     setLoading(false);
-  };
+  }, []);
 
-  useEffect(() => { loadUsers(); }, []);
+  useEffect(() => { loadUsers(); }, [loadUsers]);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -80,22 +85,22 @@ const AdminUsersPage = () => {
       });
       toast.success('Compte créé. L’utilisateur peut se connecter immédiatement.');
       setShowCreate(false);
-      setNewUsername(''); setNewName(''); setNewPhone(''); setNewPassword(''); setNewRole('seller');
+      setNewUsername(''); setNewName(''); setNewPhone(''); setNewPassword(''); setNewRole('admin');
       loadUsers();
-    } catch (err: any) {
-      toast.error(err.message);
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error));
     }
     setCreating(false);
   };
 
-  const handleStatusChange = async (userId: string, status: string) => {
+  const handleStatusChange = async (userId: string, status: UserStatus) => {
     setActionLoading(userId);
     try {
       await callAdmin({ action: 'update_status', user_id: userId, status });
       toast.success(`Statut mis à jour`);
       loadUsers();
-    } catch (err: any) {
-      toast.error(err.message);
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error));
     }
     setActionLoading(null);
   };
@@ -108,8 +113,8 @@ const AdminUsersPage = () => {
       toast.success('Mot de passe mis à jour');
       setResetUserId(null);
       setResetPasswordVal('');
-    } catch (err: any) {
-      toast.error(err.message);
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error));
     }
     setActionLoading(null);
   };
@@ -121,8 +126,8 @@ const AdminUsersPage = () => {
       await callAdmin({ action: 'delete_user', user_id: userId });
       toast.success('Utilisateur supprimé');
       loadUsers();
-    } catch (err: any) {
-      toast.error(err.message);
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error));
     }
     setActionLoading(null);
   };
@@ -148,8 +153,6 @@ const AdminUsersPage = () => {
   const roleLabel: Record<string, string> = {
     super_admin: 'Super Admin',
     admin: 'Admin',
-    manager: 'Manager',
-    seller: 'Vendeur',
   };
 
   return (
@@ -205,8 +208,6 @@ const AdminUsersPage = () => {
                 <Select value={newRole} onValueChange={setNewRole}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="seller">Vendeur</SelectItem>
-                    <SelectItem value="manager">Manager</SelectItem>
                     <SelectItem value="admin">Admin</SelectItem>
                     <SelectItem value="super_admin">Super Admin</SelectItem>
                   </SelectContent>

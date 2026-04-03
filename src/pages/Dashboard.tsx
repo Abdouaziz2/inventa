@@ -3,7 +3,7 @@ import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip } from 'recha
 import { TrendingUp, Wallet, Gem, BookmarkCheck, Plus, ShoppingBag } from 'lucide-react';
 import StatCard from '@/components/StatCard';
 import { Button } from '@/components/ui/button';
-import { useClients, useJewelry, useDeposits, useSales, useReservations } from '@/hooks/useDatabase';
+import { useJewelry, useDeposits, useSales, useReservations, type DepositWithClient, type SaleWithRelations } from '@/hooks/useDatabase';
 import { formatCFA } from '@/lib/format';
 
 const Dashboard = () => {
@@ -13,16 +13,16 @@ const Dashboard = () => {
   const { data: reservations = [] } = useReservations();
 
   const totalStock = jewelry.filter(j => j.status === 'available').reduce((s, j) => s + j.sale_price, 0);
-  const totalDeposits = deposits.reduce((s: number, d: any) => s + d.amount, 0);
-  const totalSales = sales.reduce((s: number, d: any) => s + d.total_price, 0);
+  const totalDeposits = deposits.reduce((s: number, d: DepositWithClient) => s + d.amount, 0);
+  const totalSales = sales.reduce((s: number, d: SaleWithRelations) => s + d.total_price, 0);
   const reserved = jewelry.filter(j => j.status === 'reserved').length;
 
   // Build simple daily chart from sales data
   const days = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
   const dailySalesData = days.map((day, i) => {
     const dayTotal = sales
-      .filter((s: any) => new Date(s.created_at).getDay() === i)
-      .reduce((sum: number, s: any) => sum + s.total_price, 0);
+      .filter((sale: SaleWithRelations) => new Date(sale.created_at).getDay() === i)
+      .reduce((sum: number, sale: SaleWithRelations) => sum + sale.total_price, 0);
     return { day, amount: dayTotal };
   });
 
@@ -71,7 +71,7 @@ const Dashboard = () => {
             {deposits.length === 0 ? (
               <p className="text-sm text-muted-foreground text-center py-4">Aucun dépôt</p>
             ) : (
-              deposits.slice(0, 5).map((d: any) => (
+              deposits.slice(0, 5).map((d: DepositWithClient) => (
                 <div key={d.id} className="flex items-center justify-between py-2 border-b border-border last:border-0">
                   <div>
                     <p className="text-sm font-medium">{d.clients?.name || '—'}</p>
