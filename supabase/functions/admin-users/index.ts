@@ -57,9 +57,8 @@ const getUsernameFromAuthUser = (authUser: AuthUserSummary) => {
   return authUser.email ?? "";
 };
 
-// deno-lint-ignore no-explicit-any
 const ensureTargetProfileExists = async (
-  adminClient: any,
+  adminClient: ReturnType<typeof createClient>,
   userId: string,
 ) => {
   const { data: targetProfile, error } = await adminClient
@@ -174,6 +173,7 @@ serve(async (req) => {
           status: "active",
           must_change_password: false,
           company_id: callerProfile?.company_id ?? null,
+          business_name: fullName,
         });
 
         if (profileError) {

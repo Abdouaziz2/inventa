@@ -1,13 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import type { Database, TablesUpdate } from '@/integrations/supabase/types';
 
-export type ProfileSettings = {
-  id: string;
-  full_name: string;
-  phone: string | null;
-  status: string;
-  company_id: string | null;
-  must_change_password: boolean;
+type ProfileRow = Database['public']['Functions']['get_my_profile']['Returns'][number];
+
+export type ProfileSettings = ProfileRow & {
   business_name: string;
   address: string;
   logo: string;
@@ -18,38 +15,20 @@ export const useProfileSettings = () =>
   useQuery({
     queryKey: ['profile-settings'],
     queryFn: async (): Promise<ProfileSettings> => {
-      const { data: profileData, error: profileError } = await supabase.rpc('get_my_profile');
-      if (profileError) throw profileError;
+      const { data, error } = await supabase.rpc('get_my_profile');
+      if (error) throw error;
 
-      const profile = profileData?.[0];
+      const profile = data?.[0];
       if (!profile) {
         throw new Error('Profil introuvable');
       }
 
-      // Fetch company settings if user has a company_id
-      let companySettings = { name: '', address: '', logo: '', phone: '' };
-      if (profile.company_id) {
-        const { data: cs } = await supabase
-          .from('company_settings')
-          .select('name, address, logo, phone')
-          .eq('id', profile.company_id)
-          .single();
-        if (cs) {
-          companySettings = cs;
-        }
-      }
-
       return {
-        id: profile.id,
-        full_name: profile.full_name,
-        phone: profile.phone,
-        status: profile.status,
-        company_id: profile.company_id,
-        must_change_password: profile.must_change_password,
-        business_name: companySettings.name ?? '',
-        address: companySettings.address ?? '',
-        logo: companySettings.logo ?? '',
-        secondary_phone: companySettings.phone ?? '',
+        ...profile,
+        business_name: profile.business_name ?? '',
+        address: profile.address ?? '',
+        logo: profile.logo ?? '',
+        secondary_phone: profile.secondary_phone ?? '',
       };
     },
   });
@@ -67,25 +46,10 @@ export const useUpdateProfileSettings = () => {
       address: string;
       logo: string;
     }) => {
-      const { id, full_name, phone, business_name, secondary_phone, address, logo } = settings;
-
-      // Update profile
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .update({ full_name, phone })
-        .eq('id', id);
-      if (profileError) throw profileError;
-
-      // Update company settings
-      const { data: profileData } = await supabase.rpc('get_my_profile');
-      const companyId = profileData?.[0]?.company_id;
-      if (companyId) {
-        const { error: companyError } = await supabase
-          .from('company_settings')
-          .update({ name: business_name, phone: secondary_phone, address, logo })
-          .eq('id', companyId);
-        if (companyError) throw companyError;
-      }
+      const { id, ...updates } = settings;
+      const payload: TablesUpdate<'profiles'> = updates;
+      const { error } = await supabase.from('profiles').update(payload).eq('id', id);
+      if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['profile-settings'] });
