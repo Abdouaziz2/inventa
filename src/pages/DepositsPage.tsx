@@ -10,6 +10,8 @@ import { formatCFA } from '@/lib/format';
 import NumericKeypad from '@/components/NumericKeypad';
 import ReceiptModal, { ReceiptData } from '@/components/ReceiptModal';
 import type { Client } from '@/hooks/useDatabase';
+import { getErrorMessage } from '@/lib/errors';
+import { useProfileSettings } from '@/hooks/useProfileSettings';
 
 const DepositsPage = () => {
   const [clientSearch, setClientSearch] = useState('');
@@ -21,8 +23,10 @@ const DepositsPage = () => {
   const [showReceipt, setShowReceipt] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
   const { data: clients = [] } = useClients();
+  const { data: profile } = useProfileSettings();
   const addDeposit = useAddDeposit();
   const updateBalance = useUpdateClientBalance();
+  const businessName = profile?.business_name || profile?.full_name || 'Ma boutique';
 
   useEffect(() => { searchRef.current?.focus(); }, []);
 
@@ -58,8 +62,8 @@ const DepositsPage = () => {
       setAmount('');
       setNote('');
       setClientSearch('');
-    } catch (e: any) {
-      toast.error(e.message);
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error));
     }
   };
 
@@ -134,7 +138,7 @@ const DepositsPage = () => {
           {selectedClient && amount ? (
             <div className="space-y-4 text-sm">
               <div className="text-center border-b border-border pb-3">
-                <p className="font-display text-lg font-bold">JewelStock</p>
+                <p className="font-display text-lg font-bold">{businessName}</p>
                 <p className="text-xs text-muted-foreground">Reçu de Dépôt</p>
               </div>
               <div className="space-y-1.5">

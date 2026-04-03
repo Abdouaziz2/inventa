@@ -8,6 +8,7 @@ import { ShoppingBag, CheckCircle2, AlertCircle } from 'lucide-react';
 import { formatCFA } from '@/lib/format';
 import StatusBadge from '@/components/StatusBadge';
 import ReceiptModal, { ReceiptData } from '@/components/ReceiptModal';
+import { getErrorMessage } from '@/lib/errors';
 
 const SalesPage = () => {
   const [clientId, setClientId] = useState('');
@@ -58,8 +59,8 @@ const SalesPage = () => {
       setShowReceipt(true);
       toast.success('Vente enregistrée avec succès');
       setClientId(''); setJewelryId('');
-    } catch (e: any) {
-      toast.error(e.message);
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error));
     }
   };
 

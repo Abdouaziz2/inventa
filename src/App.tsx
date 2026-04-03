@@ -4,6 +4,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import AppLayout from "@/components/AppLayout";
+import AppErrorBoundary from "@/components/AppErrorBoundary";
 import LoginPage from "@/pages/LoginPage";
 import ChangePasswordPage from "@/pages/ChangePasswordPage";
 import Dashboard from "@/pages/Dashboard";
@@ -16,7 +17,7 @@ import ReservationsPage from "@/pages/ReservationsPage";
 import SalesPage from "@/pages/SalesPage";
 import ReceiptsPage from "@/pages/ReceiptsPage";
 import AdminUsersPage from "@/pages/AdminUsersPage";
-import CompanySettingsPage from "@/pages/CompanySettingsPage";
+import ProfileSettingsPage from "@/pages/CompanySettingsPage";
 import NotFound from "@/pages/NotFound";
 import { Loader2 } from "lucide-react";
 
@@ -65,8 +66,9 @@ const AppRoutes = () => {
         <Route path="/reservations" element={<ReservationsPage />} />
         <Route path="/sales" element={<SalesPage />} />
         <Route path="/receipts" element={<ReceiptsPage />} />
+        <Route path="/profile" element={<ProfileSettingsPage />} />
         <Route path="/admin/users" element={<AdminUsersPage />} />
-        <Route path="/admin/settings" element={<CompanySettingsPage />} />
+        <Route path="/admin/settings" element={<Navigate to="/profile" replace />} />
       </Route>
       <Route path="*" element={<NotFound />} />
     </Routes>
@@ -79,7 +81,9 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <AuthProvider>
-          <AppRoutes />
+          <AppErrorBoundary>
+            <AppRoutes />
+          </AppErrorBoundary>
         </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>

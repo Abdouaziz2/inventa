@@ -1,4 +1,4 @@
-import { useDeposits, useSales } from '@/hooks/useDatabase';
+import { useDeposits, useSales, type DepositWithClient, type SaleWithRelations } from '@/hooks/useDatabase';
 import { Receipt, Printer } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { formatCFA } from '@/lib/format';
@@ -8,8 +8,8 @@ const ReceiptsPage = () => {
   const { data: sales = [] } = useSales();
 
   const allOps = [
-    ...deposits.map((d: any) => ({ type: 'deposit' as const, id: d.id, client: d.clients?.name || '—', amount: d.amount, date: d.created_at, label: 'Dépôt' })),
-    ...sales.map((s: any) => ({ type: 'sale' as const, id: s.id, client: s.clients?.name || '—', amount: s.total_price, date: s.created_at, label: 'Vente' })),
+    ...deposits.map((d: DepositWithClient) => ({ type: 'deposit' as const, id: d.id, client: d.clients?.name || '—', amount: d.amount, date: d.created_at, label: 'Dépôt' })),
+    ...sales.map((s: SaleWithRelations) => ({ type: 'sale' as const, id: s.id, client: s.clients?.name || '—', amount: s.total_price, date: s.created_at, label: 'Vente' })),
   ].sort((a, b) => b.date.localeCompare(a.date));
 
   return (

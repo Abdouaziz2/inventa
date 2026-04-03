@@ -20,6 +20,7 @@ export type Database = {
           code: string
           company_id: string | null
           created_at: string
+          created_by: string | null
           email: string | null
           id: string
           name: string
@@ -31,6 +32,7 @@ export type Database = {
           code: string
           company_id?: string | null
           created_at?: string
+          created_by?: string | null
           email?: string | null
           id?: string
           name: string
@@ -42,6 +44,7 @@ export type Database = {
           code?: string
           company_id?: string | null
           created_at?: string
+          created_by?: string | null
           email?: string | null
           id?: string
           name?: string
@@ -94,6 +97,7 @@ export type Database = {
           client_id: string
           company_id: string | null
           created_at: string
+          created_by: string | null
           id: string
           note: string | null
         }
@@ -102,6 +106,7 @@ export type Database = {
           client_id: string
           company_id?: string | null
           created_at?: string
+          created_by?: string | null
           id?: string
           note?: string | null
         }
@@ -110,6 +115,7 @@ export type Database = {
           client_id?: string
           company_id?: string | null
           created_at?: string
+          created_by?: string | null
           id?: string
           note?: string | null
         }
@@ -135,6 +141,7 @@ export type Database = {
           category: Database["public"]["Enums"]["jewelry_category"]
           company_id: string | null
           created_at: string
+          created_by: string | null
           id: string
           name: string
           photo: string | null
@@ -149,6 +156,7 @@ export type Database = {
           category?: Database["public"]["Enums"]["jewelry_category"]
           company_id?: string | null
           created_at?: string
+          created_by?: string | null
           id?: string
           name: string
           photo?: string | null
@@ -163,6 +171,7 @@ export type Database = {
           category?: Database["public"]["Enums"]["jewelry_category"]
           company_id?: string | null
           created_at?: string
+          created_by?: string | null
           id?: string
           name?: string
           photo?: string | null
@@ -212,38 +221,50 @@ export type Database = {
       }
       profiles: {
         Row: {
+          address: string | null
+          business_name: string | null
           company_id: string | null
           created_at: string
           failed_login_attempts: number
           full_name: string
           id: string
           locked_until: string | null
+          logo: string | null
           must_change_password: boolean
           phone: string | null
+          secondary_phone: string | null
           status: Database["public"]["Enums"]["user_status"]
           updated_at: string
         }
         Insert: {
+          address?: string | null
+          business_name?: string | null
           company_id?: string | null
           created_at?: string
           failed_login_attempts?: number
           full_name: string
           id: string
           locked_until?: string | null
+          logo?: string | null
           must_change_password?: boolean
           phone?: string | null
+          secondary_phone?: string | null
           status?: Database["public"]["Enums"]["user_status"]
           updated_at?: string
         }
         Update: {
+          address?: string | null
+          business_name?: string | null
           company_id?: string | null
           created_at?: string
           failed_login_attempts?: number
           full_name?: string
           id?: string
           locked_until?: string | null
+          logo?: string | null
           must_change_password?: boolean
           phone?: string | null
+          secondary_phone?: string | null
           status?: Database["public"]["Enums"]["user_status"]
           updated_at?: string
         }
@@ -262,6 +283,7 @@ export type Database = {
           client_id: string
           company_id: string | null
           created_at: string
+          created_by: string | null
           deposit_amount: number
           id: string
           jewelry_id: string
@@ -271,6 +293,7 @@ export type Database = {
           client_id: string
           company_id?: string | null
           created_at?: string
+          created_by?: string | null
           deposit_amount?: number
           id?: string
           jewelry_id: string
@@ -280,6 +303,7 @@ export type Database = {
           client_id?: string
           company_id?: string | null
           created_at?: string
+          created_by?: string | null
           deposit_amount?: number
           id?: string
           jewelry_id?: string
@@ -314,6 +338,7 @@ export type Database = {
           client_id: string
           company_id: string | null
           created_at: string
+          created_by: string | null
           id: string
           jewelry_id: string
           paid_cash: number
@@ -324,6 +349,7 @@ export type Database = {
           client_id: string
           company_id?: string | null
           created_at?: string
+          created_by?: string | null
           id?: string
           jewelry_id: string
           paid_cash?: number
@@ -334,6 +360,7 @@ export type Database = {
           client_id?: string
           company_id?: string | null
           created_at?: string
+          created_by?: string | null
           id?: string
           jewelry_id?: string
           paid_cash?: number
@@ -391,14 +418,18 @@ export type Database = {
       get_my_profile: {
         Args: never
         Returns: {
+          address: string | null
+          business_name: string | null
           company_id: string | null
           created_at: string
           failed_login_attempts: number
           full_name: string
           id: string
           locked_until: string | null
+          logo: string | null
           must_change_password: boolean
           phone: string | null
+          secondary_phone: string | null
           status: Database["public"]["Enums"]["user_status"]
           updated_at: string
         }[]
@@ -430,6 +461,8 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_company_admin_or_above: { Args: { _user_id: string }; Returns: boolean }
+      is_company_manager_or_above: { Args: { _user_id: string }; Returns: boolean }
       is_super_admin: { Args: { _user_id: string }; Returns: boolean }
     }
     Enums: {
@@ -570,7 +603,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["super_admin", "admin", "manager", "seller"],
+      app_role: ["super_admin", "admin"],
       jewelry_category: [
         "rings",
         "necklaces",

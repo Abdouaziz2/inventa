@@ -8,6 +8,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { toast } from 'sonner';
 import { useAddJewelry } from '@/hooks/useDatabase';
 import { formatCFA } from '@/lib/format';
+import type { Enums } from '@/integrations/supabase/types';
+import { getErrorMessage } from '@/lib/errors';
+
+type JewelryCategory = Enums<'jewelry_category'>;
 
 const AddJewelryPage = () => {
   const navigate = useNavigate();
@@ -29,12 +33,12 @@ const AddJewelryPage = () => {
         price_per_gram: parseInt(form.pricePerGram) || 0,
         purchase_price: parseInt(form.purchasePrice) || 0,
         sale_price: calculatedSalePrice,
-        category: (form.category || 'other') as any,
+        category: (form.category || 'other') as JewelryCategory,
       });
       toast.success('Bijou ajouté avec succès');
       navigate('/jewelry');
-    } catch (e: any) {
-      toast.error(e.message);
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error));
     }
   };
 

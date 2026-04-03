@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 import { BookmarkCheck } from 'lucide-react';
 import { formatCFA } from '@/lib/format';
 import ReceiptModal, { ReceiptData } from '@/components/ReceiptModal';
+import { getErrorMessage } from '@/lib/errors';
 
 const ReservationsPage = () => {
   const [clientId, setClientId] = useState('');
@@ -52,8 +53,8 @@ const ReservationsPage = () => {
       setShowReceipt(true);
       toast.success('Réservation enregistrée');
       setClientId(''); setJewelryId(''); setDeposit('');
-    } catch (e: any) {
-      toast.error(e.message);
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error));
     }
   };
 

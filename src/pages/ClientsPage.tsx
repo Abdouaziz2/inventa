@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { useClients, useAddClient } from '@/hooks/useDatabase';
 import { formatCFA } from '@/lib/format';
 import { toast } from 'sonner';
+import { getErrorMessage } from '@/lib/errors';
 
 const ClientsPage = () => {
   const [search, setSearch] = useState('');
@@ -31,8 +32,8 @@ const ClientsPage = () => {
       setShowAdd(false);
       setNewName('');
       setNewPhone('');
-    } catch (e: any) {
-      toast.error(e.message);
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error));
     }
   };
 

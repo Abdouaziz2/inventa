@@ -1,19 +1,19 @@
 import { useLocation, Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { useCompanySettings } from '@/hooks/useCompanySettings';
+import { useProfileSettings } from '@/hooks/useProfileSettings';
 import {
   LayoutDashboard, Users, Gem, PlusCircle, Wallet,
-  BookmarkCheck, ShoppingBag, Receipt, LogOut, Diamond, ShieldCheck, Building2
+  BookmarkCheck, ShoppingBag, Receipt, LogOut, Diamond, ShieldCheck, UserCog
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const AppSidebar = () => {
   const location = useLocation();
   const { user, logout, isSuperAdmin } = useAuth();
-  const { data: company } = useCompanySettings();
+  const { data: profile } = useProfileSettings();
 
-  const companyName = company?.name || 'JewelStock';
-  const companyLogo = (company as any)?.logo || '';
+  const businessName = profile?.business_name || user?.fullName || 'Ma boutique';
+  const businessLogo = profile?.logo ?? '';
 
   const navItems = [
     { label: 'Tableau de bord', path: '/', icon: LayoutDashboard },
@@ -24,9 +24,9 @@ const AppSidebar = () => {
     { label: 'Réservation', path: '/reservations', icon: BookmarkCheck },
     { label: 'Vente', path: '/sales', icon: ShoppingBag },
     { label: 'Reçus', path: '/receipts', icon: Receipt },
+    { label: 'Profil', path: '/profile', icon: UserCog },
     ...(isSuperAdmin ? [
       { label: 'Utilisateurs', path: '/admin/users', icon: ShieldCheck },
-      { label: 'Entreprise', path: '/admin/settings', icon: Building2 },
     ] : []),
   ];
 
@@ -34,13 +34,13 @@ const AppSidebar = () => {
     <aside className="w-[260px] min-h-screen bg-sidebar flex flex-col border-r border-sidebar-border">
       {/* Logo */}
       <div className="h-16 flex items-center gap-2.5 px-5 border-b border-sidebar-border">
-        {companyLogo ? (
-          <img src={companyLogo} alt={companyName} className="h-8 w-8 rounded-lg object-cover" />
+        {businessLogo ? (
+          <img src={businessLogo} alt={businessName} className="h-8 w-8 rounded-lg object-cover" />
         ) : (
           <Diamond className="h-7 w-7 text-sidebar-primary" />
         )}
         <span className="text-lg font-bold text-sidebar-accent-foreground tracking-tight truncate">
-          {companyName}
+          {businessName}
         </span>
       </div>
 

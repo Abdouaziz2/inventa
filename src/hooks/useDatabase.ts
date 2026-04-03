@@ -7,14 +7,17 @@ export type Jewelry = Tables<'jewelry'>;
 export type Deposit = Tables<'deposits'>;
 export type Sale = Tables<'sales'>;
 export type Reservation = Tables<'reservations'>;
-
-// Helper to get company_id from current user profile
-async function getMyCompanyId(): Promise<string> {
-  const { data } = await supabase.rpc('get_my_profile');
-  const profile = (data as any)?.[0];
-  if (!profile?.company_id) throw new Error('Aucune entreprise assignée');
-  return profile.company_id;
-}
+export type ClientSummary = Pick<Client, 'name' | 'code'>;
+export type JewelrySummary = Pick<Jewelry, 'name'>;
+export type DepositWithClient = Deposit & { clients: ClientSummary | null };
+export type SaleWithRelations = Sale & {
+  clients: ClientSummary | null;
+  jewelry: JewelrySummary | null;
+};
+export type ReservationWithRelations = Reservation & {
+  clients: ClientSummary | null;
+  jewelry: JewelrySummary | null;
+};
 
 // ─── Clients ─────────────────────────────────────────
 export const useClients = () =>
@@ -42,8 +45,8 @@ export const useAddClient = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (client: { name: string; phone: string; email?: string }) => {
-      const companyId = await getMyCompanyId();
-      const { data, error } = await supabase.from('clients').insert({ ...client, code: '', company_id: companyId } as any).select().single();
+      const payload: TablesInsert<'clients'> = { ...client, code: '' };
+      const { data, error } = await supabase.from('clients').insert(payload).select().single();
       if (error) throw error;
       return data;
     },
@@ -77,8 +80,8 @@ export const useAddJewelry = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (item: TablesInsert<'jewelry'>) => {
-      const companyId = await getMyCompanyId();
-      const { data, error } = await supabase.from('jewelry').insert({ ...item, company_id: companyId } as any).select().single();
+      const payload: TablesInsert<'jewelry'> = item;
+      const { data, error } = await supabase.from('jewelry').insert(payload).select().single();
       if (error) throw error;
       return data;
     },
@@ -101,12 +104,12 @@ export const useUpdateJewelryStatus = () => {
 export const useDeposits = (clientId?: string) =>
   useQuery({
     queryKey: ['deposits', clientId],
-    queryFn: async () => {
+    queryFn: async (): Promise<DepositWithClient[]> => {
       let q = supabase.from('deposits').select('*, clients(name, code)').order('created_at', { ascending: false });
       if (clientId) q = q.eq('client_id', clientId);
       const { data, error } = await q;
       if (error) throw error;
-      return data;
+      return (data ?? []) as DepositWithClient[];
     },
   });
 
@@ -114,8 +117,8 @@ export const useAddDeposit = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (deposit: TablesInsert<'deposits'>) => {
-      const companyId = await getMyCompanyId();
-      const { data, error } = await supabase.from('deposits').insert({ ...deposit, company_id: companyId } as any).select().single();
+      const payload: TablesInsert<'deposits'> = deposit;
+      const { data, error } = await supabase.from('deposits').insert(payload).select().single();
       if (error) throw error;
       return data;
     },
@@ -130,12 +133,12 @@ export const useAddDeposit = () => {
 export const useSales = (clientId?: string) =>
   useQuery({
     queryKey: ['sales', clientId],
-    queryFn: async () => {
+    queryFn: async (): Promise<SaleWithRelations[]> => {
       let q = supabase.from('sales').select('*, clients(name, code), jewelry(name)').order('created_at', { ascending: false });
       if (clientId) q = q.eq('client_id', clientId);
       const { data, error } = await q;
       if (error) throw error;
-      return data;
+      return (data ?? []) as SaleWithRelations[];
     },
   });
 
@@ -143,8 +146,8 @@ export const useAddSale = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (sale: TablesInsert<'sales'>) => {
-      const companyId = await getMyCompanyId();
-      const { data, error } = await supabase.from('sales').insert({ ...sale, company_id: companyId } as any).select().single();
+      const payload: TablesInsert<'sales'> = sale;
+      const { data, error } = await supabase.from('sales').insert(payload).select().single();
       if (error) throw error;
       return data;
     },
@@ -160,10 +163,10 @@ export const useAddSale = () => {
 export const useReservations = () =>
   useQuery({
     queryKey: ['reservations'],
-    queryFn: async () => {
+    queryFn: async (): Promise<ReservationWithRelations[]> => {
       const { data, error } = await supabase.from('reservations').select('*, clients(name, code), jewelry(name)').order('created_at', { ascending: false });
       if (error) throw error;
-      return data;
+      return (data ?? []) as ReservationWithRelations[];
     },
   });
 
@@ -171,8 +174,8 @@ export const useAddReservation = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (reservation: TablesInsert<'reservations'>) => {
-      const companyId = await getMyCompanyId();
-      const { data, error } = await supabase.from('reservations').insert({ ...reservation, company_id: companyId } as any).select().single();
+      const payload: TablesInsert<'reservations'> = reservation;
+      const { data, error } = await supabase.from('reservations').insert(payload).select().single();
       if (error) throw error;
       return data;
     },

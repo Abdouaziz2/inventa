@@ -1,20 +1,23 @@
 import { useState, useEffect, useRef } from 'react';
-import { useCompanySettings, useUpdateCompanySettings } from '@/hooks/useCompanySettings';
+import { useProfileSettings, useUpdateProfileSettings } from '@/hooks/useProfileSettings';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Building2, Loader2, Save, Upload, X } from 'lucide-react';
+import { Loader2, Save, Upload, X, UserCog } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
+import { getErrorMessage } from '@/lib/errors';
 
 const CompanySettingsPage = () => {
-  const { data: settings, isLoading } = useCompanySettings();
-  const updateMutation = useUpdateCompanySettings();
+  const { data: settings, isLoading } = useProfileSettings();
+  const updateMutation = useUpdateProfileSettings();
 
+  const [fullName, setFullName] = useState('');
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
+  const [secondaryPhone, setSecondaryPhone] = useState('');
   const [address, setAddress] = useState('');
   const [logoUrl, setLogoUrl] = useState('');
   const [uploading, setUploading] = useState(false);
@@ -22,10 +25,12 @@ const CompanySettingsPage = () => {
 
   useEffect(() => {
     if (settings) {
-      setName(settings.name);
+      setFullName(settings.full_name);
+      setName(settings.business_name);
       setPhone(settings.phone);
       setAddress(settings.address);
-      setLogoUrl((settings as any).logo || '');
+      setLogoUrl(settings.logo);
+      setSecondaryPhone(settings.secondary_phone);
     }
   }, [settings]);
 
@@ -41,7 +46,7 @@ const CompanySettingsPage = () => {
     setUploading(true);
     try {
       const ext = file.name.split('.').pop();
-      const path = `${settings.id}/logo.${ext}`;
+      const path = `profiles/${settings.id}/logo.${ext}`;
       
       const { error: uploadError } = await supabase.storage
         .from('logos')
@@ -53,8 +58,8 @@ const CompanySettingsPage = () => {
       const url = urlData.publicUrl + '?t=' + Date.now();
       setLogoUrl(url);
       toast.success('Logo uploadé');
-    } catch (err: any) {
-      toast.error('Erreur upload: ' + err.message);
+    } catch (error: unknown) {
+      toast.error('Erreur upload: ' + getErrorMessage(error));
     }
     setUploading(false);
   };
@@ -63,10 +68,18 @@ const CompanySettingsPage = () => {
     e.preventDefault();
     if (!settings) return;
     try {
-      await updateMutation.mutateAsync({ id: settings.id, name, phone, address, logo: logoUrl });
-      toast.success('Paramètres enregistrés');
-    } catch (err: any) {
-      toast.error(err.message);
+      await updateMutation.mutateAsync({
+        id: settings.id,
+        full_name: fullName,
+        business_name: name,
+        phone,
+        secondary_phone: secondaryPhone,
+        address,
+        logo: logoUrl,
+      });
+      toast.success('Profil mis à jour');
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error));
     }
   };
 
@@ -82,17 +95,17 @@ const CompanySettingsPage = () => {
     <div className="max-w-2xl mx-auto space-y-6">
       <div>
         <h1 className="text-2xl font-bold flex items-center gap-2">
-          <Building2 className="h-6 w-6 text-muted-foreground" />
-          Paramètres de l'entreprise
+          <UserCog className="h-6 w-6 text-muted-foreground" />
+          Profil de la boutique
         </h1>
         <p className="text-muted-foreground text-sm mt-1">
-          Ces informations apparaissent dans l'application et sur les factures/reçus
+          Ces informations seront affichées dans l'application et sur les factures et reçus
         </p>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Logo & Identité</CardTitle>
+          <CardTitle className="text-base">Logo et identité</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex items-center gap-6">
@@ -130,17 +143,25 @@ const CompanySettingsPage = () => {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Informations générales</CardTitle>
+          <CardTitle className="text-base">Informations du profil</CardTitle>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSave} className="space-y-4">
             <div className="space-y-2">
-              <Label>Nom de l'entreprise</Label>
+              <Label>Nom complet</Label>
+              <Input value={fullName} onChange={e => setFullName(e.target.value)} required placeholder="Ex: Abdoulaye Ndiaye" />
+            </div>
+            <div className="space-y-2">
+              <Label>Nom de la boutique</Label>
               <Input value={name} onChange={e => setName(e.target.value)} required placeholder="Ex: Bijouterie Diamant" />
             </div>
             <div className="space-y-2">
-              <Label>Téléphone</Label>
+              <Label>Téléphone principal</Label>
               <Input value={phone} onChange={e => setPhone(e.target.value)} placeholder="Ex: +221 77 123 45 67" />
+            </div>
+            <div className="space-y-2">
+              <Label>Téléphone secondaire</Label>
+              <Input value={secondaryPhone} onChange={e => setSecondaryPhone(e.target.value)} placeholder="Ex: +221 76 123 45 67" />
             </div>
             <div className="space-y-2">
               <Label>Adresse</Label>

@@ -8,7 +8,7 @@ const corsHeaders = {
 
 const MANAGED_LOGIN_DOMAIN = "users.local";
 const MANAGED_LOGIN_SUFFIX = `@${MANAGED_LOGIN_DOMAIN}`;
-const ALLOWED_ROLES = new Set(["super_admin", "admin", "manager", "seller"]);
+const ALLOWED_ROLES = new Set(["super_admin", "admin"]);
 const ALLOWED_STATUSES = new Set(["active", "inactive", "suspended"]);
 
 const json = (body: unknown, status = 200) =>
@@ -29,7 +29,22 @@ const normalizeUsername = (value: string) =>
 
 const buildManagedLoginEmail = (username: string) => `${normalizeUsername(username)}${MANAGED_LOGIN_SUFFIX}`;
 
-const getUsernameFromAuthUser = (authUser: { email?: string | null; user_metadata?: Record<string, unknown> }) => {
+type AuthUserSummary = {
+  id: string;
+  email?: string | null;
+  user_metadata?: Record<string, unknown>;
+};
+
+type ListedProfile = {
+  id: string;
+  full_name: string;
+  phone: string | null;
+  status: string;
+  must_change_password: boolean;
+  created_at: string;
+};
+
+const getUsernameFromAuthUser = (authUser: AuthUserSummary) => {
   const metadataUsername = authUser.user_metadata?.username;
   if (typeof metadataUsername === "string" && metadataUsername.trim()) {
     return metadataUsername;
@@ -42,14 +57,13 @@ const getUsernameFromAuthUser = (authUser: { email?: string | null; user_metadat
   return authUser.email ?? "";
 };
 
-const ensureTargetBelongsToCompany = async (
+const ensureTargetProfileExists = async (
   adminClient: ReturnType<typeof createClient>,
   userId: string,
-  callerCompanyId: string | null,
 ) => {
   const { data: targetProfile, error } = await adminClient
     .from("profiles")
-    .select("company_id")
+    .select("id")
     .eq("id", userId)
     .single();
 
@@ -57,7 +71,7 @@ const ensureTargetBelongsToCompany = async (
     throw error;
   }
 
-  if (!targetProfile || targetProfile.company_id !== callerCompanyId) {
+  if (!targetProfile) {
     return false;
   }
 
@@ -103,18 +117,6 @@ serve(async (req) => {
       return json({ error: "Accès réservé au Super Admin" }, 403);
     }
 
-    // Get caller's company_id
-    const { data: callerProfile } = await adminClient
-      .from("profiles")
-      .select("company_id")
-      .eq("id", caller.id)
-      .single();
-
-    const callerCompanyId = callerProfile?.company_id;
-    if (!callerCompanyId) {
-      return json({ error: "Aucune entreprise associée au compte administrateur" }, 400);
-    }
-
     const { action, ...params } = await req.json();
 
     switch (action) {
@@ -123,7 +125,7 @@ serve(async (req) => {
         const password = String(params.password ?? "");
         const fullName = String(params.full_name ?? "").trim();
         const phone = String(params.phone ?? "").trim();
-        const role = ALLOWED_ROLES.has(String(params.role)) ? String(params.role) : "seller";
+        const role = ALLOWED_ROLES.has(String(params.role)) ? String(params.role) : "admin";
 
         if (username.length < 3) {
           return json({ error: "Le nom d'utilisateur doit contenir au moins 3 caractères." }, 400);
@@ -163,7 +165,7 @@ serve(async (req) => {
           phone: phone || "",
           status: "active",
           must_change_password: false,
-          company_id: callerCompanyId,
+          business_name: fullName,
         });
 
         if (profileError) {
@@ -190,8 +192,8 @@ serve(async (req) => {
           return json({ error: "Statut invalide" }, 400);
         }
 
-        const belongsToCompany = await ensureTargetBelongsToCompany(adminClient, String(user_id), callerCompanyId);
-        if (!belongsToCompany) {
+        const targetExists = await ensureTargetProfileExists(adminClient, String(user_id));
+        if (!targetExists) {
           return json({ error: "Utilisateur non trouvé" }, 404);
         }
 
@@ -206,8 +208,8 @@ serve(async (req) => {
           return json({ error: "Le mot de passe doit contenir au moins 6 caractères." }, 400);
         }
 
-        const belongsToCompany = await ensureTargetBelongsToCompany(adminClient, String(user_id), callerCompanyId);
-        if (!belongsToCompany) {
+        const targetExists = await ensureTargetProfileExists(adminClient, String(user_id));
+        if (!targetExists) {
           return json({ error: "Utilisateur non trouvé" }, 404);
         }
 
@@ -232,7 +234,6 @@ serve(async (req) => {
         const { data: profiles, error: profilesError } = await adminClient
           .from("profiles")
           .select("id, full_name, phone, status, must_change_password, created_at")
-          .eq("company_id", callerCompanyId)
           .order("created_at", { ascending: false });
 
         if (profilesError) {
@@ -261,17 +262,17 @@ serve(async (req) => {
           throw authUsersError;
         }
 
-        const authUserMap = new Map((authUsersData.users ?? []).map((authUser: any) => [authUser.id, authUser]));
+        const authUserMap = new Map((authUsersData.users ?? []).map((authUser: AuthUserSummary) => [authUser.id, authUser]));
         const roleMap = new Map((roleRows ?? []).map((roleRow) => [roleRow.user_id, roleRow.role]));
 
-        const enriched = (profiles || []).map((profile: any) => {
+        const enriched = (profiles ?? []).map((profile: ListedProfile) => {
           const authUser = authUserMap.get(profile.id);
 
           return {
             ...profile,
             email: authUser?.email || "",
             username: authUser ? getUsernameFromAuthUser(authUser) : "",
-            role: roleMap.get(profile.id) || "seller",
+            role: roleMap.get(profile.id) || "admin",
           };
         });
 
@@ -280,8 +281,8 @@ serve(async (req) => {
 
       case "delete_user": {
         const { user_id } = params;
-        const belongsToCompany = await ensureTargetBelongsToCompany(adminClient, String(user_id), callerCompanyId);
-        if (!belongsToCompany) {
+        const targetExists = await ensureTargetProfileExists(adminClient, String(user_id));
+        if (!targetExists) {
           return json({ error: "Utilisateur non trouvé" }, 404);
         }
 
