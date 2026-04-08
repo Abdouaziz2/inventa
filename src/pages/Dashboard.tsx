@@ -3,7 +3,8 @@ import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip } from 'recha
 import { TrendingUp, Wallet, Gem, BookmarkCheck, Plus, ShoppingBag } from 'lucide-react';
 import StatCard from '@/components/StatCard';
 import { Button } from '@/components/ui/button';
-import { useJewelry, useDeposits, useSales, useReservations, type DepositWithClient, type SaleWithRelations } from '@/hooks/useDatabase';
+import { useJewelry } from '@/features/jewelry';
+import { useDeposits, useSales, useReservations, type DepositWithClient, type SaleWithRelations } from '@/features/transactions';
 import { formatCFA } from '@/lib/format';
 
 const Dashboard = () => {

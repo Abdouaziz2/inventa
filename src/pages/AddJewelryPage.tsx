@@ -1,41 +1,76 @@
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Upload } from 'lucide-react';
+import { ArrowLeft, ImagePlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { useAddJewelry } from '@/hooks/useDatabase';
+import {
+  jewelryMaterialOptions,
+  useAddJewelry,
+  type JewelryCategory,
+  type JewelryMaterial,
+} from '@/features/jewelry';
 import { formatCFA } from '@/lib/format';
-import type { Enums } from '@/integrations/supabase/types';
 import { getErrorMessage } from '@/lib/errors';
 
-type JewelryCategory = Enums<'jewelry_category'>;
+const createJewelryCode = () =>
+  `JW-${new Date().toISOString().slice(0, 10).replaceAll('-', '')}-${Math.floor(1000 + Math.random() * 9000)}`;
 
 const AddJewelryPage = () => {
   const navigate = useNavigate();
-  const [form, setForm] = useState({ name: '', weight: '', pricePerGram: '', purchasePrice: '', category: '' });
   const addJewelry = useAddJewelry();
+  const [form, setForm] = useState({
+    name: '',
+    materialType: 'gold',
+    category: 'other',
+    quantity: '1',
+    weight: '',
+    purchasePrice: '',
+    salePrice: '',
+    photo: '',
+  });
 
-  const calculatedSalePrice = useMemo(() => {
-    const w = parseFloat(form.weight) || 0;
-    const ppg = parseInt(form.pricePerGram) || 0;
-    return Math.round(w * ppg);
-  }, [form.weight, form.pricePerGram]);
+  const handleImageFile = async (file: File | undefined) => {
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      toast.error('Veuillez selectionner une image valide.');
+      return;
+    }
+
+    const dataUrl = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result || ''));
+      reader.onerror = () => reject(new Error('Impossible de lire le fichier image.'));
+      reader.readAsDataURL(file);
+    });
+
+    setForm((current) => ({ ...current, photo: dataUrl }));
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
     try {
+      const quantity = Math.max(0, Number(form.quantity || 0));
+
       await addJewelry.mutateAsync({
-        name: form.name,
-        weight: parseFloat(form.weight) || 0,
-        price_per_gram: parseInt(form.pricePerGram) || 0,
-        purchase_price: parseInt(form.purchasePrice) || 0,
-        sale_price: calculatedSalePrice,
-        category: (form.category || 'other') as JewelryCategory,
+        code: createJewelryCode(),
+        material_type: form.materialType as JewelryMaterial,
+        name: form.name.trim(),
+        quantity,
+        weight: Number(form.weight || 0),
+        price_per_gram: 0,
+        purchase_price: Number(form.purchasePrice || 0),
+        sale_price: Number(form.salePrice || 0),
+        category: form.category as JewelryCategory,
+        status: quantity > 0 ? 'available' : 'out_of_stock',
+        photo: form.photo || null,
       });
-      toast.success('Bijou ajouté avec succès');
+
+      toast.success('Bijou ajoute avec succes');
       navigate('/jewelry');
     } catch (error: unknown) {
       toast.error(getErrorMessage(error));
@@ -43,27 +78,51 @@ const AddJewelryPage = () => {
   };
 
   return (
-    <div className="space-y-6 animate-fade-in max-w-2xl">
+    <div className="mx-auto max-w-3xl space-y-6 animate-fade-in">
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="sm" onClick={() => navigate('/jewelry')}><ArrowLeft className="h-4 w-4" /></Button>
-        <h1 className="text-2xl font-bold tracking-tight">Ajouter un Bijou</h1>
+        <Button variant="ghost" size="sm" onClick={() => navigate('/jewelry')}>
+          <ArrowLeft className="h-4 w-4" />
+        </Button>
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Ajouter un bijou</h1>
+          <p className="text-sm text-muted-foreground">Formulaire simple avec type de matiere.</p>
+        </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="bg-card rounded-xl p-6 card-shadow space-y-5">
+      <form onSubmit={handleSubmit} className="space-y-6 rounded-2xl border bg-card p-6 shadow-sm">
         <div className="space-y-2">
           <Label>Nom du bijou</Label>
-          <Input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="Bague Solitaire Diamant" required />
+          <Input
+            value={form.name}
+            onChange={(e) => setForm({ ...form, name: e.target.value })}
+            placeholder="Bague solitaire"
+            required
+          />
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid gap-4 md:grid-cols-2">
           <div className="space-y-2">
-            <Label>Poids (grammes)</Label>
-            <Input type="number" step="0.1" value={form.weight} onChange={e => setForm({ ...form, weight: e.target.value })} placeholder="3.5" required />
+            <Label>Matiere</Label>
+            <Select value={form.materialType} onValueChange={(value) => setForm({ ...form, materialType: value })}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {jewelryMaterialOptions.map((material) => (
+                  <SelectItem key={material.key} value={material.key}>
+                    {material.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
+
           <div className="space-y-2">
-            <Label>Catégorie</Label>
-            <Select value={form.category} onValueChange={v => setForm({ ...form, category: v })}>
-              <SelectTrigger><SelectValue placeholder="Choisir..." /></SelectTrigger>
+            <Label>Categorie</Label>
+            <Select value={form.category} onValueChange={(value) => setForm({ ...form, category: value })}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
               <SelectContent>
                 <SelectItem value="rings">Bagues</SelectItem>
                 <SelectItem value="necklaces">Colliers</SelectItem>
@@ -76,40 +135,94 @@ const AddJewelryPage = () => {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid gap-4 md:grid-cols-2">
           <div className="space-y-2">
-            <Label>Prix d'achat (FCFA)</Label>
-            <Input type="number" value={form.purchasePrice} onChange={e => setForm({ ...form, purchasePrice: e.target.value })} placeholder="600000" required />
+            <Label>Stock</Label>
+            <Input
+              type="number"
+              min="0"
+              value={form.quantity}
+              onChange={(e) => setForm({ ...form, quantity: e.target.value })}
+              required
+            />
           </div>
+
           <div className="space-y-2">
-            <Label>Prix unitaire / gramme (FCFA)</Label>
-            <Input type="number" value={form.pricePerGram} onChange={e => setForm({ ...form, pricePerGram: e.target.value })} placeholder="50000" required />
+            <Label>{form.materialType === 'diamond' ? 'Poids (ct)' : 'Poids (g)'}</Label>
+            <Input
+              type="number"
+              step="0.01"
+              value={form.weight}
+              onChange={(e) => setForm({ ...form, weight: e.target.value })}
+              placeholder={form.materialType === 'diamond' ? '1.25' : '3.50'}
+              required
+            />
           </div>
         </div>
 
-        {/* Calculated sale price */}
-        <div className="bg-muted/50 rounded-lg p-4 border border-border">
-          <div className="flex justify-between items-center">
-            <div>
-              <p className="text-sm text-muted-foreground">Prix de vente calculé</p>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                {form.weight || '0'}g × {formatCFA(parseInt(form.pricePerGram) || 0)}/g
-              </p>
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className="space-y-2">
+            <Label>Prix d'achat</Label>
+            <Input
+              type="number"
+              min="0"
+              value={form.purchasePrice}
+              onChange={(e) => setForm({ ...form, purchasePrice: e.target.value })}
+              placeholder="600000"
+              required
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label>Prix de vente</Label>
+            <Input
+              type="number"
+              min="0"
+              value={form.salePrice}
+              onChange={(e) => setForm({ ...form, salePrice: e.target.value })}
+              placeholder="900000"
+              required
+            />
+          </div>
+        </div>
+
+        <div className="rounded-xl border bg-muted/20 p-4">
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-muted-foreground">Marge unitaire estimee</span>
+            <span className="font-semibold">
+              {formatCFA(Number(form.salePrice || 0) - Number(form.purchasePrice || 0))}
+            </span>
+          </div>
+        </div>
+
+        <div className="space-y-3">
+          <Label>Image (optionnel)</Label>
+          <div className="grid gap-3 md:grid-cols-[0.9fr_1.1fr]">
+            <label className="flex min-h-32 cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-border bg-muted/30 p-4 text-center transition hover:bg-muted/50">
+              <ImagePlus className="mb-3 h-8 w-8 text-muted-foreground" />
+              <span className="text-sm font-medium">Importer une image</span>
+              <input
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => void handleImageFile(e.target.files?.[0])}
+              />
+            </label>
+
+            <div className="flex min-h-32 items-center justify-center rounded-2xl border bg-background p-4">
+              {form.photo ? (
+                <img src={form.photo} alt="Apercu bijou" className="max-h-28 rounded-xl object-cover" />
+              ) : (
+                <p className="text-sm text-muted-foreground">Apercu image</p>
+              )}
             </div>
-            <p className="text-2xl font-bold">{formatCFA(calculatedSalePrice)}</p>
           </div>
         </div>
 
-        <div className="space-y-2">
-          <Label>Photo</Label>
-          <div className="border-2 border-dashed border-border rounded-lg p-8 text-center cursor-pointer hover:bg-muted/50 transition-colors">
-            <Upload className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
-            <p className="text-sm text-muted-foreground">Cliquer ou glisser une photo</p>
-          </div>
-        </div>
-
-        <div className="flex justify-end gap-3 pt-2">
-          <Button type="button" variant="outline" onClick={() => navigate('/jewelry')}>Annuler</Button>
+        <div className="flex justify-end gap-3">
+          <Button type="button" variant="outline" onClick={() => navigate('/jewelry')}>
+            Annuler
+          </Button>
           <Button type="submit" disabled={addJewelry.isPending} className="gold-gradient text-accent-foreground hover:opacity-90">
             {addJewelry.isPending ? 'Enregistrement...' : 'Enregistrer'}
           </Button>

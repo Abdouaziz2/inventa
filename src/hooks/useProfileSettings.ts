@@ -1,35 +1,26 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import type { Database, TablesUpdate } from '@/integrations/supabase/types';
+import { apiRequest } from '@/lib/api';
+import { queryKeys } from '@/lib/queryKeys';
+import type { ProfileSettings } from '@/types/api';
 
-type ProfileRow = Database['public']['Functions']['get_my_profile']['Returns'][number];
-
-export type ProfileSettings = ProfileRow & {
+type ProfileSettingsUpdate = {
+  id: string;
+  full_name: string;
   business_name: string;
+  phone: string;
+  secondary_phone: string;
   address: string;
   logo: string;
-  secondary_phone: string;
 };
+
+export type { ProfileSettings };
 
 export const useProfileSettings = () =>
   useQuery({
-    queryKey: ['profile-settings'],
-    queryFn: async (): Promise<ProfileSettings> => {
-      const { data, error } = await supabase.rpc('get_my_profile');
-      if (error) throw error;
-
-      const profile = data?.[0];
-      if (!profile) {
-        throw new Error('Profil introuvable');
-      }
-
-      return {
-        ...profile,
-        business_name: profile.business_name ?? '',
-        address: profile.address ?? '',
-        logo: profile.logo ?? '',
-        secondary_phone: profile.secondary_phone ?? '',
-      };
+    queryKey: queryKeys.profileSettings,
+    queryFn: async () => {
+      const response = await apiRequest<{ profile: ProfileSettings }>('/profile');
+      return response.profile;
     },
   });
 
@@ -37,22 +28,15 @@ export const useUpdateProfileSettings = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (settings: {
-      id: string;
-      full_name: string;
-      business_name: string;
-      phone: string;
-      secondary_phone: string;
-      address: string;
-      logo: string;
-    }) => {
-      const { id, ...updates } = settings;
-      const payload: TablesUpdate<'profiles'> = updates;
-      const { error } = await supabase.from('profiles').update(payload).eq('id', id);
-      if (error) throw error;
+    mutationFn: async ({ id: _id, ...settings }: ProfileSettingsUpdate) => {
+      const response = await apiRequest<{ profile: ProfileSettings }>('/profile', {
+        method: 'PATCH',
+        body: settings,
+      });
+      return response.profile;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['profile-settings'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.profileSettings });
     },
   });
 };

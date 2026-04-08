@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Loader2, Save, Upload, X, UserCog } from 'lucide-react';
 import { toast } from 'sonner';
-import { supabase } from '@/integrations/supabase/client';
+import { apiRequest } from '@/lib/api';
 import { getErrorMessage } from '@/lib/errors';
 
 const CompanySettingsPage = () => {
@@ -45,18 +45,13 @@ const CompanySettingsPage = () => {
 
     setUploading(true);
     try {
-      const ext = file.name.split('.').pop();
-      const path = `profiles/${settings.id}/logo.${ext}`;
-      
-      const { error: uploadError } = await supabase.storage
-        .from('logos')
-        .upload(path, file, { upsert: true });
-      
-      if (uploadError) throw uploadError;
-
-      const { data: urlData } = supabase.storage.from('logos').getPublicUrl(path);
-      const url = urlData.publicUrl + '?t=' + Date.now();
-      setLogoUrl(url);
+      const formData = new FormData();
+      formData.append('logo', file);
+      const response = await apiRequest<{ url: string }>('/profile/logo', {
+        method: 'POST',
+        body: formData,
+      });
+      setLogoUrl(response.url + '?t=' + Date.now());
       toast.success('Logo uploadé');
     } catch (error: unknown) {
       toast.error('Erreur upload: ' + getErrorMessage(error));

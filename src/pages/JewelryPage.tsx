@@ -1,90 +1,536 @@
-import { useState } from 'react';
-import { Search } from 'lucide-react';
-import { Input } from '@/components/ui/input';
+import { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
+import {
+  ArrowUpDown,
+  CirclePlus,
+  MoreHorizontal,
+  Package2,
+  PencilLine,
+  Search,
+  TriangleAlert,
+} from 'lucide-react';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from '@/components/ui/pagination';
 import StatusBadge from '@/components/StatusBadge';
-import { useJewelry } from '@/hooks/useDatabase';
-import { cn } from '@/lib/utils';
 import { formatCFA } from '@/lib/format';
+import { getErrorMessage } from '@/lib/errors';
+import {
+  filterJewelry,
+  formatJewelryMaterial,
+  jewelryMaterialOptions,
+  jewelrySortOptions,
+  jewelryStatusOptions,
+  sortJewelry,
+  useJewelry,
+  useUpdateJewelry,
+  useUpdateJewelryStatus,
+  type Jewelry,
+  type JewelrySortKey,
+  type JewelryStatus,
+  type JewelryStatusFilter,
+} from '@/features/jewelry';
 
-type StatusFilter = 'all' | 'available' | 'reserved' | 'sold';
+const PAGE_SIZE = 10;
+
+const emptyEditor = {
+  id: '',
+  code: '',
+  material_type: 'gold',
+  name: '',
+  quantity: '0',
+  weight: '0',
+  category: 'other',
+  purchase_price: '0',
+  sale_price: '0',
+  price_per_gram: '0',
+  status: 'available',
+  photo: '',
+};
 
 const JewelryPage = () => {
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+  const [statusFilter, setStatusFilter] = useState<JewelryStatusFilter>('all');
+  const [sortKey, setSortKey] = useState<JewelrySortKey>('recent');
+  const [page, setPage] = useState(1);
+  const [editing, setEditing] = useState<typeof emptyEditor | null>(null);
+
   const { data: jewelry = [], isLoading } = useJewelry();
+  const updateJewelry = useUpdateJewelry();
+  const updateJewelryStatus = useUpdateJewelryStatus();
 
-  const filtered = jewelry.filter(j => {
-    const matchSearch = j.name.toLowerCase().includes(search.toLowerCase());
-    const matchStatus = statusFilter === 'all' || j.status === statusFilter;
-    return matchSearch && matchStatus;
-  });
+  const filteredJewelry = useMemo(
+    () => sortJewelry(filterJewelry(search, statusFilter)(jewelry), sortKey),
+    [jewelry, search, sortKey, statusFilter],
+  );
 
-  const statuses: { key: StatusFilter; label: string }[] = [
-    { key: 'all', label: 'Tous' },
-    { key: 'available', label: 'Disponible' },
-    { key: 'reserved', label: 'Réservé' },
-    { key: 'sold', label: 'Vendu' },
-  ];
+  const totalPages = Math.max(1, Math.ceil(filteredJewelry.length / PAGE_SIZE));
+  const paginatedJewelry = filteredJewelry.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const lowStockCount = jewelry.filter((item) => item.quantity > 0 && item.quantity <= 3).length;
+  const outOfStockCount = jewelry.filter((item) => item.quantity <= 0 || item.status === 'out_of_stock').length;
+
+  useEffect(() => {
+    setPage(1);
+  }, [search, sortKey, statusFilter]);
+
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [page, totalPages]);
+
+  const openEditor = (item: Jewelry) => {
+    setEditing({
+      id: item.id,
+      code: item.code,
+      material_type: item.material_type,
+      name: item.name,
+      quantity: String(item.quantity),
+      weight: String(item.weight),
+      category: item.category,
+      purchase_price: String(item.purchase_price),
+      sale_price: String(item.sale_price),
+      price_per_gram: String(item.price_per_gram),
+      status: item.status,
+      photo: item.photo || '',
+    });
+  };
+
+  const handleQuickStatus = async (item: Jewelry, status: JewelryStatus, quantity = item.quantity) => {
+    try {
+      await updateJewelryStatus.mutateAsync({ id: item.id, status, quantity });
+      toast.success('Inventaire mis a jour');
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error));
+    }
+  };
+
+  const handleQuickRestock = async (item: Jewelry, increment: number) => {
+    const nextQuantity = item.quantity + increment;
+    try {
+      await updateJewelryStatus.mutateAsync({
+        id: item.id,
+        quantity: nextQuantity,
+        status: nextQuantity > 0 && item.status === 'out_of_stock' ? 'available' : item.status,
+      });
+      toast.success(`Stock mis a jour: ${nextQuantity}`);
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error));
+    }
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editing) return;
+
+    try {
+      await updateJewelry.mutateAsync({
+        id: editing.id,
+        code: editing.code.trim(),
+        material_type: editing.material_type as Jewelry['material_type'],
+        name: editing.name.trim(),
+        quantity: Math.max(0, Number(editing.quantity || 0)),
+        weight: Number(editing.weight || 0),
+        category: editing.category as Jewelry['category'],
+        purchase_price: Number(editing.purchase_price || 0),
+        sale_price: Number(editing.sale_price || 0),
+        price_per_gram: Number(editing.price_per_gram || 0),
+        status: editing.status as JewelryStatus,
+        photo: editing.photo || null,
+      });
+      toast.success('Reference mise a jour');
+      setEditing(null);
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error));
+    }
+  };
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Bijoux</h1>
-          <p className="text-muted-foreground text-sm">{jewelry.length} pièces au catalogue</p>
+          <h1 className="text-2xl font-bold tracking-tight">Inventaire bijoux</h1>
+          <p className="text-sm text-muted-foreground">
+            Vue compacte pour le stock, les ventes et les actions rapides de boutique.
+          </p>
         </div>
-        <Button asChild size="sm" className="gold-gradient text-accent-foreground hover:opacity-90">
-          <a href="/jewelry/add">+ Ajouter un Bijou</a>
-        </Button>
-      </div>
 
-      <div className="flex items-center gap-3 flex-wrap">
-        <div className="relative max-w-sm flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input placeholder="Rechercher un bijou..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9" />
-        </div>
-        <div className="flex items-center gap-1 bg-card rounded-lg p-1 card-shadow">
-          {statuses.map(s => (
-            <button
-              key={s.key}
-              onClick={() => setStatusFilter(s.key)}
-              className={cn(
-                "px-3 py-1.5 rounded-md text-xs font-medium transition-colors",
-                statusFilter === s.key ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"
-              )}
-            >
-              {s.label}
-            </button>
-          ))}
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="rounded-2xl border bg-card px-4 py-2 text-sm shadow-sm">
+            <span className="text-muted-foreground">Stock faible</span>
+            <p className="font-semibold">{lowStockCount} references</p>
+          </div>
+          <div className="rounded-2xl border bg-card px-4 py-2 text-sm shadow-sm">
+            <span className="text-muted-foreground">Rupture</span>
+            <p className="font-semibold">{outOfStockCount} references</p>
+          </div>
+          <Button asChild className="gold-gradient text-accent-foreground hover:opacity-90">
+            <Link to="/jewelry/add">+ Ajouter un bijou</Link>
+          </Button>
         </div>
       </div>
 
-      {isLoading ? (
-        <div className="text-center text-muted-foreground py-8">Chargement...</div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {filtered.map(item => (
-            <div key={item.id} className="bg-card rounded-xl card-shadow hover:card-shadow-hover transition-all overflow-hidden group">
-              <div className="aspect-square bg-muted flex items-center justify-center">
-                <span className="text-4xl">💎</span>
-              </div>
-              <div className="p-4 space-y-2">
-                <div className="flex items-start justify-between">
-                  <h3 className="text-sm font-semibold leading-tight">{item.name}</h3>
+      <div className="rounded-2xl border bg-card p-4 shadow-sm">
+        <div className="grid gap-3 lg:grid-cols-[1.4fr_0.7fr_0.7fr]">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="Rechercher par nom, code ou categorie..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-9"
+            />
+          </div>
+
+          <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as JewelryStatusFilter)}>
+            <SelectTrigger>
+              <SelectValue placeholder="Filtrer par statut" />
+            </SelectTrigger>
+            <SelectContent>
+              {jewelryStatusOptions.map((option) => (
+                <SelectItem key={option.key} value={option.key}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Select value={sortKey} onValueChange={(value) => setSortKey(value as JewelrySortKey)}>
+            <SelectTrigger>
+              <SelectValue placeholder="Trier" />
+            </SelectTrigger>
+            <SelectContent>
+              {jewelrySortOptions.map((option) => (
+                <SelectItem key={option.key} value={option.key}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      <div className="overflow-hidden rounded-2xl border bg-card shadow-sm">
+        <div className="hidden items-center gap-4 border-b bg-muted/20 px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground md:grid md:grid-cols-[minmax(260px,1.6fr)_110px_100px_120px_140px_120px_70px]">
+          <div className="flex items-center gap-2">
+            <Package2 className="h-4 w-4" />
+            Reference
+          </div>
+          <div>Statut</div>
+          <div className="text-right">Stock</div>
+          <div className="text-right">Poids</div>
+          <div className="text-right">Prix vente</div>
+          <div className="text-right">Prix achat</div>
+          <div className="text-right">
+            <ArrowUpDown className="ml-auto h-4 w-4" />
+          </div>
+        </div>
+
+        {isLoading ? (
+          <div className="py-10 text-center text-sm text-muted-foreground">Chargement de l'inventaire...</div>
+        ) : paginatedJewelry.length === 0 ? (
+          <div className="py-12 text-center">
+            <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-muted">
+              <TriangleAlert className="h-5 w-5 text-muted-foreground" />
+            </div>
+            <p className="font-medium">Aucune reference trouvee</p>
+            <p className="text-sm text-muted-foreground">Essayez un autre filtre ou ajoutez un nouveau bijou.</p>
+          </div>
+        ) : (
+          <div className="divide-y">
+            {paginatedJewelry.map((item) => (
+              <div
+                key={item.id}
+                className="grid gap-3 px-4 py-3 transition-colors hover:bg-muted/30 md:grid-cols-[minmax(260px,1.6fr)_110px_100px_120px_140px_120px_70px] md:items-center"
+              >
+                <div className="flex items-center gap-3">
+                  {item.photo ? (
+                    <img src={item.photo} alt={item.name} className="h-11 w-11 rounded-full object-cover ring-1 ring-border" />
+                  ) : (
+                    <div className="flex h-11 w-11 items-center justify-center rounded-full bg-muted text-base">💎</div>
+                  )}
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                      <p className="truncate text-sm font-semibold">{item.name}</p>
+                      <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">
+                        {item.code}
+                      </span>
+                      <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] text-amber-700">
+                        {formatJewelryMaterial(item.material_type)}
+                      </span>
+                    </div>
+                    <p className="truncate text-xs capitalize text-muted-foreground">
+                      {formatJewelryMaterial(item.material_type)} · {item.category} · cree le {new Date(item.created_at).toLocaleDateString('fr-FR')}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="md:justify-self-start">
                   <StatusBadge status={item.status} />
                 </div>
-                <p className="text-xs text-muted-foreground capitalize">{item.category} · {item.weight}g</p>
-                {item.price_per_gram > 0 && (
-                  <p className="text-xs text-muted-foreground">{formatCFA(item.price_per_gram)}/g</p>
-                )}
-                <p className="text-lg font-bold">{formatCFA(item.sale_price)}</p>
+
+                <div className="flex items-center justify-between text-sm md:block md:text-right">
+                  <span className="text-xs text-muted-foreground md:hidden">Stock</span>
+                  <span className={`font-semibold ${item.quantity <= 3 ? 'text-amber-600' : ''}`}>{item.quantity}</span>
+                </div>
+
+                <div className="flex items-center justify-between text-sm md:block md:text-right">
+                  <span className="text-xs text-muted-foreground md:hidden">Poids</span>
+                  <span>{item.weight.toFixed(2)} g</span>
+                </div>
+
+                <div className="flex items-center justify-between text-sm md:block md:text-right">
+                  <span className="text-xs text-muted-foreground md:hidden">Prix vente</span>
+                  <span className="font-semibold">{formatCFA(item.sale_price)}</span>
+                </div>
+
+                <div className="flex items-center justify-between text-sm md:block md:text-right">
+                  <span className="text-xs text-muted-foreground md:hidden">Prix achat</span>
+                  <span>{formatCFA(item.purchase_price)}</span>
+                </div>
+
+                <div className="flex justify-end">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon">
+                        <MoreHorizontal className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-52">
+                      <DropdownMenuLabel>Actions rapides</DropdownMenuLabel>
+                      <DropdownMenuItem onClick={() => openEditor(item)}>
+                        <PencilLine className="mr-2 h-4 w-4" />
+                        Modifier la fiche
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => void handleQuickRestock(item, 1)}>
+                        <CirclePlus className="mr-2 h-4 w-4" />
+                        Restocker +1
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => void handleQuickRestock(item, 5)}>
+                        <CirclePlus className="mr-2 h-4 w-4" />
+                        Restocker +5
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={() => void handleQuickStatus(item, 'available', Math.max(1, item.quantity))}>
+                        Marquer disponible
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => void handleQuickStatus(item, 'reserved')}>
+                        Marquer reserve
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => void handleQuickStatus(item, 'sold')}>
+                        Marquer vendu
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => void handleQuickStatus(item, 'out_of_stock', 0)}>
+                        Marquer en rupture
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="flex flex-col gap-3 rounded-2xl border bg-card px-4 py-3 shadow-sm md:flex-row md:items-center md:justify-between">
+        <p className="text-sm text-muted-foreground">
+          {filteredJewelry.length} references · page {page} sur {totalPages}
+        </p>
+
+        <Pagination className="mx-0 w-auto justify-start md:justify-end">
+          <PaginationContent>
+            <PaginationItem>
+              <PaginationPrevious
+                href="#"
+                onClick={(e) => {
+                  e.preventDefault();
+                  if (page > 1) setPage(page - 1);
+                }}
+                className={page <= 1 ? 'pointer-events-none opacity-50' : ''}
+              />
+            </PaginationItem>
+
+            {Array.from({ length: totalPages }, (_, index) => index + 1)
+              .filter((pageNumber) => Math.abs(pageNumber - page) <= 1 || pageNumber === 1 || pageNumber === totalPages)
+              .map((pageNumber) => (
+                <PaginationItem key={pageNumber}>
+                  <PaginationLink
+                    href="#"
+                    isActive={pageNumber === page}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setPage(pageNumber);
+                    }}
+                  >
+                    {pageNumber}
+                  </PaginationLink>
+                </PaginationItem>
+              ))}
+
+            <PaginationItem>
+              <PaginationNext
+                href="#"
+                onClick={(e) => {
+                  e.preventDefault();
+                  if (page < totalPages) setPage(page + 1);
+                }}
+                className={page >= totalPages ? 'pointer-events-none opacity-50' : ''}
+              />
+            </PaginationItem>
+          </PaginationContent>
+        </Pagination>
+      </div>
+
+      <Dialog open={!!editing} onOpenChange={(open) => !open && setEditing(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Modifier la reference</DialogTitle>
+            <DialogDescription>Ajustez le stock, les prix ou le statut sans quitter l'inventaire.</DialogDescription>
+          </DialogHeader>
+
+          {editing ? (
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label>Code</Label>
+                <Input value={editing.code} onChange={(e) => setEditing({ ...editing, code: e.target.value })} />
+              </div>
+              <div className="space-y-2">
+                <Label>Matiere</Label>
+                <Select value={editing.material_type} onValueChange={(value) => setEditing({ ...editing, material_type: value })}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {jewelryMaterialOptions.map((material) => (
+                      <SelectItem key={material.key} value={material.key}>
+                        {material.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Nom</Label>
+                <Input value={editing.name} onChange={(e) => setEditing({ ...editing, name: e.target.value })} />
+              </div>
+              <div className="space-y-2">
+                <Label>Quantite</Label>
+                <Input
+                  type="number"
+                  min="0"
+                  value={editing.quantity}
+                  onChange={(e) => setEditing({ ...editing, quantity: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Poids (g)</Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  value={editing.weight}
+                  onChange={(e) => setEditing({ ...editing, weight: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Categorie</Label>
+                <Select value={editing.category} onValueChange={(value) => setEditing({ ...editing, category: value })}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="rings">Bagues</SelectItem>
+                    <SelectItem value="necklaces">Colliers</SelectItem>
+                    <SelectItem value="bracelets">Bracelets</SelectItem>
+                    <SelectItem value="earrings">Boucles d'oreilles</SelectItem>
+                    <SelectItem value="watches">Montres</SelectItem>
+                    <SelectItem value="other">Autre</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Statut</Label>
+                <Select value={editing.status} onValueChange={(value) => setEditing({ ...editing, status: value })}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {jewelryStatusOptions
+                      .filter((option) => option.key !== 'all' && option.key !== 'low_stock')
+                      .map((option) => (
+                        <SelectItem key={option.key} value={option.key}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Prix achat</Label>
+                <Input
+                  type="number"
+                  min="0"
+                  value={editing.purchase_price}
+                  onChange={(e) => setEditing({ ...editing, purchase_price: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Prix vente</Label>
+                <Input
+                  type="number"
+                  min="0"
+                  value={editing.sale_price}
+                  onChange={(e) => setEditing({ ...editing, sale_price: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Prix/gramme</Label>
+                <Input
+                  type="number"
+                  min="0"
+                  value={editing.price_per_gram}
+                  onChange={(e) => setEditing({ ...editing, price_per_gram: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Image URL</Label>
+                <Input value={editing.photo} onChange={(e) => setEditing({ ...editing, photo: e.target.value })} />
               </div>
             </div>
-          ))}
-          {filtered.length === 0 && <p className="col-span-full text-center text-muted-foreground py-8">Aucun bijou trouvé</p>}
-        </div>
-      )}
+          ) : null}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditing(null)}>
+              Annuler
+            </Button>
+            <Button onClick={() => void handleSaveEdit()} disabled={updateJewelry.isPending} className="gold-gradient text-accent-foreground hover:opacity-90">
+              {updateJewelry.isPending ? 'Enregistrement...' : 'Sauvegarder'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

@@ -17,14 +17,19 @@ export interface Client {
   createdAt: string;
 }
 
-export type JewelryStatus = 'available' | 'reserved' | 'sold';
+export type JewelryStatus = 'available' | 'reserved' | 'sold' | 'out_of_stock';
 export type JewelryCategory = 'rings' | 'necklaces' | 'bracelets' | 'earrings' | 'watches' | 'other';
+export type JewelryMaterial = 'gold' | 'silver' | 'diamond';
 
 export interface Jewelry {
   id: string;
+  code: string;
+  materialType: JewelryMaterial;
   name: string;
   category: JewelryCategory;
   weight: number;
+  quantity: number;
+  pricePerGram: number;
   purchasePrice: number;
   salePrice: number;
   status: JewelryStatus;
