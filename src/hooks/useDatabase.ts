@@ -1,187 +1,234 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import type { Tables, TablesInsert } from '@/integrations/supabase/types';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { apiRequest } from '@/lib/api';
+import { queryKeys } from '@/lib/queryKeys';
+import type {
+  Client,
+  Deposit,
+  DepositWithClient,
+  Jewelry,
+  Reservation,
+  ReservationWithRelations,
+  Sale,
+  SaleWithRelations,
+} from '@/types/api';
 
-export type Client = Tables<'clients'>;
-export type Jewelry = Tables<'jewelry'>;
-export type Deposit = Tables<'deposits'>;
-export type Sale = Tables<'sales'>;
-export type Reservation = Tables<'reservations'>;
+export type {
+  Client,
+  Jewelry,
+  Deposit,
+  Sale,
+  Reservation,
+  DepositWithClient,
+  SaleWithRelations,
+  ReservationWithRelations,
+};
+
 export type ClientSummary = Pick<Client, 'name' | 'code'>;
 export type JewelrySummary = Pick<Jewelry, 'name'>;
-export type DepositWithClient = Deposit & { clients: ClientSummary | null };
-export type SaleWithRelations = Sale & {
-  clients: ClientSummary | null;
-  jewelry: JewelrySummary | null;
-};
-export type ReservationWithRelations = Reservation & {
-  clients: ClientSummary | null;
-  jewelry: JewelrySummary | null;
-};
 
-// ─── Clients ─────────────────────────────────────────
 export const useClients = () =>
   useQuery({
-    queryKey: ['clients'],
+    queryKey: queryKeys.clients,
     queryFn: async () => {
-      const { data, error } = await supabase.from('clients').select('*').order('created_at', { ascending: false });
-      if (error) throw error;
-      return data as Client[];
+      const response = await apiRequest<{ clients: Client[] }>('/clients');
+      return response.clients;
     },
   });
 
 export const useClient = (id: string | undefined) =>
   useQuery({
-    queryKey: ['clients', id],
+    queryKey: queryKeys.client(id),
     enabled: !!id,
     queryFn: async () => {
-      const { data, error } = await supabase.from('clients').select('*').eq('id', id!).single();
-      if (error) throw error;
-      return data as Client;
+      const response = await apiRequest<{ client: Client }>(`/clients/${id}`);
+      return response.client;
     },
   });
 
 export const useAddClient = () => {
-  const qc = useQueryClient();
+  const queryClient = useQueryClient();
+
   return useMutation({
     mutationFn: async (client: { name: string; phone: string; email?: string }) => {
-      const payload: TablesInsert<'clients'> = { ...client, code: '' };
-      const { data, error } = await supabase.from('clients').insert(payload).select().single();
-      if (error) throw error;
-      return data;
+      const response = await apiRequest<{ client: Client }>('/clients', {
+        method: 'POST',
+        body: client,
+      });
+      return response.client;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['clients'] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.clients }),
   });
 };
 
 export const useUpdateClientBalance = () => {
-  const qc = useQueryClient();
+  const queryClient = useQueryClient();
+
   return useMutation({
     mutationFn: async ({ id, balance }: { id: string; balance: number }) => {
-      const { error } = await supabase.from('clients').update({ balance }).eq('id', id);
-      if (error) throw error;
+      await apiRequest(`/clients/${id}/balance`, {
+        method: 'PATCH',
+        body: { balance },
+      });
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['clients'] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.clients }),
   });
 };
 
-// ─── Jewelry ─────────────────────────────────────────
 export const useJewelry = () =>
   useQuery({
-    queryKey: ['jewelry'],
+    queryKey: queryKeys.jewelry,
     queryFn: async () => {
-      const { data, error } = await supabase.from('jewelry').select('*').order('created_at', { ascending: false });
-      if (error) throw error;
-      return data as Jewelry[];
+      const response = await apiRequest<{ jewelry: Jewelry[] }>('/jewelry');
+      return response.jewelry;
     },
   });
 
 export const useAddJewelry = () => {
-  const qc = useQueryClient();
+  const queryClient = useQueryClient();
+
   return useMutation({
-    mutationFn: async (item: TablesInsert<'jewelry'>) => {
-      const payload: TablesInsert<'jewelry'> = item;
-      const { data, error } = await supabase.from('jewelry').insert(payload).select().single();
-      if (error) throw error;
-      return data;
+    mutationFn: async (item: Omit<Jewelry, 'id' | 'created_at' | 'created_by'>) => {
+      const response = await apiRequest<{ jewelry: Jewelry }>('/jewelry', {
+        method: 'POST',
+        body: item,
+      });
+      return response.jewelry;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['jewelry'] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.jewelry }),
+  });
+};
+
+export const useUpdateJewelry = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      id,
+      ...item
+    }: Partial<Omit<Jewelry, 'id' | 'created_at' | 'created_by'>> & { id: string }) => {
+      const response = await apiRequest<{ jewelry: Jewelry }>(`/jewelry/${id}`, {
+        method: 'PATCH',
+        body: item,
+      });
+      return response.jewelry;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.jewelry }),
   });
 };
 
 export const useUpdateJewelryStatus = () => {
-  const qc = useQueryClient();
+  const queryClient = useQueryClient();
+
   return useMutation({
-    mutationFn: async ({ id, status }: { id: string; status: 'available' | 'reserved' | 'sold' }) => {
-      const { error } = await supabase.from('jewelry').update({ status }).eq('id', id);
-      if (error) throw error;
+    mutationFn: async ({
+      id,
+      status,
+      quantity,
+    }: {
+      id: string;
+      status: Jewelry['status'];
+      quantity?: number;
+    }) => {
+      await apiRequest(`/jewelry/${id}/status`, {
+        method: 'PATCH',
+        body: { status, quantity },
+      });
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['jewelry'] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.jewelry }),
   });
 };
 
-// ─── Deposits ────────────────────────────────────────
 export const useDeposits = (clientId?: string) =>
   useQuery({
-    queryKey: ['deposits', clientId],
+    queryKey: queryKeys.deposits(clientId),
     queryFn: async (): Promise<DepositWithClient[]> => {
-      let q = supabase.from('deposits').select('*, clients(name, code)').order('created_at', { ascending: false });
-      if (clientId) q = q.eq('client_id', clientId);
-      const { data, error } = await q;
-      if (error) throw error;
-      return (data ?? []) as DepositWithClient[];
+      const suffix = clientId ? `?clientId=${encodeURIComponent(clientId)}` : '';
+      const response = await apiRequest<{ deposits: DepositWithClient[] }>(`/deposits${suffix}`);
+      return response.deposits;
     },
   });
 
 export const useAddDeposit = () => {
-  const qc = useQueryClient();
+  const queryClient = useQueryClient();
+
   return useMutation({
-    mutationFn: async (deposit: TablesInsert<'deposits'>) => {
-      const payload: TablesInsert<'deposits'> = deposit;
-      const { data, error } = await supabase.from('deposits').insert(payload).select().single();
-      if (error) throw error;
-      return data;
+    mutationFn: async (deposit: { client_id: string; amount: number; note?: string | null }) => {
+      const response = await apiRequest<{ deposit: Deposit }>('/deposits', {
+        method: 'POST',
+        body: deposit,
+      });
+      return response.deposit;
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['deposits'] });
-      qc.invalidateQueries({ queryKey: ['clients'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.deposits() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.clients });
     },
   });
 };
 
-// ─── Sales ───────────────────────────────────────────
 export const useSales = (clientId?: string) =>
   useQuery({
-    queryKey: ['sales', clientId],
+    queryKey: queryKeys.sales(clientId),
     queryFn: async (): Promise<SaleWithRelations[]> => {
-      let q = supabase.from('sales').select('*, clients(name, code), jewelry(name)').order('created_at', { ascending: false });
-      if (clientId) q = q.eq('client_id', clientId);
-      const { data, error } = await q;
-      if (error) throw error;
-      return (data ?? []) as SaleWithRelations[];
+      const suffix = clientId ? `?clientId=${encodeURIComponent(clientId)}` : '';
+      const response = await apiRequest<{ sales: SaleWithRelations[] }>(`/sales${suffix}`);
+      return response.sales;
     },
   });
 
 export const useAddSale = () => {
-  const qc = useQueryClient();
+  const queryClient = useQueryClient();
+
   return useMutation({
-    mutationFn: async (sale: TablesInsert<'sales'>) => {
-      const payload: TablesInsert<'sales'> = sale;
-      const { data, error } = await supabase.from('sales').insert(payload).select().single();
-      if (error) throw error;
-      return data;
+    mutationFn: async (sale: {
+      client_id: string;
+      jewelry_id: string;
+      total_price: number;
+      paid_from_balance: number;
+      paid_cash: number;
+    }) => {
+      const response = await apiRequest<{ sale: Sale }>('/sales', {
+        method: 'POST',
+        body: sale,
+      });
+      return response.sale;
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['sales'] });
-      qc.invalidateQueries({ queryKey: ['clients'] });
-      qc.invalidateQueries({ queryKey: ['jewelry'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.sales() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.clients });
+      queryClient.invalidateQueries({ queryKey: queryKeys.jewelry });
     },
   });
 };
 
-// ─── Reservations ────────────────────────────────────
 export const useReservations = () =>
   useQuery({
-    queryKey: ['reservations'],
+    queryKey: queryKeys.reservations,
     queryFn: async (): Promise<ReservationWithRelations[]> => {
-      const { data, error } = await supabase.from('reservations').select('*, clients(name, code), jewelry(name)').order('created_at', { ascending: false });
-      if (error) throw error;
-      return (data ?? []) as ReservationWithRelations[];
+      const response = await apiRequest<{ reservations: ReservationWithRelations[] }>('/reservations');
+      return response.reservations;
     },
   });
 
 export const useAddReservation = () => {
-  const qc = useQueryClient();
+  const queryClient = useQueryClient();
+
   return useMutation({
-    mutationFn: async (reservation: TablesInsert<'reservations'>) => {
-      const payload: TablesInsert<'reservations'> = reservation;
-      const { data, error } = await supabase.from('reservations').insert(payload).select().single();
-      if (error) throw error;
-      return data;
+    mutationFn: async (reservation: {
+      client_id: string;
+      jewelry_id: string;
+      deposit_amount: number;
+      remaining_amount: number;
+    }) => {
+      const response = await apiRequest<{ reservation: Reservation }>('/reservations', {
+        method: 'POST',
+        body: reservation,
+      });
+      return response.reservation;
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['reservations'] });
-      qc.invalidateQueries({ queryKey: ['jewelry'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.reservations });
+      queryClient.invalidateQueries({ queryKey: queryKeys.jewelry });
     },
   });
 };

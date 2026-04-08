@@ -4,12 +4,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { useClients, useAddDeposit, useUpdateClientBalance } from '@/hooks/useDatabase';
+import { useClients, useUpdateClientBalance, filterClients, type Client } from '@/features/clients';
+import { useAddDeposit, buildDepositReceipt } from '@/features/transactions';
 import { toast } from 'sonner';
 import { formatCFA } from '@/lib/format';
 import NumericKeypad from '@/components/NumericKeypad';
 import ReceiptModal, { ReceiptData } from '@/components/ReceiptModal';
-import type { Client } from '@/hooks/useDatabase';
 import { getErrorMessage } from '@/lib/errors';
 import { useProfileSettings } from '@/hooks/useProfileSettings';
 
@@ -30,11 +30,14 @@ const DepositsPage = () => {
 
   useEffect(() => { searchRef.current?.focus(); }, []);
 
-  const results = clientSearch.length > 0 ? clients.filter(c =>
-    c.name.toLowerCase().includes(clientSearch.toLowerCase()) ||
-    c.code.includes(clientSearch) ||
-    c.phone.replace(/\s/g, '').includes(clientSearch.replace(/\s/g, ''))
-  ) : [];
+  const searchResults = clientSearch.length > 0 ? filterClients(clients, clientSearch) : [];
+
+  const resetForm = () => {
+    setSelectedClient(null);
+    setAmount('');
+    setNote('');
+    setClientSearch('');
+  };
 
   const handleValidate = async () => {
     if (!selectedClient || !amount) return;
@@ -42,26 +45,11 @@ const DepositsPage = () => {
     try {
       await addDeposit.mutateAsync({ client_id: selectedClient.id, amount: amountNum, note: note || null });
       await updateBalance.mutateAsync({ id: selectedClient.id, balance: selectedClient.balance + amountNum });
-      
-      const receipt: ReceiptData = {
-        type: 'deposit',
-        clientName: selectedClient.name,
-        clientCode: selectedClient.code,
-        amount: amountNum,
-        date: new Date().toLocaleDateString('fr-FR'),
-        note: note || undefined,
-        details: [
-          { label: 'Ancien solde', value: formatCFA(selectedClient.balance) },
-          { label: 'Nouveau solde', value: formatCFA(selectedClient.balance + amountNum) },
-        ],
-      };
-      setReceiptData(receipt);
+
+      setReceiptData(buildDepositReceipt(selectedClient, amountNum, note));
       setShowReceipt(true);
       toast.success(`Dépôt de ${formatCFA(amountNum)} enregistré pour ${selectedClient.name}`);
-      setSelectedClient(null);
-      setAmount('');
-      setNote('');
-      setClientSearch('');
+      resetForm();
     } catch (error: unknown) {
       toast.error(getErrorMessage(error));
     }
@@ -91,9 +79,9 @@ const DepositsPage = () => {
                 className="pl-9 h-12 text-base"
               />
             </div>
-            {showResults && results.length > 0 && !selectedClient && (
+            {showResults && searchResults.length > 0 && !selectedClient && (
               <div className="absolute z-10 mt-1 w-full bg-card border border-border rounded-xl shadow-lg overflow-hidden">
-                {results.map(c => (
+                {searchResults.map(c => (
                   <button key={c.id} onClick={() => { setSelectedClient(c); setShowResults(false); }}
                     className="w-full px-4 py-3 text-left hover:bg-muted flex justify-between items-center text-sm transition-colors">
                     <div className="flex items-center gap-3">

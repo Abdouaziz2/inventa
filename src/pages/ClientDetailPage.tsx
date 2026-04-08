@@ -1,7 +1,8 @@
 import { useParams, Link } from 'react-router-dom';
 import { ArrowLeft, Wallet, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useClient, useDeposits, useSales, type DepositWithClient, type SaleWithRelations } from '@/hooks/useDatabase';
+import { useClient } from '@/features/clients';
+import { useDeposits, useSales, type DepositWithClient, type SaleWithRelations } from '@/features/transactions';
 import { formatCFA } from '@/lib/format';
 
 const ClientDetailPage = () => {

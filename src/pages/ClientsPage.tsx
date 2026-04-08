@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
-import { useClients, useAddClient } from '@/hooks/useDatabase';
+import { useClients, useAddClient, filterClients } from '@/features/clients';
 import { formatCFA } from '@/lib/format';
 import { toast } from 'sonner';
 import { getErrorMessage } from '@/lib/errors';
@@ -18,11 +18,7 @@ const ClientsPage = () => {
   const { data: clients = [], isLoading } = useClients();
   const addClient = useAddClient();
 
-  const filtered = clients.filter(c =>
-    c.name.toLowerCase().includes(search.toLowerCase()) ||
-    c.code.includes(search) ||
-    c.phone.replace(/\s/g, '').includes(search.replace(/\s/g, ''))
-  );
+  const filteredClients = filterClients(clients, search);
 
   const handleAddClient = async () => {
     if (!newName.trim()) return;
@@ -69,7 +65,7 @@ const ClientsPage = () => {
               </tr>
             </thead>
             <tbody>
-              {filtered.map(client => (
+              {filteredClients.map(client => (
                 <tr key={client.id} className="border-b border-border last:border-0 hover:bg-muted/50 transition-colors">
                   <td className="px-5 py-3.5 text-sm font-mono font-medium">{client.code}</td>
                   <td className="px-5 py-3.5 text-sm font-medium">{client.name}</td>
@@ -88,7 +84,7 @@ const ClientsPage = () => {
                   </td>
                 </tr>
               ))}
-              {filtered.length === 0 && !isLoading && (
+              {filteredClients.length === 0 && !isLoading && (
                 <tr><td colSpan={5} className="px-5 py-8 text-center text-sm text-muted-foreground">Aucun client trouvé</td></tr>
               )}
             </tbody>

@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -11,23 +10,10 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { UserPlus, Shield, ShieldOff, KeyRound, Trash2, Loader2, Users } from 'lucide-react';
 import { toast } from 'sonner';
+import { apiRequest } from '@/lib/api';
 import { normalizeUsername } from '@/lib/auth';
 import { getErrorMessage } from '@/lib/errors';
-import type { Enums } from '@/integrations/supabase/types';
-
-interface ManagedUser {
-  id: string;
-  full_name: string;
-  username: string;
-  email: string;
-  phone: string;
-  status: 'active' | 'inactive' | 'suspended';
-  role: string;
-  created_at: string;
-}
-
-type UserStatus = Enums<'user_status'>;
-type AdminActionPayload = Record<string, unknown>;
+import type { ManagedUser, UserStatus } from '@/types/api';
 
 const AdminUsersPage = () => {
   const { user } = useAuth();
@@ -48,20 +34,17 @@ const AdminUsersPage = () => {
   const [resetUserId, setResetUserId] = useState<string | null>(null);
   const [resetPassword, setResetPasswordVal] = useState('');
 
-  const callAdmin = async <T,>(body: AdminActionPayload): Promise<T> => {
-    const { data: { session } } = await supabase.auth.getSession();
-    const res = await supabase.functions.invoke('admin-users', {
-      body,
-      headers: { Authorization: `Bearer ${session?.access_token}` },
+  const callAdmin = async <T,>(path: string, options?: { method?: string; body?: object }): Promise<T> => {
+    return apiRequest<T>(path, {
+      method: options?.method || 'GET',
+      body: options?.body,
     });
-    if (res.error) throw new Error(res.error.message);
-    return res.data as T;
   };
 
   const loadUsers = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await callAdmin<{ users?: ManagedUser[] }>({ action: 'list_users' });
+      const data = await callAdmin<{ users?: ManagedUser[] }>('/admin/users');
       setUsers(data.users || []);
     } catch (error: unknown) {
       toast.error('Erreur chargement utilisateurs: ' + getErrorMessage(error));
@@ -75,13 +58,15 @@ const AdminUsersPage = () => {
     e.preventDefault();
     setCreating(true);
     try {
-      await callAdmin({
-        action: 'create_user',
-        username: newUsername,
-        password: newPassword,
-        full_name: newName,
-        phone: newPhone,
-        role: newRole,
+      await callAdmin('/admin/users', {
+        method: 'POST',
+        body: {
+          username: newUsername,
+          password: newPassword,
+          full_name: newName,
+          phone: newPhone,
+          role: newRole,
+        },
       });
       toast.success('Compte créé. L’utilisateur peut se connecter immédiatement.');
       setShowCreate(false);
@@ -96,7 +81,10 @@ const AdminUsersPage = () => {
   const handleStatusChange = async (userId: string, status: UserStatus) => {
     setActionLoading(userId);
     try {
-      await callAdmin({ action: 'update_status', user_id: userId, status });
+      await callAdmin(`/admin/users/${userId}/status`, {
+        method: 'PATCH',
+        body: { status },
+      });
       toast.success(`Statut mis à jour`);
       loadUsers();
     } catch (error: unknown) {
@@ -109,7 +97,10 @@ const AdminUsersPage = () => {
     if (!resetUserId || !resetPassword) return;
     setActionLoading(resetUserId);
     try {
-      await callAdmin({ action: 'reset_password', user_id: resetUserId, new_password: resetPassword });
+      await callAdmin(`/admin/users/${resetUserId}/password`, {
+        method: 'PATCH',
+        body: { new_password: resetPassword },
+      });
       toast.success('Mot de passe mis à jour');
       setResetUserId(null);
       setResetPasswordVal('');
@@ -123,7 +114,7 @@ const AdminUsersPage = () => {
     if (!confirm('Supprimer cet utilisateur définitivement ?')) return;
     setActionLoading(userId);
     try {
-      await callAdmin({ action: 'delete_user', user_id: userId });
+      await callAdmin(`/admin/users/${userId}`, { method: 'DELETE' });
       toast.success('Utilisateur supprimé');
       loadUsers();
     } catch (error: unknown) {

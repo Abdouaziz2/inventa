@@ -1,0 +1,106 @@
+export type AppRole = 'super_admin' | 'admin';
+export type UserStatus = 'active' | 'inactive' | 'suspended';
+export type JewelryStatus = 'available' | 'reserved' | 'sold' | 'out_of_stock';
+export type JewelryCategory = 'rings' | 'necklaces' | 'bracelets' | 'earrings' | 'watches' | 'other';
+export type JewelryMaterial = 'gold' | 'silver' | 'diamond';
+
+export type AppUser = {
+  id: string;
+  email: string;
+  username: string | null;
+  fullName: string;
+  role: AppRole;
+  mustChangePassword: boolean;
+  companyId: string | null;
+};
+
+export type Client = {
+  id: string;
+  code: string;
+  name: string;
+  phone: string;
+  email?: string | null;
+  balance: number;
+  created_at: string;
+  created_by?: string | null;
+};
+
+export type Jewelry = {
+  id: string;
+  code: string;
+  material_type: JewelryMaterial;
+  name: string;
+  category: JewelryCategory;
+  weight: number;
+  price_per_gram: number;
+  purchase_price: number;
+  sale_price: number;
+  quantity: number;
+  status: JewelryStatus;
+  photo?: string | null;
+  created_at: string;
+  created_by?: string | null;
+};
+
+export type ClientSummary = Pick<Client, 'name' | 'code'>;
+export type JewelrySummary = Pick<Jewelry, 'name'>;
+
+export type Deposit = {
+  id: string;
+  client_id: string;
+  amount: number;
+  note?: string | null;
+  created_at: string;
+  created_by?: string | null;
+};
+
+export type Sale = {
+  id: string;
+  client_id: string;
+  jewelry_id: string;
+  total_price: number;
+  paid_from_balance: number;
+  paid_cash: number;
+  created_at: string;
+  created_by?: string | null;
+};
+
+export type Reservation = {
+  id: string;
+  client_id: string;
+  jewelry_id: string;
+  deposit_amount: number;
+  remaining_amount: number;
+  created_at: string;
+  created_by?: string | null;
+};
+
+export type DepositWithClient = Deposit & { clients: ClientSummary | null };
+export type SaleWithRelations = Sale & { clients: ClientSummary | null; jewelry: JewelrySummary | null };
+export type ReservationWithRelations = Reservation & { clients: ClientSummary | null; jewelry: JewelrySummary | null };
+
+export type ProfileSettings = {
+  id: string;
+  full_name: string;
+  phone: string;
+  status: UserStatus;
+  must_change_password: boolean;
+  failed_login_attempts: number;
+  locked_until: string | null;
+  business_name: string;
+  address: string;
+  logo: string;
+  secondary_phone: string;
+  created_at: string;
+};
+
+export type ManagedUser = {
+  id: string;
+  full_name: string;
+  username: string;
+  email: string;
+  phone: string;
+  status: UserStatus;
+  role: AppRole;
+  created_at: string;
+};

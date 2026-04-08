@@ -3,7 +3,9 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useClients, useJewelry, useAddReservation, useUpdateJewelryStatus } from '@/hooks/useDatabase';
+import { useClients } from '@/features/clients';
+import { useJewelry, useUpdateJewelryStatus, getReservableJewelry } from '@/features/jewelry';
+import { useAddReservation, buildReservationReceipt, calculateRemainingAmount } from '@/features/transactions';
 import { toast } from 'sonner';
 import { BookmarkCheck } from 'lucide-react';
 import { formatCFA } from '@/lib/format';
@@ -24,7 +26,8 @@ const ReservationsPage = () => {
 
   const client = clients.find(c => c.id === clientId);
   const jewelry = jewelryList.find(j => j.id === jewelryId);
-  const remaining = jewelry ? jewelry.sale_price - Number(deposit || 0) : 0;
+  const reservableJewelry = getReservableJewelry(jewelryList);
+  const remaining = jewelry ? calculateRemainingAmount(jewelry.sale_price, Number(deposit || 0)) : 0;
 
   const handleSubmit = async () => {
     if (!client || !jewelry || !deposit) return;
@@ -35,21 +38,9 @@ const ReservationsPage = () => {
         deposit_amount: Number(deposit),
         remaining_amount: remaining,
       });
-      await updateStatus.mutateAsync({ id: jewelry.id, status: 'reserved' });
+      await updateStatus.mutateAsync({ id: jewelry.id, status: 'reserved', quantity: jewelry.quantity });
 
-      const receipt: ReceiptData = {
-        type: 'reservation',
-        clientName: client.name,
-        clientCode: client.code,
-        amount: Number(deposit),
-        date: new Date().toLocaleDateString('fr-FR'),
-        details: [
-          { label: 'Bijou', value: jewelry.name },
-          { label: 'Prix total', value: formatCFA(jewelry.sale_price) },
-          { label: 'Reste à payer', value: formatCFA(remaining) },
-        ],
-      };
-      setReceiptData(receipt);
+      setReceiptData(buildReservationReceipt(client, jewelry, Number(deposit), remaining));
       setShowReceipt(true);
       toast.success('Réservation enregistrée');
       setClientId(''); setJewelryId(''); setDeposit('');
@@ -78,7 +69,7 @@ const ReservationsPage = () => {
           <Select value={jewelryId} onValueChange={setJewelryId}>
             <SelectTrigger className="h-12"><SelectValue placeholder="Sélectionner un bijou..." /></SelectTrigger>
             <SelectContent>
-              {jewelryList.filter(j => j.status === 'available').map(j => (
+              {reservableJewelry.map(j => (
                 <SelectItem key={j.id} value={j.id}>{j.name} — {formatCFA(j.sale_price)}</SelectItem>
               ))}
             </SelectContent>

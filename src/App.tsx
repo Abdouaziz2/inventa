@@ -5,6 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import AppLayout from "@/components/AppLayout";
 import AppErrorBoundary from "@/components/AppErrorBoundary";
+import AppSpinner from "@/components/AppSpinner";
 import LoginPage from "@/pages/LoginPage";
 import ChangePasswordPage from "@/pages/ChangePasswordPage";
 import Dashboard from "@/pages/Dashboard";
@@ -19,20 +20,28 @@ import ReceiptsPage from "@/pages/ReceiptsPage";
 import AdminUsersPage from "@/pages/AdminUsersPage";
 import ProfileSettingsPage from "@/pages/CompanySettingsPage";
 import NotFound from "@/pages/NotFound";
-import { Loader2 } from "lucide-react";
 
 const queryClient = new QueryClient();
+
+const appRoutes = [
+  { path: "/", element: <Dashboard /> },
+  { path: "/clients", element: <ClientsPage /> },
+  { path: "/clients/:id", element: <ClientDetailPage /> },
+  { path: "/jewelry", element: <JewelryPage /> },
+  { path: "/jewelry/add", element: <AddJewelryPage /> },
+  { path: "/deposits", element: <DepositsPage /> },
+  { path: "/reservations", element: <ReservationsPage /> },
+  { path: "/sales", element: <SalesPage /> },
+  { path: "/receipts", element: <ReceiptsPage /> },
+  { path: "/profile", element: <ProfileSettingsPage /> },
+  { path: "/admin/users", element: <AdminUsersPage /> },
+  { path: "/admin/settings", element: <Navigate to="/profile" replace /> },
+] as const;
 
 const ProtectedRoutes = () => {
   const { isAuthenticated, loading, user } = useAuth();
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-      </div>
-    );
-  }
+  if (loading) return <AppSpinner fullScreen />;
 
   if (!isAuthenticated) return <Navigate to="/login" replace />;
 
@@ -45,30 +54,15 @@ const ProtectedRoutes = () => {
 const AppRoutes = () => {
   const { isAuthenticated, loading } = useAuth();
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-      </div>
-    );
-  }
+  if (loading) return <AppSpinner fullScreen />;
 
   return (
     <Routes>
       <Route path="/login" element={isAuthenticated ? <Navigate to="/" replace /> : <LoginPage />} />
       <Route element={<ProtectedRoutes />}>
-        <Route path="/" element={<Dashboard />} />
-        <Route path="/clients" element={<ClientsPage />} />
-        <Route path="/clients/:id" element={<ClientDetailPage />} />
-        <Route path="/jewelry" element={<JewelryPage />} />
-        <Route path="/jewelry/add" element={<AddJewelryPage />} />
-        <Route path="/deposits" element={<DepositsPage />} />
-        <Route path="/reservations" element={<ReservationsPage />} />
-        <Route path="/sales" element={<SalesPage />} />
-        <Route path="/receipts" element={<ReceiptsPage />} />
-        <Route path="/profile" element={<ProfileSettingsPage />} />
-        <Route path="/admin/users" element={<AdminUsersPage />} />
-        <Route path="/admin/settings" element={<Navigate to="/profile" replace />} />
+        {appRoutes.map((route) => (
+          <Route key={route.path} path={route.path} element={route.element} />
+        ))}
       </Route>
       <Route path="*" element={<NotFound />} />
     </Routes>

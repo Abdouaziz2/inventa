@@ -1,21 +1,33 @@
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { useEffect, useMemo, useState } from 'react';
+import QRCode from 'qrcode';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Printer, Download, X, CheckCircle2 } from 'lucide-react';
+import { CheckCircle2, Download, Printer, X } from 'lucide-react';
 import { formatCFA } from '@/lib/format';
-import { useRef, useEffect } from 'react';
 import { useProfileSettings } from '@/hooks/useProfileSettings';
-import JsBarcode from 'jsbarcode';
 import { getErrorMessage } from '@/lib/errors';
+
+export type ReceiptLineItem = {
+  description: string;
+  quantity?: number;
+  weight?: number | null;
+  unitPrice: number;
+  totalPrice: number;
+};
 
 export interface ReceiptData {
   type: 'deposit' | 'sale' | 'reservation';
+  invoiceNumber: string;
   clientName: string;
   clientCode: string;
+  clientPhone?: string;
   amount: number;
   date: string;
-  receiptId?: string;
-  details?: { label: string; value: string }[];
+  paymentMethod: string;
+  taxRate?: number;
   note?: string;
+  items: ReceiptLineItem[];
+  details?: { label: string; value: string }[];
 }
 
 interface ReceiptModalProps {
@@ -24,185 +36,671 @@ interface ReceiptModalProps {
   data: ReceiptData | null;
 }
 
-const typeLabels = {
-  deposit: 'Reçu de Dépôt',
-  sale: 'Facture de Vente',
-  reservation: 'Reçu de Réservation',
+const documentLabels: Record<ReceiptData['type'], string> = {
+  deposit: 'Recu de depot',
+  sale: 'Facture de vente',
+  reservation: 'Bon de reservation',
 };
 
-const generateReceiptId = () => {
-  const now = new Date();
-  const y = now.getFullYear().toString().slice(-2);
-  const m = String(now.getMonth() + 1).padStart(2, '0');
-  const d = String(now.getDate()).padStart(2, '0');
-  const r = Math.floor(1000 + Math.random() * 9000);
-  return `${y}${m}${d}-${r}`;
+const formatDateTime = (value: string) => {
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return value;
+  return parsed.toLocaleString('fr-FR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+};
+
+const sanitizeHtml = (value: string) =>
+  value
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
+
+const buildPrintStyles = () => `
+  :root {
+    color-scheme: light;
+    --ink: #1f2937;
+    --muted: #6b7280;
+    --line: #d1d5db;
+    --soft: #f8fafc;
+    --accent: #b88917;
+    --accent-soft: rgba(184, 137, 23, 0.12);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: #eef2f7; color: var(--ink); }
+  body {
+    font-family: "Georgia", "Times New Roman", serif;
+    padding: 24px;
+  }
+  .sheet {
+    width: 210mm;
+    min-height: 297mm;
+    margin: 0 auto;
+    background: white;
+    padding: 18mm 16mm;
+    box-shadow: 0 16px 40px rgba(15, 23, 42, 0.12);
+  }
+  .invoice {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+  .topbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 24px;
+    border-bottom: 2px solid var(--accent);
+    padding-bottom: 16px;
+  }
+  .brand {
+    display: flex;
+    gap: 14px;
+    align-items: flex-start;
+  }
+  .brand-logo {
+    width: 68px;
+    height: 68px;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    object-fit: cover;
+    background: white;
+  }
+  .brand-name {
+    font-size: 29px;
+    line-height: 1.1;
+    font-weight: 700;
+    letter-spacing: 0.2px;
+  }
+  .brand-meta,
+  .meta-card,
+  .client-card,
+  .summary-card,
+  .thank-you {
+    font-family: Arial, Helvetica, sans-serif;
+  }
+  .brand-meta {
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 1.7;
+    margin-top: 6px;
+  }
+  .doc-badge {
+    text-align: right;
+  }
+  .doc-badge-title {
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 2.4px;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+  .doc-badge-number {
+    margin-top: 8px;
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: 0.6px;
+  }
+  .doc-badge-date {
+    margin-top: 6px;
+    color: var(--muted);
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 12px;
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: 1.15fr 0.85fr;
+    gap: 14px;
+  }
+  .client-card,
+  .meta-card,
+  .summary-card {
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 14px 16px;
+    background: white;
+  }
+  .card-title {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1.8px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 10px;
+  }
+  .client-name {
+    font-size: 18px;
+    font-weight: 700;
+    margin-bottom: 8px;
+  }
+  .kv,
+  .summary-line {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 6px 0;
+    font-size: 13px;
+  }
+  .kv-label,
+  .summary-label {
+    color: var(--muted);
+  }
+  .kv-value,
+  .summary-value {
+    font-weight: 600;
+    text-align: right;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    overflow: hidden;
+    border-radius: 16px;
+    border: 1px solid var(--line);
+  }
+  thead th {
+    background: var(--soft);
+    color: #374151;
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 11px;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    text-align: left;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--line);
+  }
+  tbody td {
+    padding: 14px;
+    border-bottom: 1px solid #e5e7eb;
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 13px;
+    vertical-align: top;
+  }
+  tbody tr:last-child td {
+    border-bottom: none;
+  }
+  .td-right {
+    text-align: right;
+    white-space: nowrap;
+  }
+  .summary-wrap {
+    display: flex;
+    justify-content: flex-end;
+  }
+  .summary-card {
+    width: 92mm;
+    background: linear-gradient(180deg, #fffdf7 0%, #ffffff 100%);
+  }
+  .summary-total {
+    margin-top: 6px;
+    padding-top: 10px;
+    border-top: 2px solid var(--accent);
+    font-size: 17px;
+    font-weight: 700;
+  }
+  .footer-grid {
+    display: grid;
+    grid-template-columns: 1fr 120px;
+    gap: 14px;
+    align-items: end;
+  }
+  .thank-you {
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 14px 16px;
+    background: var(--accent-soft);
+    color: #4b5563;
+    font-size: 13px;
+    line-height: 1.7;
+  }
+  .qr-wrap {
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 10px;
+    text-align: center;
+    background: white;
+  }
+  .qr-wrap img {
+    width: 92px;
+    height: 92px;
+    object-fit: contain;
+    display: block;
+    margin: 0 auto 6px;
+  }
+  .qr-label {
+    font-family: Arial, Helvetica, sans-serif;
+    color: var(--muted);
+    font-size: 10px;
+    letter-spacing: 0.6px;
+    text-transform: uppercase;
+  }
+  .note {
+    margin-top: 10px;
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 12px;
+    color: var(--muted);
+  }
+  @page { size: A4; margin: 10mm; }
+  @media print {
+    body { background: white; padding: 0; }
+    .sheet { box-shadow: none; margin: 0; width: auto; min-height: auto; padding: 0; }
+  }
+`;
+
+const buildInvoiceHtml = ({
+  documentLabel,
+  businessName,
+  brandMeta,
+  businessLogo,
+  data,
+  qrCodeUrl,
+}: {
+  documentLabel: string;
+  businessName: string;
+  brandMeta: string[];
+  businessLogo: string;
+  data: ReceiptData;
+  qrCodeUrl: string;
+}) => {
+  const subtotal = data.items.reduce((sum, item) => sum + item.totalPrice, 0);
+  const taxRate = data.taxRate ?? 0;
+  const taxAmount = subtotal * taxRate;
+  const grandTotal = subtotal + taxAmount;
+  const brandMetaHtml = brandMeta.map((line) => `<div>${sanitizeHtml(line)}</div>`).join('');
+  const detailsHtml = (data.details ?? [])
+    .map(
+      (detail) => `
+        <div class="kv">
+          <span class="kv-label">${sanitizeHtml(detail.label)}</span>
+          <span class="kv-value">${sanitizeHtml(detail.value)}</span>
+        </div>
+      `,
+    )
+    .join('');
+  const itemsHtml = data.items
+    .map(
+      (item, index) => `
+        <tr>
+          <td>${index + 1}</td>
+          <td>${sanitizeHtml(item.description)}</td>
+          <td class="td-right">${item.weight ? `${item.weight.toFixed(2)} g` : '-'}</td>
+          <td class="td-right">${item.quantity ?? 1}</td>
+          <td class="td-right">${formatCFA(item.unitPrice)}</td>
+          <td class="td-right">${formatCFA(item.totalPrice)}</td>
+        </tr>
+      `,
+    )
+    .join('');
+
+  return `
+    <html>
+      <head>
+        <title>${sanitizeHtml(data.invoiceNumber)}</title>
+        <meta charset="utf-8" />
+        <style>${buildPrintStyles()}</style>
+      </head>
+      <body>
+        <div class="sheet">
+          <div class="invoice">
+            <div class="topbar">
+              <div class="brand">
+                ${businessLogo ? `<img class="brand-logo" src="${businessLogo}" alt="${sanitizeHtml(businessName)}" />` : ''}
+                <div>
+                  <div class="brand-name">${sanitizeHtml(businessName)}</div>
+                  <div class="brand-meta">${brandMetaHtml}</div>
+                </div>
+              </div>
+              <div class="doc-badge">
+                <div class="doc-badge-title">${sanitizeHtml(documentLabel)}</div>
+                <div class="doc-badge-number">${sanitizeHtml(data.invoiceNumber)}</div>
+                <div class="doc-badge-date">Date d'emission: ${sanitizeHtml(formatDateTime(data.date))}</div>
+              </div>
+            </div>
+
+            <div class="grid">
+              <div class="client-card">
+                <div class="card-title">Facture a</div>
+                <div class="client-name">${sanitizeHtml(data.clientName)}</div>
+                <div class="kv">
+                  <span class="kv-label">Code client</span>
+                  <span class="kv-value">${sanitizeHtml(data.clientCode)}</span>
+                </div>
+                <div class="kv">
+                  <span class="kv-label">Telephone</span>
+                  <span class="kv-value">${sanitizeHtml(data.clientPhone || 'Non renseigne')}</span>
+                </div>
+              </div>
+
+              <div class="meta-card">
+                <div class="card-title">Informations</div>
+                <div class="kv">
+                  <span class="kv-label">Mode de reglement</span>
+                  <span class="kv-value">${sanitizeHtml(data.paymentMethod)}</span>
+                </div>
+                <div class="kv">
+                  <span class="kv-label">Net a payer TTC</span>
+                  <span class="kv-value">${formatCFA(grandTotal)}</span>
+                </div>
+                ${detailsHtml}
+              </div>
+            </div>
+
+            <table>
+              <thead>
+                <tr>
+                  <th style="width: 52px;">#</th>
+                  <th>Article</th>
+                  <th style="width: 90px; text-align: right;">Poids</th>
+                  <th style="width: 80px; text-align: right;">Qté</th>
+                  <th style="width: 120px; text-align: right;">Prix unitaire</th>
+                  <th style="width: 130px; text-align: right;">Prix total</th>
+                </tr>
+              </thead>
+              <tbody>${itemsHtml}</tbody>
+            </table>
+
+            <div class="summary-wrap">
+              <div class="summary-card">
+                <div class="card-title">Totaux</div>
+                <div class="summary-line">
+                  <span class="summary-label">Sous-total HT</span>
+                  <span class="summary-value">${formatCFA(subtotal)}</span>
+                </div>
+                <div class="summary-line">
+                  <span class="summary-label">TVA (${(taxRate * 100).toFixed(0)}%)</span>
+                  <span class="summary-value">${formatCFA(taxAmount)}</span>
+                </div>
+                <div class="summary-line summary-total">
+                  <span class="summary-label">Net a payer TTC</span>
+                  <span class="summary-value">${formatCFA(grandTotal)}</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="footer-grid">
+              <div>
+                <div class="thank-you">
+                  Merci pour votre confiance. Cette facture est generee automatiquement par votre systeme de gestion de bijouterie et peut etre utilisee comme justificatif client.
+                </div>
+                ${data.note ? `<div class="note">Note: ${sanitizeHtml(data.note)}</div>` : ''}
+              </div>
+              <div class="qr-wrap">
+                <img src="${qrCodeUrl}" alt="QR code facture" />
+                <div class="qr-label">Verification facture</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </body>
+    </html>
+  `;
 };
 
 const ReceiptModal = ({ open, onClose, data }: ReceiptModalProps) => {
-  const receiptRef = useRef<HTMLDivElement>(null);
-  const barcodeRef = useRef<SVGSVGElement>(null);
+  const [qrCodeUrl, setQrCodeUrl] = useState('');
   const { data: profile } = useProfileSettings();
+
   const businessName = profile?.business_name || profile?.full_name || 'Ma boutique';
-  const phoneNumbers = [profile?.phone, profile?.secondary_phone].filter(Boolean).join(' · ');
-  const businessAddress = profile?.address || '';
   const businessLogo = profile?.logo ?? '';
-
-  const receiptId = useRef(generateReceiptId());
-
-  useEffect(() => {
-    if (open && data) {
-      receiptId.current = data.receiptId || generateReceiptId();
-    }
-  }, [open, data]);
+  const brandMeta = useMemo(
+    () => [profile?.address, profile?.phone, profile?.secondary_phone].filter(Boolean) as string[],
+    [profile?.address, profile?.phone, profile?.secondary_phone],
+  );
 
   useEffect(() => {
-    if (open && barcodeRef.current && receiptId.current) {
-      try {
-        JsBarcode(barcodeRef.current, receiptId.current, {
-          format: 'CODE128',
-          width: 1.5,
-          height: 40,
-          displayValue: true,
-          fontSize: 11,
-          margin: 5,
-          textMargin: 2,
-        });
-      } catch (error) {
-        console.error('Barcode generation error:', getErrorMessage(error));
-      }
+    let active = true;
+    const payload = data
+      ? JSON.stringify({
+          invoiceNumber: data.invoiceNumber,
+          type: data.type,
+          client: data.clientName,
+          amount: data.amount,
+          date: data.date,
+        })
+      : '';
+
+    if (!payload) {
+      setQrCodeUrl('');
+      return () => {
+        active = false;
+      };
     }
-  }, [open, data]);
+
+    QRCode.toDataURL(payload, {
+      margin: 1,
+      width: 144,
+      color: { dark: '#111827', light: '#ffffff' },
+    })
+      .then((url) => {
+        if (active) setQrCodeUrl(url);
+      })
+      .catch((error) => {
+        console.error('QR generation error:', getErrorMessage(error));
+        if (active) setQrCodeUrl('');
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [data]);
 
   if (!data) return null;
 
-  const handlePrint = () => {
-    const content = receiptRef.current;
-    if (!content) return;
+  const subtotal = data.items.reduce((sum, item) => sum + item.totalPrice, 0);
+  const taxRate = data.taxRate ?? 0;
+  const totalWithTax = subtotal + subtotal * taxRate;
+  const documentLabel = documentLabels[data.type];
 
-    const svgEl = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-    try {
-      JsBarcode(svgEl, receiptId.current, {
-        format: 'CODE128',
-        width: 1.5,
-        height: 40,
-        displayValue: true,
-        fontSize: 11,
-        margin: 5,
-        textMargin: 2,
-      });
-    } catch (e) { /* ignore */ }
-    const barcodeSvg = svgEl.outerHTML;
+  const openPrintWindow = () => {
+    const popup = window.open('', '_blank', 'width=1200,height=900');
+    if (!popup) return;
 
-    const logoHtml = businessLogo
-      ? `<img src="${businessLogo}" alt="${businessName}" style="height: 48px; width: 48px; object-fit: cover; border-radius: 8px; margin: 0 auto 8px;" />`
-      : '';
-
-    const w = window.open('', '_blank', 'width=400,height=700');
-    if (!w) return;
-    w.document.write(`
-      <html><head><title>${typeLabels[data.type]}</title>
-      <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Inter', system-ui, sans-serif; padding: 24px; color: #111; }
-        .receipt { max-width: 350px; margin: 0 auto; }
-        .header { text-align: center; border-bottom: 2px solid #d4af37; padding-bottom: 16px; margin-bottom: 16px; }
-        .logo { font-size: 22px; font-weight: 800; letter-spacing: -0.5px; }
-        .company-info { font-size: 11px; color: #666; margin-top: 6px; }
-        .type { font-size: 12px; color: #666; margin-top: 4px; text-transform: uppercase; letter-spacing: 1px; }
-        .receipt-num { font-size: 10px; color: #888; margin-top: 4px; }
-        .row { display: flex; justify-content: space-between; padding: 6px 0; font-size: 13px; }
-        .row .label { color: #666; }
-        .row .val { font-weight: 600; }
-        .divider { border-top: 1px dashed #ccc; margin: 12px 0; }
-        .total { font-size: 18px; font-weight: 800; text-align: center; padding: 12px 0; }
-        .note { font-size: 11px; color: #888; font-style: italic; margin-top: 8px; }
-        .footer { text-align: center; margin-top: 20px; font-size: 10px; color: #999; }
-        .barcode { text-align: center; margin-top: 16px; }
-        .barcode svg { max-width: 100%; }
-      </style></head><body>
-      <div class="receipt">
-        <div class="header">
-          ${logoHtml}
-          <div class="logo">${businessName}</div>
-          ${phoneNumbers || businessAddress ? `<div class="company-info">${[phoneNumbers, businessAddress].filter(Boolean).join(' · ')}</div>` : ''}
-          <div class="type">${typeLabels[data.type]}</div>
-          <div class="receipt-num">N° ${receiptId.current}</div>
-        </div>
-        <div class="row"><span class="label">Client:</span><span class="val">${data.clientName}</span></div>
-        <div class="row"><span class="label">Code:</span><span class="val">${data.clientCode}</span></div>
-        <div class="row"><span class="label">Date:</span><span class="val">${data.date}</span></div>
-        ${data.details?.map(d => `<div class="row"><span class="label">${d.label}:</span><span class="val">${d.value}</span></div>`).join('') || ''}
-        <div class="divider"></div>
-        <div class="total">${formatCFA(data.amount)}</div>
-        ${data.note ? `<div class="note">Note: ${data.note}</div>` : ''}
-        <div class="barcode">${barcodeSvg}</div>
-        <div class="footer">Merci pour votre confiance · ${businessName}</div>
-      </div>
-      </body></html>
-    `);
-    w.document.close();
-    w.print();
+    popup.document.write(
+      buildInvoiceHtml({
+        documentLabel,
+        businessName,
+        brandMeta,
+        businessLogo,
+        data,
+        qrCodeUrl,
+      }),
+    );
+    popup.document.close();
+    popup.focus();
+    popup.print();
   };
 
-  const handleExportPDF = () => {
-    handlePrint();
-  };
+  const previewScaleClass =
+    data.items.length > 2 ? 'scale-[0.64] md:scale-[0.72]' : 'scale-[0.7] md:scale-[0.78]';
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="max-w-6xl">
         <DialogHeader>
-          <div className="flex items-center gap-3 mb-2">
-            <div className="p-2 rounded-full bg-success/10">
-              <CheckCircle2 className="h-6 w-6 text-success" />
+          <div className="flex items-center gap-3">
+            <div className="rounded-full bg-emerald-500/10 p-2">
+              <CheckCircle2 className="h-6 w-6 text-emerald-600" />
             </div>
             <div>
-              <DialogTitle className="text-lg">Opération validée !</DialogTitle>
-              <p className="text-sm text-muted-foreground">{typeLabels[data.type]} généré</p>
+              <DialogTitle className="text-lg">{documentLabel}</DialogTitle>
+              <p className="text-sm text-muted-foreground">
+                Mise en page optimisee pour impression PDF et papier
+              </p>
             </div>
           </div>
         </DialogHeader>
 
-        {/* Receipt preview */}
-        <div ref={receiptRef} className="border border-border rounded-xl p-5 space-y-3 bg-muted/30">
-          <div className="text-center border-b border-border pb-3">
-            {businessLogo && (
-              <img src={businessLogo} alt={businessName} className="h-12 w-12 rounded-lg object-cover mx-auto mb-2" />
-            )}
-            <p className="font-display text-xl font-bold">{businessName}</p>
-            {(phoneNumbers || businessAddress) && (
-              <p className="text-xs text-muted-foreground mt-0.5">{[phoneNumbers, businessAddress].filter(Boolean).join(' · ')}</p>
-            )}
-            <p className="text-xs text-muted-foreground uppercase tracking-wider mt-1">{typeLabels[data.type]}</p>
-            <p className="text-[10px] text-muted-foreground mt-0.5">N° {receiptId.current}</p>
-          </div>
-          <div className="space-y-1.5 text-sm">
-            <div className="flex justify-between"><span className="text-muted-foreground">Client:</span><span className="font-medium">{data.clientName}</span></div>
-            <div className="flex justify-between"><span className="text-muted-foreground">Code:</span><span className="font-mono font-medium">{data.clientCode}</span></div>
-            <div className="flex justify-between"><span className="text-muted-foreground">Date:</span><span>{data.date}</span></div>
-            {data.details?.map((d, i) => (
-              <div key={i} className="flex justify-between"><span className="text-muted-foreground">{d.label}:</span><span className="font-medium">{d.value}</span></div>
-            ))}
-          </div>
-          <div className="border-t border-border pt-3 text-center">
-            <p className="text-2xl font-bold">{formatCFA(data.amount)}</p>
-          </div>
-          {data.note && <p className="text-xs text-muted-foreground italic">Note: {data.note}</p>}
-          <div className="flex justify-center pt-2">
-            <svg ref={barcodeRef}></svg>
+        <div className="max-h-[72vh] overflow-auto rounded-2xl border bg-slate-100 p-4">
+          <div className={`mx-auto origin-top ${previewScaleClass}`} style={{ width: '210mm' }}>
+            <div className="min-h-[297mm] bg-white p-[18mm_16mm] shadow-[0_16px_40px_rgba(15,23,42,0.12)]">
+              <div className="flex flex-col gap-[18px] text-slate-800">
+                <div className="flex items-start justify-between gap-6 border-b-2 border-[#b88917] pb-4">
+                  <div className="flex items-start gap-4">
+                    {businessLogo ? (
+                      <img
+                        src={businessLogo}
+                        alt={businessName}
+                        className="h-[68px] w-[68px] rounded-[14px] border object-cover"
+                      />
+                    ) : null}
+                    <div>
+                      <p className="text-[29px] font-bold leading-none">{businessName}</p>
+                      <div className="mt-2 space-y-1 text-xs leading-relaxed text-slate-500">
+                        {brandMeta.map((line) => (
+                          <p key={line}>{line}</p>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="text-right">
+                    <p className="font-sans text-[13px] font-bold uppercase tracking-[0.24em] text-[#b88917]">
+                      {documentLabel}
+                    </p>
+                    <p className="mt-2 text-[28px] font-bold">{data.invoiceNumber}</p>
+                    <p className="mt-1 font-sans text-xs text-slate-500">
+                      Date d'emission: {formatDateTime(data.date)}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-[1.15fr_0.85fr] gap-4">
+                  <div className="rounded-[14px] border p-4">
+                    <p className="font-sans text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+                      Facture a
+                    </p>
+                    <p className="mt-2 text-lg font-bold">{data.clientName}</p>
+                    <div className="mt-2 space-y-1.5 font-sans text-[13px]">
+                      <div className="flex justify-between gap-3">
+                        <span className="text-slate-500">Code client</span>
+                        <span className="font-semibold">{data.clientCode}</span>
+                      </div>
+                      <div className="flex justify-between gap-3">
+                        <span className="text-slate-500">Telephone</span>
+                        <span className="font-semibold">{data.clientPhone || 'Non renseigne'}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="rounded-[14px] border p-4">
+                    <p className="font-sans text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+                      Informations
+                    </p>
+                    <div className="mt-2 space-y-1.5 font-sans text-[13px]">
+                      <div className="flex justify-between gap-3">
+                        <span className="text-slate-500">Mode de reglement</span>
+                        <span className="font-semibold">{data.paymentMethod}</span>
+                      </div>
+                      <div className="flex justify-between gap-3">
+                        <span className="text-slate-500">Net a payer TTC</span>
+                        <span className="font-semibold">{formatCFA(totalWithTax)}</span>
+                      </div>
+                      {(data.details ?? []).map((detail) => (
+                        <div key={`${detail.label}-${detail.value}`} className="flex justify-between gap-3">
+                          <span className="text-slate-500">{detail.label}</span>
+                          <span className="font-semibold text-right">{detail.value}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="overflow-hidden rounded-2xl border">
+                  <table className="w-full border-collapse">
+                    <thead className="bg-slate-50">
+                      <tr className="font-sans text-[11px] uppercase tracking-[0.08em] text-slate-700">
+                        <th className="px-4 py-3 text-left">#</th>
+                        <th className="px-4 py-3 text-left">Article</th>
+                        <th className="px-4 py-3 text-right">Poids</th>
+                        <th className="px-4 py-3 text-right">Qte</th>
+                        <th className="px-4 py-3 text-right">Prix unitaire</th>
+                        <th className="px-4 py-3 text-right">Prix total</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {data.items.map((item, index) => (
+                        <tr key={`${item.description}-${index}`} className="border-t font-sans text-[13px]">
+                          <td className="px-4 py-4">{index + 1}</td>
+                          <td className="px-4 py-4">{item.description}</td>
+                          <td className="px-4 py-4 text-right">
+                            {item.weight ? `${item.weight.toFixed(2)} g` : '-'}
+                          </td>
+                          <td className="px-4 py-4 text-right">{item.quantity ?? 1}</td>
+                          <td className="px-4 py-4 text-right">{formatCFA(item.unitPrice)}</td>
+                          <td className="px-4 py-4 text-right">{formatCFA(item.totalPrice)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="flex justify-end">
+                  <div className="w-[92mm] rounded-[14px] border bg-[linear-gradient(180deg,#fffdf7_0%,#ffffff_100%)] p-4">
+                    <p className="font-sans text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+                      Totaux
+                    </p>
+                    <div className="mt-2 space-y-2 font-sans text-[13px]">
+                      <div className="flex justify-between gap-3">
+                        <span className="text-slate-500">Sous-total HT</span>
+                        <span className="font-semibold">{formatCFA(subtotal)}</span>
+                      </div>
+                      <div className="flex justify-between gap-3">
+                        <span className="text-slate-500">TVA ({(taxRate * 100).toFixed(0)}%)</span>
+                        <span className="font-semibold">{formatCFA(subtotal * taxRate)}</span>
+                      </div>
+                      <div className="flex justify-between gap-3 border-t-2 border-[#b88917] pt-3 text-[17px] font-bold">
+                        <span>Net a payer TTC</span>
+                        <span>{formatCFA(totalWithTax)}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-[1fr_120px] items-end gap-4">
+                  <div>
+                    <div className="rounded-[14px] border bg-[rgba(184,137,23,0.12)] p-4 font-sans text-[13px] leading-relaxed text-slate-600">
+                      Merci pour votre confiance. Cette facture est generee automatiquement par votre systeme de gestion de bijouterie et reste optimisee pour impression et export PDF.
+                    </div>
+                    {data.note ? (
+                      <p className="mt-3 font-sans text-xs text-slate-500">Note: {data.note}</p>
+                    ) : null}
+                  </div>
+
+                  <div className="rounded-[14px] border bg-white p-3 text-center">
+                    {qrCodeUrl ? (
+                      <img
+                        src={qrCodeUrl}
+                        alt="QR code facture"
+                        className="mx-auto mb-2 h-[92px] w-[92px]"
+                      />
+                    ) : (
+                      <div className="mx-auto mb-2 h-[92px] w-[92px] animate-pulse rounded bg-slate-100" />
+                    )}
+                    <p className="font-sans text-[10px] uppercase tracking-[0.06em] text-slate-500">
+                      Verification facture
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
         <DialogFooter className="flex gap-2 sm:gap-2">
-          <Button variant="outline" onClick={handleExportPDF} className="flex-1">
-            <Download className="h-4 w-4 mr-2" /> Exporter PDF
+          <Button variant="outline" onClick={openPrintWindow} className="flex-1">
+            <Download className="mr-2 h-4 w-4" /> Exporter PDF
           </Button>
-          <Button variant="outline" onClick={handlePrint} className="flex-1">
-            <Printer className="h-4 w-4 mr-2" /> Imprimer
+          <Button variant="outline" onClick={openPrintWindow} className="flex-1">
+            <Printer className="mr-2 h-4 w-4" /> Imprimer
           </Button>
           <Button onClick={onClose} className="flex-1 gold-gradient text-accent-foreground hover:opacity-90">
-            <X className="h-4 w-4 mr-2" /> Fermer
+            <X className="mr-2 h-4 w-4" /> Fermer
           </Button>
         </DialogFooter>
       </DialogContent>
