@@ -18,6 +18,7 @@ type CartLine = {
   quantity: number;
 };
 
+const PAYMENT_METHODS = ['Espèces', 'Mobile Money', 'Carte', 'Virement bancaire', 'Chèque', 'Mixte', 'Crédit client', 'Autre'];
 const parseMoney = (value: string) => Number(value.replace(/\D/g, '') || 0);
 const formatMoneyInput = (value: string) => (value ? Number(value).toLocaleString('fr-FR') : '');
 
@@ -30,11 +31,8 @@ const SalesPage = () => {
   const [selectedQuantity, setSelectedQuantity] = useState('1');
   const [cart, setCart] = useState<CartLine[]>([]);
   const [useBalance, setUseBalance] = useState(true);
-  const [paidCash, setPaidCash] = useState('');
-  const [paidMobileMoney, setPaidMobileMoney] = useState('');
-  const [paidCard, setPaidCard] = useState('');
-  const [paidOther, setPaidOther] = useState('');
-  const [addChangeToBalance, setAddChangeToBalance] = useState(false);
+  const [paidAmount, setPaidAmount] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState('Espèces');
   const [receiptData, setReceiptData] = useState<ReceiptData | null>(null);
   const [showReceipt, setShowReceipt] = useState(false);
 
@@ -57,15 +55,11 @@ const SalesPage = () => {
   );
 
   const balanceUsed = client && useBalance ? Math.min(client.balance, totalInvoice) : 0;
-  const cashAmount = parseMoney(paidCash);
-  const mobileMoneyAmount = parseMoney(paidMobileMoney);
-  const cardAmount = parseMoney(paidCard);
-  const otherAmount = parseMoney(paidOther);
-  const paidTotal = balanceUsed + cashAmount + mobileMoneyAmount + cardAmount + otherAmount;
+  const amountReceived = parseMoney(paidAmount);
+  const paidTotal = balanceUsed + amountReceived;
   const remaining = Math.max(0, totalInvoice - paidTotal);
   const overpaid = Math.max(0, paidTotal - totalInvoice);
-  const changeAmount = addChangeToBalance ? 0 : overpaid;
-  const changeToBalance = addChangeToBalance ? overpaid : 0;
+  const changeAmount = overpaid;
 
   const resetForm = () => {
     setClientMode('existing');
@@ -76,11 +70,8 @@ const SalesPage = () => {
     setSelectedQuantity('1');
     setCart([]);
     setUseBalance(true);
-    setPaidCash('');
-    setPaidMobileMoney('');
-    setPaidCard('');
-    setPaidOther('');
-    setAddChangeToBalance(false);
+    setPaidAmount('');
+    setPaymentMethod('Espèces');
   };
 
   const handleMoneyChange = (setter: (value: string) => void) => (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -151,11 +142,8 @@ const SalesPage = () => {
           quantity: line.quantity,
         })),
         use_balance: clientMode === 'existing' && useBalance,
-        paid_cash: cashAmount,
-        paid_mobile_money: mobileMoneyAmount,
-        paid_card: cardAmount,
-        paid_other: otherAmount,
-        add_change_to_balance: addChangeToBalance,
+        paid_amount: amountReceived,
+        payment_method: paymentMethod,
       });
 
       setReceiptData(buildSaleReceipt(saleClient, cart[0].jewelry, sale));
@@ -174,19 +162,19 @@ const SalesPage = () => {
     (clientMode === 'existing' ? !!clientId : !!newClientName.trim() && !!newClientPhone.trim());
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="page-shell animate-fade-in">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Nouvelle vente</h1>
-          <p className="text-sm text-muted-foreground">Caisse multi-bijoux avec paiement mixte.</p>
+          <h1 className="page-title">Nouvelle vente</h1>
+          <p className="text-sm text-muted-foreground">Caisse multi-bijoux avec paiement simplifié.</p>
         </div>
-        <div className="rounded-xl border bg-card px-4 py-3 shadow-sm">
+        <div className="sticky top-[84px] z-20 rounded-xl border bg-card px-4 py-3 shadow-sm sm:static">
           <p className="text-xs text-muted-foreground">Total facture</p>
           <p className="text-2xl font-bold">{formatCFA(totalInvoice)}</p>
         </div>
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.45fr)_minmax(360px,0.75fr)]">
+      <div className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,1.45fr)_minmax(340px,0.75fr)]">
         <div className="space-y-6">
           <section className="space-y-5 rounded-xl bg-card p-4 card-shadow sm:p-6">
             <div className="space-y-2">
@@ -269,7 +257,7 @@ const SalesPage = () => {
               <p className="text-sm text-muted-foreground">Seuls les bijoux disponibles et en stock apparaissent.</p>
             </div>
 
-            <div className="grid gap-3 lg:grid-cols-[1fr_120px_auto]">
+            <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_120px_auto]">
               <Select value={selectedJewelryId} onValueChange={setSelectedJewelryId}>
                 <SelectTrigger className="h-12">
                   <SelectValue placeholder="Sélectionner un bijou disponible..." />
@@ -324,7 +312,7 @@ const SalesPage = () => {
                     return (
                       <div
                         key={line.jewelry.id}
-                        className="grid gap-3 px-4 py-4 md:grid-cols-[minmax(0,1fr)_120px_150px_44px] md:items-center"
+                        className="grid gap-3 px-4 py-4 md:grid-cols-[minmax(0,1fr)_112px_140px_44px] md:items-center"
                       >
                         <div className="min-w-0">
                           <div className="flex flex-wrap items-center gap-2">
@@ -361,7 +349,7 @@ const SalesPage = () => {
           </section>
         </div>
 
-        <aside className="space-y-6">
+        <aside className="space-y-6 xl:sticky xl:top-24 xl:self-start">
           <section className="space-y-4 rounded-xl bg-card p-4 card-shadow sm:p-6">
             <div className="flex items-center gap-2">
               <ReceiptText className="h-5 w-5 text-muted-foreground" />
@@ -370,36 +358,25 @@ const SalesPage = () => {
 
             <div className="grid gap-3">
               <div className="space-y-2">
-                <Label>Montant reçu en espèces</Label>
-                <Input inputMode="numeric" value={formatMoneyInput(paidCash)} onChange={handleMoneyChange(setPaidCash)} />
+                <Label>Montant remis par le client</Label>
+                <Input inputMode="numeric" value={formatMoneyInput(paidAmount)} onChange={handleMoneyChange(setPaidAmount)} />
               </div>
               <div className="space-y-2">
-                <Label>Mobile money</Label>
-                <Input inputMode="numeric" value={formatMoneyInput(paidMobileMoney)} onChange={handleMoneyChange(setPaidMobileMoney)} />
-              </div>
-              <div className="space-y-2">
-                <Label>Carte</Label>
-                <Input inputMode="numeric" value={formatMoneyInput(paidCard)} onChange={handleMoneyChange(setPaidCard)} />
-              </div>
-              <div className="space-y-2">
-                <Label>Autre</Label>
-                <Input inputMode="numeric" value={formatMoneyInput(paidOther)} onChange={handleMoneyChange(setPaidOther)} />
+                <Label>Mode de paiement</Label>
+                <Select value={paymentMethod} onValueChange={setPaymentMethod}>
+                  <SelectTrigger className="h-12">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PAYMENT_METHODS.map((method) => (
+                      <SelectItem key={method} value={method}>
+                        {method}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
-
-            {overpaid > 0 ? (
-              <label className="flex items-start gap-2 rounded-lg border bg-muted/30 p-3 text-sm">
-                <input
-                  type="checkbox"
-                  checked={addChangeToBalance}
-                  onChange={(event) => setAddChangeToBalance(event.target.checked)}
-                  className="mt-0.5 h-4 w-4 rounded border-border"
-                />
-                <span>
-                  Ajouter le surplus de {formatCFA(overpaid)} au solde client au lieu de rendre la monnaie.
-                </span>
-              </label>
-            ) : null}
 
             <div className="space-y-2 rounded-xl bg-muted p-4 text-sm">
               <div className="flex justify-between gap-3">
@@ -411,7 +388,11 @@ const SalesPage = () => {
                 <span className="font-semibold">{formatCFA(balanceUsed)}</span>
               </div>
               <div className="flex justify-between gap-3">
-                <span className="text-muted-foreground">Payé total</span>
+                <span className="text-muted-foreground">Montant remis</span>
+                <span className="font-semibold">{formatCFA(amountReceived)}</span>
+              </div>
+              <div className="flex justify-between gap-3">
+                <span className="text-muted-foreground">Montant payé</span>
                 <span className="font-semibold">{formatCFA(paidTotal)}</span>
               </div>
               <div className="flex justify-between gap-3 border-t border-border pt-3 text-base font-bold">
@@ -424,10 +405,6 @@ const SalesPage = () => {
                     <span className="text-muted-foreground">Monnaie à rendre</span>
                     <span className="font-semibold">{formatCFA(changeAmount)}</span>
                   </div>
-                  <div className="flex justify-between gap-3">
-                    <span className="text-muted-foreground">Surplus au solde</span>
-                    <span className="font-semibold">{formatCFA(changeToBalance)}</span>
-                  </div>
                 </>
               ) : null}
             </div>
@@ -435,7 +412,7 @@ const SalesPage = () => {
             <Button
               onClick={handleSubmit}
               disabled={!canSubmit}
-              className="h-14 w-full gold-gradient text-lg font-bold text-accent-foreground hover:opacity-90"
+              className="h-14 w-full gold-gradient text-base font-bold text-accent-foreground hover:opacity-90 sm:text-lg"
             >
               {addSale.isPending || addClient.isPending ? (
                 'Enregistrement...'

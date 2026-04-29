@@ -117,6 +117,8 @@ export function mapSaleRow(row) {
     document_number: row.document_number,
     total_price: Number(row.total_price ?? 0),
     paid_from_balance: Number(row.paid_from_balance ?? 0),
+    paid_amount: Number(row.paid_amount ?? row.paid_cash ?? 0),
+    payment_method: row.payment_method ?? 'Espèces',
     paid_cash: Number(row.paid_cash ?? 0),
     paid_mobile_money: Number(row.paid_mobile_money ?? 0),
     paid_card: Number(row.paid_card ?? 0),

@@ -198,11 +198,8 @@ export const useAddSale = () => {
       client_id: string;
       items: { jewelry_id: string; quantity: number }[];
       use_balance: boolean;
-      paid_cash: number;
-      paid_mobile_money: number;
-      paid_card: number;
-      paid_other: number;
-      add_change_to_balance: boolean;
+      paid_amount: number;
+      payment_method: string;
     }) => {
       const response = await apiRequest<{ sale: SaleWithRelations }>('/sales', {
         method: 'POST',

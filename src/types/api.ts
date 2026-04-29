@@ -8,6 +8,15 @@ export type WalletTransactionType =
   | 'sale_balance_debit'
   | 'balance_adjustment_credit'
   | 'balance_adjustment_debit';
+export type PaymentMethod =
+  | 'Espèces'
+  | 'Mobile Money'
+  | 'Carte'
+  | 'Virement bancaire'
+  | 'Chèque'
+  | 'Mixte'
+  | 'Crédit client'
+  | 'Autre';
 
 export type AppUser = {
   id: string;
@@ -67,6 +76,8 @@ export type Sale = {
   document_number: string;
   total_price: number;
   paid_from_balance: number;
+  paid_amount: number;
+  payment_method: PaymentMethod;
   paid_cash: number;
   paid_mobile_money: number;
   paid_card: number;

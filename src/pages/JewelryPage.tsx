@@ -208,10 +208,10 @@ const JewelryPage = () => {
   };
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="page-shell animate-fade-in">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div className="min-w-0">
-          <h1 className="text-2xl font-bold tracking-tight">Inventaire bijoux</h1>
+          <h1 className="page-title">Inventaire bijoux</h1>
           <p className="text-sm text-muted-foreground">
             Vue compacte pour le stock, les ventes et les actions rapides de boutique.
           </p>
@@ -273,7 +273,7 @@ const JewelryPage = () => {
       </div>
 
       <div className="overflow-hidden rounded-2xl border bg-card shadow-sm">
-        <div className="hidden items-center gap-4 border-b bg-muted/20 px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground md:grid md:grid-cols-[minmax(260px,1.6fr)_110px_100px_120px_140px_120px_70px]">
+        <div className="hidden items-center gap-4 border-b bg-muted/20 px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground xl:grid xl:grid-cols-[minmax(240px,1.6fr)_110px_90px_110px_130px_120px_60px]">
           <div className="flex items-center gap-2">
             <Package2 className="h-4 w-4" />
             Reference
@@ -303,7 +303,7 @@ const JewelryPage = () => {
             {paginatedJewelry.map((item) => (
               <div
                 key={item.id}
-                className="grid gap-3 px-4 py-3 transition-colors hover:bg-muted/30 md:grid-cols-[minmax(260px,1.6fr)_110px_100px_120px_140px_120px_70px] md:items-center"
+                className="grid gap-3 px-4 py-4 transition-colors hover:bg-muted/30 xl:grid-cols-[minmax(240px,1.6fr)_110px_90px_110px_130px_120px_60px] xl:items-center"
               >
                 <div className="flex items-center gap-3">
                   {item.photo ? (
@@ -327,27 +327,27 @@ const JewelryPage = () => {
                   </div>
                 </div>
 
-                <div className="md:justify-self-start">
+                <div className="xl:justify-self-start">
                   <StatusBadge status={item.status} />
                 </div>
 
-                <div className="flex items-center justify-between text-sm md:block md:text-right">
-                  <span className="text-xs text-muted-foreground md:hidden">Stock</span>
+                <div className="flex items-center justify-between text-sm xl:block xl:text-right">
+                  <span className="text-xs text-muted-foreground xl:hidden">Stock</span>
                   <span className={`font-semibold ${item.quantity <= 3 ? 'text-amber-600' : ''}`}>{item.quantity}</span>
                 </div>
 
-                <div className="flex items-center justify-between text-sm md:block md:text-right">
-                  <span className="text-xs text-muted-foreground md:hidden">Poids</span>
+                <div className="flex items-center justify-between text-sm xl:block xl:text-right">
+                  <span className="text-xs text-muted-foreground xl:hidden">Poids</span>
                   <span>{item.weight.toFixed(2)} g</span>
                 </div>
 
-                <div className="flex items-center justify-between text-sm md:block md:text-right">
-                  <span className="text-xs text-muted-foreground md:hidden">Prix vente</span>
+                <div className="flex items-center justify-between text-sm xl:block xl:text-right">
+                  <span className="text-xs text-muted-foreground xl:hidden">Prix vente</span>
                   <span className="font-semibold">{formatCFA(getJewelryTotalPrice(item))}</span>
                 </div>
 
-                <div className="flex items-center justify-between text-sm md:block md:text-right">
-                  <span className="text-xs text-muted-foreground md:hidden">Prix achat</span>
+                <div className="flex items-center justify-between text-sm xl:block xl:text-right">
+                  <span className="text-xs text-muted-foreground xl:hidden">Prix achat</span>
                   <span>{formatCFA(item.purchase_price)}</span>
                 </div>
 
@@ -459,7 +459,7 @@ const JewelryPage = () => {
           </DialogHeader>
 
           {editing ? (
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label>Code</Label>
                 <Input value={editing.code} onChange={(e) => setEditing({ ...editing, code: e.target.value })} />
@@ -560,7 +560,7 @@ const JewelryPage = () => {
                   onChange={(e) => setEditing({ ...editing, price_per_gram: e.target.value })}
                 />
               </div>
-              <div className="space-y-3 md:col-span-2">
+              <div className="space-y-3 sm:col-span-2">
                 <Label>Image</Label>
                 <div className="grid gap-3 md:grid-cols-[0.9fr_1.1fr]">
                   <label className="flex min-h-32 cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-border bg-muted/30 p-4 text-center transition hover:bg-muted/50">

@@ -34,10 +34,10 @@ const ClientsPage = () => {
   };
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="page-shell animate-fade-in">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
-          <h1 className="text-2xl font-bold tracking-tight">Clients</h1>
+          <h1 className="page-title">Clients</h1>
           <p className="text-muted-foreground text-sm">{clients.length} clients enregistrés</p>
         </div>
         <Button size="sm" className="w-full justify-center gold-gradient text-accent-foreground hover:opacity-90 sm:w-auto" onClick={() => setShowAdd(true)}>
@@ -71,8 +71,8 @@ const ClientsPage = () => {
               {filteredClients.map(client => (
                 <tr key={client.id} className="border-b border-border last:border-0 hover:bg-muted/50 transition-colors">
                   <td className="px-5 py-3.5 text-sm font-mono font-medium">{client.code}</td>
-                  <td className="px-5 py-3.5 text-sm font-medium">{client.name}</td>
-                  <td className="px-5 py-3.5 text-sm text-muted-foreground flex items-center gap-1.5">
+                  <td className="max-w-[260px] truncate px-5 py-3.5 text-sm font-medium">{client.name}</td>
+                  <td className="flex items-center gap-1.5 px-5 py-3.5 text-sm text-muted-foreground">
                     <Phone className="h-3.5 w-3.5" /> {client.phone}
                   </td>
                   <td className="px-5 py-3.5 text-sm font-semibold text-right">
@@ -133,7 +133,7 @@ const ClientsPage = () => {
               <Input value={newPhone} onChange={e => setNewPhone(e.target.value)} placeholder="+221 77 123 45 67" />
             </div>
           </div>
-          <DialogFooter>
+          <DialogFooter className="gap-2 sm:gap-0">
             <Button variant="outline" onClick={() => setShowAdd(false)}>Annuler</Button>
             <Button onClick={handleAddClient} disabled={!newName.trim() || addClient.isPending} className="gold-gradient text-accent-foreground hover:opacity-90">
               {addClient.isPending ? 'Ajout...' : 'Ajouter'}

@@ -49,7 +49,7 @@ const ReservationsPage = () => {
 
   return (
     <div className="mx-auto w-full max-w-2xl space-y-6 animate-fade-in">
-      <h1 className="text-2xl font-bold tracking-tight">Réservation de Bijou</h1>
+      <h1 className="page-title">Réservation de Bijou</h1>
 
       <div className="space-y-5 rounded-xl bg-card p-4 card-shadow sm:p-6">
         <div className="space-y-2">

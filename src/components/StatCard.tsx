@@ -13,20 +13,20 @@ interface StatCardProps {
 const StatCard = ({ title, value, subtitle, icon: Icon, trend, variant = 'default' }: StatCardProps) => {
   return (
     <div className={cn(
-      "rounded-xl p-5 card-shadow transition-all duration-200 hover:card-shadow-hover",
+      "min-w-0 rounded-xl p-4 card-shadow transition-all duration-200 hover:card-shadow-hover sm:p-5",
       variant === 'default' && "bg-card",
       variant === 'gold' && "gold-gradient text-primary",
       variant === 'dark' && "bg-primary text-primary-foreground"
     )}>
       <div className="flex items-start justify-between">
-        <div className="space-y-1">
+        <div className="min-w-0 space-y-1">
           <p className={cn(
             "text-sm font-medium",
             variant === 'default' && "text-muted-foreground",
             variant === 'gold' && "text-primary/70",
             variant === 'dark' && "text-primary-foreground/70"
           )}>{title}</p>
-          <p className="text-2xl font-bold tracking-tight">{value}</p>
+          <p className="break-words text-xl font-bold tracking-tight sm:text-2xl">{value}</p>
           {subtitle && (
             <p className={cn(
               "text-xs",

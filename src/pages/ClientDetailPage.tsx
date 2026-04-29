@@ -38,11 +38,11 @@ const ClientDetailPage = () => {
   if (!client) return <div className="p-6">Client introuvable</div>;
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="page-shell animate-fade-in">
       <div className="flex items-start gap-3">
         <Button asChild variant="ghost" size="sm"><Link to="/clients"><ArrowLeft className="h-4 w-4" /></Link></Button>
         <div className="min-w-0">
-          <h1 className="text-2xl font-bold tracking-tight">{client.name}</h1>
+          <h1 className="page-title">{client.name}</h1>
           <p className="break-words text-sm text-muted-foreground">Code: {client.code} · {client.phone}</p>
         </div>
       </div>
@@ -62,14 +62,14 @@ const ClientDetailPage = () => {
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
         <div className="bg-card rounded-xl card-shadow overflow-hidden">
           <div className="px-5 py-4 border-b border-border"><h3 className="text-sm font-semibold">Historique des Dépôts</h3></div>
           {deposits.length === 0 ? (
             <p className="px-5 py-8 text-sm text-muted-foreground text-center">Aucun dépôt</p>
           ) : (
             <>
-            <table className="hidden w-full sm:table">
+            <table className="hidden w-full md:table">
               <thead><tr className="border-b border-border">
                 <th className="text-left text-xs font-semibold text-muted-foreground px-5 py-2">DATE</th>
                 <th className="text-right text-xs font-semibold text-muted-foreground px-5 py-2">MONTANT</th>
@@ -85,7 +85,7 @@ const ClientDetailPage = () => {
                 ))}
               </tbody>
             </table>
-            <div className="divide-y sm:hidden">
+            <div className="divide-y md:hidden">
               {deposits.map((d: DepositWithClient) => (
                 <div key={d.id} className="px-5 py-4">
                   <div className="flex items-center justify-between gap-3">
@@ -106,7 +106,7 @@ const ClientDetailPage = () => {
             <p className="px-5 py-8 text-sm text-muted-foreground text-center">Aucun achat</p>
           ) : (
             <>
-            <table className="hidden w-full sm:table">
+            <table className="hidden w-full md:table">
               <thead><tr className="border-b border-border">
                 <th className="text-left text-xs font-semibold text-muted-foreground px-5 py-2">DATE</th>
                 <th className="text-left text-xs font-semibold text-muted-foreground px-5 py-2">BIJOU</th>
@@ -122,7 +122,7 @@ const ClientDetailPage = () => {
                 ))}
               </tbody>
             </table>
-            <div className="divide-y sm:hidden">
+            <div className="divide-y md:hidden">
               {sales.map((s: SaleWithRelations) => (
                 <div key={s.id} className="px-5 py-4">
                   <div className="flex items-center justify-between gap-3">

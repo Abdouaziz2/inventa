@@ -97,7 +97,7 @@ const AddJewelryPage = () => {
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <div className="min-w-0">
-          <h1 className="text-2xl font-bold tracking-tight">Ajouter un bijou</h1>
+          <h1 className="page-title">Ajouter un bijou</h1>
           <p className="text-sm text-muted-foreground">Formulaire simple avec type de matiere.</p>
         </div>
       </div>

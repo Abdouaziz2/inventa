@@ -17,23 +17,7 @@ export type ReceiptOperation = {
   amount: number;
   date: string;
   label: string;
-};
-
-const getMultiPaymentMethod = (
-  sale: Pick<
-    SaleWithRelations,
-    'paid_from_balance' | 'paid_cash' | 'paid_mobile_money' | 'paid_card' | 'paid_other'
-  >,
-) => {
-  const methods = [
-    sale.paid_from_balance > 0 ? 'Solde client' : null,
-    sale.paid_cash > 0 ? 'Especes' : null,
-    sale.paid_mobile_money > 0 ? 'Mobile money' : null,
-    sale.paid_card > 0 ? 'Carte' : null,
-    sale.paid_other > 0 ? 'Autre' : null,
-  ].filter(Boolean);
-
-  return methods.length > 0 ? methods.join(' + ') : 'Non regle';
+  paymentMethod?: string;
 };
 
 export function buildDepositReceipt(
@@ -76,10 +60,8 @@ export function buildSaleReceipt(
     | 'document_number'
     | 'total_price'
     | 'paid_from_balance'
-    | 'paid_cash'
-    | 'paid_mobile_money'
-    | 'paid_card'
-    | 'paid_other'
+    | 'paid_amount'
+    | 'payment_method'
     | 'remaining_amount'
     | 'change_amount'
     | 'change_to_balance'
@@ -114,19 +96,16 @@ export function buildSaleReceipt(
     clientPhone: client.phone,
     amount: sale.total_price,
     date: sale.created_at,
-    paymentMethod: getMultiPaymentMethod(sale),
+    paymentMethod: sale.payment_method,
     taxRate: 0,
     items,
     details: [
       { label: 'Total facture', value: formatCFA(sale.total_price) },
       { label: 'Paye via solde', value: formatCFA(sale.paid_from_balance) },
-      { label: 'Paye en especes', value: formatCFA(sale.paid_cash) },
-      { label: 'Paye mobile money', value: formatCFA(sale.paid_mobile_money) },
-      { label: 'Paye carte', value: formatCFA(sale.paid_card) },
-      { label: 'Paye autre', value: formatCFA(sale.paid_other) },
+      { label: 'Montant remis', value: formatCFA(sale.paid_amount) },
+      { label: 'Montant paye', value: formatCFA(sale.paid_from_balance + sale.paid_amount) },
       { label: 'Reste a payer', value: formatCFA(sale.remaining_amount) },
       { label: 'Monnaie rendue', value: formatCFA(sale.change_amount) },
-      { label: 'Surplus ajoute au solde', value: formatCFA(sale.change_to_balance) },
     ],
   };
 }
@@ -182,6 +161,7 @@ export function buildReceiptOperations(
       amount: deposit.amount,
       date: deposit.created_at,
       label: 'Depot',
+      paymentMethod: 'Depot en caisse',
     })),
     ...sales.map((sale) => ({
       type: 'sale' as const,
@@ -191,6 +171,7 @@ export function buildReceiptOperations(
       amount: sale.total_price,
       date: sale.created_at,
       label: 'Vente',
+      paymentMethod: sale.payment_method,
     })),
     ...reservations.map((reservation) => ({
       type: 'reservation' as const,
@@ -200,6 +181,7 @@ export function buildReceiptOperations(
       amount: reservation.deposit_amount,
       date: reservation.created_at,
       label: 'Reservation',
+      paymentMethod: 'Acompte de reservation',
     })),
   ].sort((left, right) => right.date.localeCompare(left.date));
 }

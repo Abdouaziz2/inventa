@@ -63,11 +63,11 @@ const DepositsPage = () => {
   };
 
   return (
-    <div className="mx-auto w-full max-w-4xl space-y-6 animate-fade-in">
-      <h1 className="text-2xl font-bold tracking-tight">Dépôt Libre</h1>
+    <div className="mx-auto w-full max-w-5xl space-y-6 animate-fade-in">
+      <h1 className="page-title">Dépôt Libre</h1>
 
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-        <div className="space-y-5 rounded-xl bg-card p-4 card-shadow sm:p-6 lg:col-span-3">
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-5">
+        <div className="space-y-5 rounded-xl bg-card p-4 card-shadow sm:p-6 xl:col-span-3">
           <div className="space-y-2 relative">
             <Label>Client</Label>
             <div className="relative">
@@ -123,7 +123,7 @@ const DepositsPage = () => {
           </Button>
         </div>
 
-        <div className="rounded-xl border-2 border-dashed border-border bg-card p-4 card-shadow sm:p-6 lg:col-span-2">
+        <div className="rounded-xl border-2 border-dashed border-border bg-card p-4 card-shadow sm:p-6 xl:col-span-2">
           <h3 className="text-sm font-semibold mb-4">Aperçu du Reçu</h3>
           {selectedClient && amount ? (
             <div className="space-y-4 text-sm">

@@ -48,7 +48,7 @@ const AppSidebar = ({ open, onOpenChange }: AppSidebarProps) => {
       />
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-50 flex w-[min(82vw,280px)] min-h-screen flex-col border-r border-sidebar-border bg-sidebar transition-transform duration-200 lg:sticky lg:top-0 lg:z-auto lg:w-[260px] lg:translate-x-0",
+          "fixed inset-y-0 left-0 z-50 flex min-h-screen w-[min(86vw,290px)] flex-col border-r border-sidebar-border bg-sidebar transition-transform duration-200 lg:sticky lg:top-0 lg:z-auto lg:w-[248px] lg:translate-x-0 xl:w-[260px]",
           open ? "translate-x-0" : "-translate-x-full",
         )}
       >
@@ -83,7 +83,7 @@ const AppSidebar = ({ open, onOpenChange }: AppSidebarProps) => {
               to={item.path}
               onClick={() => onOpenChange(false)}
               className={cn(
-                "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
+                "flex min-h-11 items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
                 isActive
                   ? "bg-sidebar-accent text-sidebar-primary"
                   : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"

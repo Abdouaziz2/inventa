@@ -36,10 +36,10 @@ const Dashboard = () => {
   });
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="page-shell animate-fade-in">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
-          <h1 className="text-2xl font-bold tracking-tight">Tableau de bord</h1>
+          <h1 className="page-title">Tableau de bord</h1>
           <p className="text-muted-foreground text-sm">Vue d'ensemble de votre activité</p>
         </div>
         <div className="grid grid-cols-1 gap-2 sm:flex sm:shrink-0">
@@ -52,15 +52,15 @@ const Dashboard = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard title="Total Ventes" value={formatCFA(totalSales)} icon={TrendingUp} variant="gold" trend={{ value: `${sales.length} ventes`, positive: true }} />
         <StatCard title="Total Dépôts" value={formatCFA(totalDeposits)} icon={Wallet} trend={{ value: `${deposits.length} dépôts`, positive: true }} />
         <StatCard title="Valeur du Stock" value={formatCFA(totalStock)} icon={Gem} subtitle={`${jewelry.filter(j => j.status === 'available').length} pièces disponibles`} />
         <StatCard title="Réservations" value={String(reserved)} icon={BookmarkCheck} variant="dark" subtitle={`${reservations.length} en cours`} />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div className="lg:col-span-2 bg-card rounded-xl p-5 card-shadow">
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
+        <div className="rounded-xl bg-card p-4 card-shadow sm:p-5 xl:col-span-2">
           <h3 className="text-sm font-semibold mb-4">Ventes par jour</h3>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
@@ -74,7 +74,7 @@ const Dashboard = () => {
           </div>
         </div>
 
-        <div className="bg-card rounded-xl p-5 card-shadow">
+        <div className="rounded-xl bg-card p-4 card-shadow sm:p-5">
           <h3 className="text-sm font-semibold mb-4">Derniers dépôts</h3>
           <div className="space-y-3">
             {deposits.length === 0 ? (

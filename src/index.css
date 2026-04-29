@@ -101,9 +101,27 @@
   svg {
     max-width: 100%;
   }
+  input,
+  textarea,
+  select,
+  button {
+    font: inherit;
+  }
 }
 
 @layer utilities {
+  .page-shell {
+    @apply mx-auto w-full max-w-[1600px] space-y-5 sm:space-y-6;
+  }
+  .page-title {
+    @apply text-xl font-bold tracking-tight sm:text-2xl;
+  }
+  .responsive-card {
+    @apply rounded-xl border bg-card shadow-sm;
+  }
+  .touch-target {
+    @apply min-h-11;
+  }
   .font-display {
     font-family: 'Playfair Display', serif;
   }

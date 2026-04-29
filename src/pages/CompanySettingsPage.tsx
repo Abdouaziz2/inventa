@@ -89,7 +89,7 @@ const CompanySettingsPage = () => {
   return (
     <div className="mx-auto w-full max-w-2xl space-y-6">
       <div>
-        <h1 className="text-2xl font-bold flex items-center gap-2">
+          <h1 className="page-title flex items-center gap-2">
           <UserCog className="h-6 w-6 text-muted-foreground" />
           Profil de la boutique
         </h1>

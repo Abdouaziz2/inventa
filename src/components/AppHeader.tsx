@@ -41,7 +41,7 @@ const AppHeader = ({ onMenuClick }: AppHeaderProps) => {
   };
 
   return (
-    <header className="sticky top-0 z-30 flex min-h-16 items-center gap-3 border-b border-border bg-card/95 px-4 py-3 shadow-sm backdrop-blur sm:px-5 lg:px-6">
+    <header className="sticky top-0 z-30 flex min-h-16 flex-wrap items-center gap-3 border-b border-border bg-card/95 px-3 py-3 shadow-sm backdrop-blur sm:px-5 lg:flex-nowrap lg:px-6">
       <button
         type="button"
         aria-label="Ouvrir le menu"
@@ -50,10 +50,10 @@ const AppHeader = ({ onMenuClick }: AppHeaderProps) => {
       >
         <Menu className="h-5 w-5" />
       </button>
-      <div ref={wrapperRef} className="relative min-w-0 flex-1 lg:max-w-lg">
+      <div ref={wrapperRef} className="relative order-3 min-w-0 flex-[1_0_100%] sm:order-none sm:flex-1 lg:max-w-lg">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground z-10" />
         <Input
-          placeholder="Rechercher client par nom, code ou téléphone..."
+          placeholder="Rechercher client..."
           className="pl-9 bg-muted border-0 h-10"
           value={query}
           onChange={e => { setQuery(e.target.value); setShowResults(true); }}
@@ -65,7 +65,7 @@ const AppHeader = ({ onMenuClick }: AppHeaderProps) => {
               <button
                 key={c.id}
                 onClick={() => selectClient(c.id)}
-                className="w-full px-4 py-3 text-left hover:bg-muted flex items-center justify-between gap-3 text-sm transition-colors"
+              className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left text-sm transition-colors hover:bg-muted"
               >
                 <div className="flex min-w-0 items-center gap-3">
                   <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center text-xs font-bold">{c.name.charAt(0)}</div>
@@ -86,7 +86,7 @@ const AppHeader = ({ onMenuClick }: AppHeaderProps) => {
         )}
       </div>
       <div className="flex shrink-0 items-center gap-2 sm:gap-3">
-        <button className="relative p-2 rounded-lg text-muted-foreground hover:bg-muted transition-colors">
+        <button className="relative rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted">
           <Bell className="h-5 w-5" />
           <span className="absolute top-1 right-1 h-2 w-2 bg-accent rounded-full" />
         </button>

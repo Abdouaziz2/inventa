@@ -25,14 +25,11 @@ const LoginPage = () => {
   };
 
   return (
-    <div className="min-h-screen flex">
+    <div className="flex min-h-screen">
       {/* Left panel */}
-      <div className="hidden lg:flex lg:w-1/2 bg-primary items-center justify-center relative overflow-hidden">
-        <div className="absolute inset-0 opacity-10">
-          <div className="absolute top-20 left-20 w-64 h-64 rounded-full gold-gradient blur-3xl" />
-          <div className="absolute bottom-20 right-20 w-96 h-96 rounded-full gold-gradient blur-3xl" />
-        </div>
-        <div className="relative text-center space-y-6 px-12">
+      <div className="relative hidden items-center justify-center overflow-hidden bg-primary lg:flex lg:w-1/2">
+        <div className="absolute inset-x-0 top-0 h-1 gold-gradient" />
+        <div className="relative space-y-6 px-12 text-center">
           <Diamond className="h-16 w-16 text-gold mx-auto" />
           <h1 className="text-4xl font-display font-bold text-primary-foreground">
             Gestion <span className="text-gold">Bijouterie</span>
@@ -44,7 +41,7 @@ const LoginPage = () => {
       </div>
 
       {/* Right panel */}
-      <div className="flex-1 flex items-center justify-center p-8 bg-background">
+      <div className="flex flex-1 items-center justify-center bg-background p-4 sm:p-8">
         <div className="w-full max-w-sm space-y-8">
           <div className="lg:hidden flex items-center gap-2.5 justify-center mb-4">
             <Diamond className="h-8 w-8 text-gold" />

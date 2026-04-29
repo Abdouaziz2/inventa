@@ -147,10 +147,10 @@ const AdminUsersPage = () => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="page-shell">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
-          <h1 className="text-2xl font-bold flex items-center gap-2">
+          <h1 className="page-title flex items-center gap-2">
             <Users className="h-6 w-6 text-muted-foreground" />
             Gestion des Utilisateurs
           </h1>
@@ -240,7 +240,7 @@ const AdminUsersPage = () => {
             </div>
           ) : (
             <>
-            <Table className="hidden md:table">
+            <Table className="hidden min-w-[760px] lg:table">
               <TableHeader>
                 <TableRow>
                   <TableHead>Nom</TableHead>
@@ -293,7 +293,7 @@ const AdminUsersPage = () => {
                 )}
               </TableBody>
             </Table>
-            <div className="divide-y md:hidden">
+            <div className="divide-y lg:hidden">
               {users.map((u) => (
                 <div key={u.id} className="px-4 py-4">
                   <div className="flex items-start justify-between gap-3">

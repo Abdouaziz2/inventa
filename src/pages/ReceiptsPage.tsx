@@ -10,20 +10,21 @@ const ReceiptsPage = () => {
   const allOps = buildReceiptOperations(deposits, sales, reservations);
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      <h1 className="text-2xl font-bold tracking-tight">Reçus & Factures</h1>
+    <div className="page-shell animate-fade-in">
+      <h1 className="page-title">Reçus & Factures</h1>
 
       <div className="bg-card rounded-xl card-shadow overflow-hidden">
         {allOps.length === 0 ? (
           <p className="p-8 text-center text-sm text-muted-foreground">Aucune opération enregistrée</p>
         ) : (
           <>
-          <table className="hidden w-full md:table">
+          <table className="hidden min-w-[760px] w-full lg:table">
             <thead>
               <tr className="border-b border-border">
                 <th className="text-left text-xs font-semibold text-muted-foreground px-5 py-3">TYPE</th>
                 <th className="text-left text-xs font-semibold text-muted-foreground px-5 py-3">DOCUMENT</th>
                 <th className="text-left text-xs font-semibold text-muted-foreground px-5 py-3">CLIENT</th>
+                <th className="text-left text-xs font-semibold text-muted-foreground px-5 py-3">PAIEMENT</th>
                 <th className="text-left text-xs font-semibold text-muted-foreground px-5 py-3">DATE</th>
                 <th className="text-right text-xs font-semibold text-muted-foreground px-5 py-3">MONTANT</th>
               </tr>
@@ -44,13 +45,14 @@ const ReceiptsPage = () => {
                   </td>
                   <td className="px-5 py-3.5 text-sm font-mono">{op.documentNumber}</td>
                   <td className="px-5 py-3.5 text-sm font-medium">{op.client}</td>
+                  <td className="px-5 py-3.5 text-sm text-muted-foreground">{op.paymentMethod || '—'}</td>
                   <td className="px-5 py-3.5 text-sm text-muted-foreground">{new Date(op.date).toLocaleDateString('fr-FR')}</td>
                   <td className="px-5 py-3.5 text-sm font-semibold text-right">{formatCFA(op.amount)}</td>
                 </tr>
               ))}
             </tbody>
           </table>
-          <div className="divide-y md:hidden">
+          <div className="divide-y lg:hidden">
             {allOps.map(op => (
               <div key={`${op.type}-${op.id}`} className="px-4 py-4">
                 <div className="flex items-start justify-between gap-3">
@@ -66,6 +68,7 @@ const ReceiptsPage = () => {
                     </span>
                     <p className="mt-2 truncate text-sm font-semibold">{op.client}</p>
                     <p className="mt-1 font-mono text-xs text-muted-foreground">{op.documentNumber}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">{op.paymentMethod || '—'}</p>
                   </div>
                   <span className="shrink-0 text-sm font-semibold">{formatCFA(op.amount)}</span>
                 </div>

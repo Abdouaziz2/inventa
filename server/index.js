@@ -39,11 +39,17 @@ import {
   verifyPassword,
 } from './utils.js';
 import { requireAuth, requireSuperAdmin, signToken } from './auth.js';
+import {
+  createSupabaseAuthUser,
+  deleteSupabaseAuthUser,
+  updateSupabaseAuthPassword,
+} from './supabaseAuth.js';
 
 const app = express();
 const port = Number(process.env.API_PORT || 3001);
 const corsOrigin = process.env.CORS_ORIGIN;
 const uploadsDir = process.env.VERCEL ? '/tmp/uploads' : path.resolve('public', 'uploads');
+const PAYMENT_METHODS = ['Espèces', 'Mobile Money', 'Carte', 'Virement bancaire', 'Chèque', 'Mixte', 'Crédit client', 'Autre'];
 
 fs.mkdirSync(uploadsDir, { recursive: true });
 
@@ -939,24 +945,13 @@ app.post('/api/sales', async (request, response) => {
       throw new ValidationError('Un bijou ne peut apparaitre qu une seule fois dans la facture.');
     }
 
-    const paidCashInput = parseAmount(request.body.paid_cash ?? 0, 'Montant especes invalide.', {
+    const paidAmount = parseAmount(request.body.paid_amount ?? request.body.paid_cash ?? 0, 'Montant remis invalide.', {
       min: 0,
       allowZero: true,
     });
-    const paidMobileMoney = parseAmount(request.body.paid_mobile_money ?? 0, 'Montant mobile money invalide.', {
-      min: 0,
-      allowZero: true,
-    });
-    const paidCard = parseAmount(request.body.paid_card ?? 0, 'Montant carte invalide.', {
-      min: 0,
-      allowZero: true,
-    });
-    const paidOther = parseAmount(request.body.paid_other ?? 0, 'Montant autre invalide.', {
-      min: 0,
-      allowZero: true,
-    });
+    const paymentMethod = String(request.body.payment_method ?? 'Espèces');
+    ensureInSet(paymentMethod, PAYMENT_METHODS, 'Mode de paiement invalide');
     const useBalance = Boolean(request.body.use_balance);
-    const addChangeToBalance = Boolean(request.body.add_change_to_balance);
     const companyId = getCompanyId(request.user);
     const userId = parseId(request.user.id);
 
@@ -1021,12 +1016,11 @@ app.post('/api/sales', async (request, response) => {
       }
 
       const paidFromBalance = useBalance ? Math.min(previousBalance, totalPrice) : 0;
-      const receivedTotal = Number((paidFromBalance + paidCashInput + paidMobileMoney + paidCard + paidOther).toFixed(2));
+      const receivedTotal = Number((paidFromBalance + paidAmount).toFixed(2));
       const overpaidAmount = Math.max(0, Number((receivedTotal - totalPrice).toFixed(2)));
-      const changeToBalance = addChangeToBalance ? overpaidAmount : 0;
-      const changeAmount = addChangeToBalance ? 0 : overpaidAmount;
+      const changeAmount = overpaidAmount;
       const remainingAmount = Math.max(0, Number((totalPrice - receivedTotal).toFixed(2)));
-      const balanceAfterSale = Number((previousBalance - paidFromBalance + changeToBalance).toFixed(2));
+      const balanceAfterSale = Number((previousBalance - paidFromBalance).toFixed(2));
 
       const [insertResult] = await connection.execute(
         `INSERT INTO sales (
@@ -1036,6 +1030,8 @@ app.post('/api/sales', async (request, response) => {
             document_number,
             total_price,
             paid_from_balance,
+            paid_amount,
+            payment_method,
             paid_cash,
             paid_mobile_money,
             paid_card,
@@ -1045,20 +1041,18 @@ app.post('/api/sales', async (request, response) => {
             change_to_balance,
             created_by
          )
-         VALUES (?, ?, ?, '', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         VALUES (?, ?, ?, '', ?, ?, ?, ?, ?, 0, 0, 0, ?, ?, 0, ?)`,
         [
           companyId,
           clientId,
           saleLineItems[0].jewelry.id,
           totalPrice,
           paidFromBalance,
-          paidCashInput,
-          paidMobileMoney,
-          paidCard,
-          paidOther,
+          paidAmount,
+          paymentMethod,
+          paidAmount,
           remainingAmount,
           changeAmount,
-          changeToBalance,
           userId,
         ],
       );
@@ -1085,21 +1079,7 @@ app.post('/api/sales', async (request, response) => {
         });
       }
 
-      if (changeToBalance > 0) {
-        await insertWalletTransaction(connection, {
-          companyId,
-          clientId,
-          operationType: 'balance_adjustment_credit',
-          operationId: insertResult.insertId,
-          documentNumber,
-          amount: changeToBalance,
-          balanceBefore: Number((previousBalance - paidFromBalance).toFixed(2)),
-          balanceAfter: balanceAfterSale,
-          createdBy: userId,
-        });
-      }
-
-      if (paidFromBalance > 0 || changeToBalance > 0) {
+      if (paidFromBalance > 0) {
         await connection.execute(
           `UPDATE clients
            SET balance = ?
@@ -1363,31 +1343,48 @@ app.post('/api/admin/users', async (request, response) => {
 
   try {
     ensureInSet(role, USER_ROLES, 'Rôle invalide');
+    const fullName = requireText(request.body.full_name, 'Le nom complet est obligatoire.');
+    const email = buildManagedLoginEmail(username);
     const passwordHash = await hashPassword(password);
-    const result = await transaction(async (connection) => {
-      const [insertResult] = await connection.execute(
-        `INSERT INTO users (
-            email, username, password_hash, full_name, phone, role, status, must_change_password, business_name
-         ) VALUES (
-            ?, ?, ?, ?, ?, ?, 'active', false, ?
-         )`,
-        [
-          buildManagedLoginEmail(username),
-          username,
-          passwordHash,
-          request.body.full_name,
-          request.body.phone || '',
-          role,
-          request.body.full_name,
-        ],
-      );
-
-      if (role !== 'super_admin') {
-        await connection.execute('UPDATE users SET company_id = ? WHERE id = ?', [insertResult.insertId, insertResult.insertId]);
-      }
-
-      return insertResult;
+    const authUserId = await createSupabaseAuthUser({
+      email,
+      password,
+      username,
+      fullName,
+      role,
     });
+
+    let result;
+    try {
+      result = await transaction(async (connection) => {
+        const [insertResult] = await connection.execute(
+          `INSERT INTO users (
+              auth_user_id, email, username, password_hash, full_name, phone, role, status, must_change_password, business_name
+           ) VALUES (
+              ?, ?, ?, ?, ?, ?, ?, 'active', false, ?
+           )`,
+          [
+            authUserId,
+            email,
+            username,
+            passwordHash,
+            fullName,
+            request.body.phone || '',
+            role,
+            fullName,
+          ],
+        );
+
+        if (role !== 'super_admin') {
+          await connection.execute('UPDATE users SET company_id = ? WHERE id = ?', [insertResult.insertId, insertResult.insertId]);
+        }
+
+        return insertResult;
+      });
+    } catch (error) {
+      await deleteSupabaseAuthUser(authUserId);
+      throw error;
+    }
 
     return response.status(201).json({ success: true, user_id: String(result.insertId), username });
   } catch (error) {
@@ -1424,6 +1421,13 @@ app.patch('/api/admin/users/:id/password', async (request, response) => {
   }
 
   try {
+    const userId = parseId(request.params.id);
+    const rows = await query('SELECT auth_user_id FROM users WHERE id = :id', { id: userId });
+    if (!rows[0]) {
+      throw new NotFoundError('Utilisateur introuvable');
+    }
+
+    await updateSupabaseAuthPassword(rows[0].auth_user_id, newPassword);
     const passwordHash = await hashPassword(newPassword);
     await query(
       `UPDATE users
@@ -1432,7 +1436,7 @@ app.patch('/api/admin/users/:id/password', async (request, response) => {
        WHERE id = :id`,
       {
         passwordHash,
-        id: parseId(request.params.id),
+        id: userId,
       }
     );
     return response.json({ success: true });
@@ -1446,7 +1450,14 @@ app.delete('/api/admin/users/:id', async (request, response) => {
   if (authResult) return authResult;
 
   try {
-    await query('DELETE FROM users WHERE id = :id', { id: parseId(request.params.id) });
+    const userId = parseId(request.params.id);
+    const rows = await query('SELECT auth_user_id FROM users WHERE id = :id', { id: userId });
+    if (!rows[0]) {
+      throw new NotFoundError('Utilisateur introuvable');
+    }
+
+    await deleteSupabaseAuthUser(rows[0].auth_user_id);
+    await query('DELETE FROM users WHERE id = :id', { id: userId });
     return response.json({ success: true });
   } catch (error) {
     return handleError(response, error);
