@@ -5,9 +5,11 @@ export {
   useAddSale,
   useReservations,
   useAddReservation,
+  useWalletTransactions,
   type DepositWithClient,
   type ReservationWithRelations,
   type SaleWithRelations,
+  type WalletTransactionWithClient,
 } from '@/hooks/useDatabase';
 
 export {

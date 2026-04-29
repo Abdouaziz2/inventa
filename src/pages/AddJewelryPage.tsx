@@ -7,11 +7,13 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 import {
+  calculateSalePrice,
   jewelryMaterialOptions,
   useAddJewelry,
   type JewelryCategory,
   type JewelryMaterial,
 } from '@/features/jewelry';
+import { apiRequest } from '@/lib/api';
 import { formatCFA } from '@/lib/format';
 import { getErrorMessage } from '@/lib/errors';
 
@@ -27,10 +29,11 @@ const AddJewelryPage = () => {
     category: 'other',
     quantity: '1',
     weight: '',
+    pricePerGram: '',
     purchasePrice: '',
-    salePrice: '',
     photo: '',
   });
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
   const handleImageFile = async (file: File | undefined) => {
     if (!file) return;
@@ -40,14 +43,24 @@ const AddJewelryPage = () => {
       return;
     }
 
-    const dataUrl = await new Promise<string>((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(String(reader.result || ''));
-      reader.onerror = () => reject(new Error('Impossible de lire le fichier image.'));
-      reader.readAsDataURL(file);
-    });
+    setUploadingPhoto(true);
 
-    setForm((current) => ({ ...current, photo: dataUrl }));
+    try {
+      const formData = new FormData();
+      formData.append('photo', file);
+
+      const response = await apiRequest<{ url: string }>('/jewelry/photo', {
+        method: 'POST',
+        body: formData,
+      });
+
+      setForm((current) => ({ ...current, photo: response.url }));
+      toast.success('Image importee');
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Impossible d'importer l'image."));
+    } finally {
+      setUploadingPhoto(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -62,9 +75,9 @@ const AddJewelryPage = () => {
         name: form.name.trim(),
         quantity,
         weight: Number(form.weight || 0),
-        price_per_gram: 0,
+        price_per_gram: Number(form.pricePerGram || 0),
         purchase_price: Number(form.purchasePrice || 0),
-        sale_price: Number(form.salePrice || 0),
+        sale_price: calculateSalePrice(form.weight, form.pricePerGram),
         category: form.category as JewelryCategory,
         status: quantity > 0 ? 'available' : 'out_of_stock',
         photo: form.photo || null,
@@ -83,13 +96,13 @@ const AddJewelryPage = () => {
         <Button variant="ghost" size="sm" onClick={() => navigate('/jewelry')}>
           <ArrowLeft className="h-4 w-4" />
         </Button>
-        <div>
+        <div className="min-w-0">
           <h1 className="text-2xl font-bold tracking-tight">Ajouter un bijou</h1>
           <p className="text-sm text-muted-foreground">Formulaire simple avec type de matiere.</p>
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-6 rounded-2xl border bg-card p-6 shadow-sm">
+      <form onSubmit={handleSubmit} className="space-y-6 rounded-2xl border bg-card p-4 shadow-sm sm:p-6">
         <div className="space-y-2">
           <Label>Nom du bijou</Label>
           <Input
@@ -174,23 +187,29 @@ const AddJewelryPage = () => {
           </div>
 
           <div className="space-y-2">
-            <Label>Prix de vente</Label>
+            <Label>Prix unitaire / gramme</Label>
             <Input
               type="number"
               min="0"
-              value={form.salePrice}
-              onChange={(e) => setForm({ ...form, salePrice: e.target.value })}
-              placeholder="900000"
+              value={form.pricePerGram}
+              onChange={(e) => setForm({ ...form, pricePerGram: e.target.value })}
+              placeholder="75000"
               required
             />
           </div>
         </div>
 
         <div className="rounded-xl border bg-muted/20 p-4">
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-muted-foreground">Marge unitaire estimee</span>
+          <div className="flex items-center justify-between gap-3 text-sm">
+            <span className="text-muted-foreground">Prix total de vente</span>
+            <span className="text-right font-semibold">
+              {formatCFA(calculateSalePrice(form.weight, form.pricePerGram))}
+            </span>
+          </div>
+          <div className="mt-2 flex items-center justify-between gap-3 text-sm">
+            <span className="text-muted-foreground">Marge estimee</span>
             <span className="font-semibold">
-              {formatCFA(Number(form.salePrice || 0) - Number(form.purchasePrice || 0))}
+              {formatCFA(calculateSalePrice(form.weight, form.pricePerGram) - Number(form.purchasePrice || 0))}
             </span>
           </div>
         </div>
@@ -200,11 +219,12 @@ const AddJewelryPage = () => {
           <div className="grid gap-3 md:grid-cols-[0.9fr_1.1fr]">
             <label className="flex min-h-32 cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-border bg-muted/30 p-4 text-center transition hover:bg-muted/50">
               <ImagePlus className="mb-3 h-8 w-8 text-muted-foreground" />
-              <span className="text-sm font-medium">Importer une image</span>
+              <span className="text-sm font-medium">{uploadingPhoto ? 'Import en cours...' : 'Importer une image'}</span>
               <input
                 type="file"
                 accept="image/*"
                 className="hidden"
+                disabled={uploadingPhoto}
                 onChange={(e) => void handleImageFile(e.target.files?.[0])}
               />
             </label>
@@ -219,12 +239,16 @@ const AddJewelryPage = () => {
           </div>
         </div>
 
-        <div className="flex justify-end gap-3">
+        <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
           <Button type="button" variant="outline" onClick={() => navigate('/jewelry')}>
             Annuler
           </Button>
-          <Button type="submit" disabled={addJewelry.isPending} className="gold-gradient text-accent-foreground hover:opacity-90">
-            {addJewelry.isPending ? 'Enregistrement...' : 'Enregistrer'}
+          <Button
+            type="submit"
+            disabled={addJewelry.isPending || uploadingPhoto}
+            className="gold-gradient text-accent-foreground hover:opacity-90"
+          >
+            {addJewelry.isPending ? 'Enregistrement...' : uploadingPhoto ? 'Import image...' : 'Enregistrer'}
           </Button>
         </div>
       </form>

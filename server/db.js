@@ -1,59 +1,133 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import mysql from 'mysql2/promise';
+import pg from 'pg';
 
-const mysqlConfig = {
-  host: process.env.MYSQL_HOST || '127.0.0.1',
-  port: Number(process.env.MYSQL_PORT || 3306),
-  user: process.env.MYSQL_USER || 'root',
-  password: process.env.MYSQL_PASSWORD || '',
-  waitForConnections: true,
-  connectionLimit: 10,
-  namedPlaceholders: true,
-};
+const { Pool } = pg;
 
-const masterDatabase = process.env.MYSQL_DATABASE || 'gems_flow_suite';
-const pool = mysql.createPool({
-  ...mysqlConfig,
-  database: masterDatabase,
-});
+const databaseUrl = process.env.DATABASE_URL;
+const directUrl = process.env.DIRECT_URL || databaseUrl;
+
+if (!databaseUrl && process.env.NODE_ENV === 'production') {
+  throw new Error('DATABASE_URL is required in production.');
+}
+
+function createPool(connectionString = databaseUrl) {
+  return new Pool({
+    connectionString,
+    max: 10,
+    ssl: connectionString?.includes('supabase.com') ? { rejectUnauthorized: false } : undefined,
+  });
+}
+
+const pool = databaseUrl ? createPool() : null;
 
 async function readSqlFile(filename) {
   const filePath = path.resolve('server', filename);
   return fs.readFile(filePath, 'utf8');
 }
 
+function normalizeParams(params) {
+  if (Array.isArray(params)) {
+    return { sqlParams: params, named: false };
+  }
+
+  return { sqlParams: params ?? {}, named: true };
+}
+
+function translateSql(sql, params = {}) {
+  const { sqlParams, named } = normalizeParams(params);
+  const values = [];
+  let translated = sql;
+
+  if (named) {
+    const indexes = new Map();
+    translated = translated.replace(/:([A-Za-z_][A-Za-z0-9_]*)/g, (_match, key) => {
+      if (!indexes.has(key)) {
+        indexes.set(key, values.length + 1);
+        values.push(sqlParams[key]);
+      }
+
+      return `$${indexes.get(key)}`;
+    });
+  } else {
+    let index = 0;
+    translated = translated.replace(/\?/g, () => {
+      index += 1;
+      return `$${index}`;
+    });
+    values.push(...sqlParams);
+  }
+
+  if (/^\s*insert\s+/i.test(translated) && !/\breturning\b/i.test(translated)) {
+    translated = `${translated} RETURNING id`;
+  }
+
+  return { text: translated, values };
+}
+
+function mapResult(result) {
+  if (result.command === 'SELECT' || result.rows.length > 0) {
+    return result.rows;
+  }
+
+  return {
+    rowCount: result.rowCount,
+    affectedRows: result.rowCount,
+  };
+}
+
+async function executeWith(client, sql, params = {}) {
+  const statement = translateSql(sql, params);
+  const result = await client.query(statement.text, statement.values);
+  const mapped = mapResult(result);
+
+  if (/^\s*insert\s+/i.test(statement.text)) {
+    return [{ insertId: result.rows[0]?.id, rowCount: result.rowCount, affectedRows: result.rowCount }];
+  }
+
+  return [mapped];
+}
+
 export async function runMigrations() {
-  const bootstrapConnection = await mysql.createConnection({
-    ...mysqlConfig,
-    multipleStatements: true,
-  });
+  const migrationPool = createPool(directUrl);
 
   try {
     const schema = await readSqlFile('master-schema.sql');
-    await bootstrapConnection.query(schema);
+    await migrationPool.query(schema);
   } finally {
-    await bootstrapConnection.end();
+    await migrationPool.end();
   }
 }
 
 export async function query(sql, params = {}) {
-  const [rows] = await pool.execute(sql, params);
-  return rows;
+  if (!pool) {
+    throw new Error('DATABASE_URL is required.');
+  }
+
+  const statement = translateSql(sql, params);
+  const result = await pool.query(statement.text, statement.values);
+  return mapResult(result);
 }
 
 export async function transaction(run) {
-  const connection = await pool.getConnection();
+  if (!pool) {
+    throw new Error('DATABASE_URL is required.');
+  }
+
+  const client = await pool.connect();
+  const connection = {
+    execute: (sql, params = []) => executeWith(client, sql, params),
+  };
 
   try {
-    await connection.beginTransaction();
+    await client.query('BEGIN');
     const result = await run(connection);
-    await connection.commit();
+    await client.query('COMMIT');
     return result;
   } catch (error) {
-    await connection.rollback();
+    await client.query('ROLLBACK');
     throw error;
   } finally {
-    connection.release();
+    client.release();
   }
 }

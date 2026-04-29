@@ -87,7 +87,7 @@ const CompanySettingsPage = () => {
   }
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
+    <div className="mx-auto w-full max-w-2xl space-y-6">
       <div>
         <h1 className="text-2xl font-bold flex items-center gap-2">
           <UserCog className="h-6 w-6 text-muted-foreground" />
@@ -103,7 +103,7 @@ const CompanySettingsPage = () => {
           <CardTitle className="text-base">Logo et identité</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex items-center gap-6">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:gap-6">
             <div className="relative">
               {logoUrl ? (
                 <div className="relative">
@@ -125,8 +125,8 @@ const CompanySettingsPage = () => {
                 </div>
               )}
             </div>
-            <div>
-              <Button type="button" variant="outline" size="sm" onClick={() => fileRef.current?.click()} disabled={uploading}>
+            <div className="w-full sm:w-auto">
+              <Button type="button" variant="outline" size="sm" onClick={() => fileRef.current?.click()} disabled={uploading} className="w-full sm:w-auto">
                 {uploading ? 'Upload...' : 'Changer le logo'}
               </Button>
               <p className="text-xs text-muted-foreground mt-1">JPG, PNG. Max 2MB</p>
@@ -162,7 +162,7 @@ const CompanySettingsPage = () => {
               <Label>Adresse</Label>
               <Textarea value={address} onChange={e => setAddress(e.target.value)} placeholder="Ex: Marché Sandaga, Dakar, Sénégal" rows={3} />
             </div>
-            <Button type="submit" disabled={updateMutation.isPending} className="gold-gradient text-accent-foreground font-semibold">
+            <Button type="submit" disabled={updateMutation.isPending} className="w-full gold-gradient text-accent-foreground font-semibold sm:w-auto">
               {updateMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
               Enregistrer
             </Button>

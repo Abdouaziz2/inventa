@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import {
   ArrowUpDown,
   CirclePlus,
+  ImagePlus,
   MoreHorizontal,
   Package2,
   PencilLine,
@@ -39,11 +40,14 @@ import {
   PaginationPrevious,
 } from '@/components/ui/pagination';
 import StatusBadge from '@/components/StatusBadge';
+import { apiRequest } from '@/lib/api';
 import { formatCFA } from '@/lib/format';
 import { getErrorMessage } from '@/lib/errors';
 import {
   filterJewelry,
+  calculateSalePrice,
   formatJewelryMaterial,
+  getJewelryTotalPrice,
   jewelryMaterialOptions,
   jewelrySortOptions,
   jewelryStatusOptions,
@@ -80,6 +84,7 @@ const JewelryPage = () => {
   const [sortKey, setSortKey] = useState<JewelrySortKey>('recent');
   const [page, setPage] = useState(1);
   const [editing, setEditing] = useState<typeof emptyEditor | null>(null);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
   const { data: jewelry = [], isLoading } = useJewelry();
   const updateJewelry = useUpdateJewelry();
@@ -102,6 +107,10 @@ const JewelryPage = () => {
   useEffect(() => {
     if (page > totalPages) setPage(totalPages);
   }, [page, totalPages]);
+
+  useEffect(() => {
+    if (!editing) setUploadingPhoto(false);
+  }, [editing]);
 
   const openEditor = (item: Jewelry) => {
     setEditing({
@@ -146,6 +155,8 @@ const JewelryPage = () => {
   const handleSaveEdit = async () => {
     if (!editing) return;
 
+    const salePrice = calculateSalePrice(editing.weight, editing.price_per_gram);
+
     try {
       await updateJewelry.mutateAsync({
         id: editing.id,
@@ -156,7 +167,7 @@ const JewelryPage = () => {
         weight: Number(editing.weight || 0),
         category: editing.category as Jewelry['category'],
         purchase_price: Number(editing.purchase_price || 0),
-        sale_price: Number(editing.sale_price || 0),
+        sale_price: salePrice,
         price_per_gram: Number(editing.price_per_gram || 0),
         status: editing.status as JewelryStatus,
         photo: editing.photo || null,
@@ -168,26 +179,54 @@ const JewelryPage = () => {
     }
   };
 
+  const handleEditImageFile = async (file: File | undefined) => {
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      toast.error('Veuillez selectionner une image valide.');
+      return;
+    }
+
+    setUploadingPhoto(true);
+
+    try {
+      const formData = new FormData();
+      formData.append('photo', file);
+
+      const response = await apiRequest<{ url: string }>('/jewelry/photo', {
+        method: 'POST',
+        body: formData,
+      });
+
+      setEditing((current) => (current ? { ...current, photo: response.url } : current));
+      toast.success('Image importee');
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Impossible d'importer l'image."));
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
+
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        <div>
+        <div className="min-w-0">
           <h1 className="text-2xl font-bold tracking-tight">Inventaire bijoux</h1>
           <p className="text-sm text-muted-foreground">
             Vue compacte pour le stock, les ventes et les actions rapides de boutique.
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="rounded-2xl border bg-card px-4 py-2 text-sm shadow-sm">
+        <div className="grid w-full grid-cols-2 gap-3 sm:flex sm:w-auto sm:flex-wrap sm:items-center">
+          <div className="rounded-xl border bg-card px-4 py-2 text-sm shadow-sm sm:rounded-2xl">
             <span className="text-muted-foreground">Stock faible</span>
             <p className="font-semibold">{lowStockCount} references</p>
           </div>
-          <div className="rounded-2xl border bg-card px-4 py-2 text-sm shadow-sm">
+          <div className="rounded-xl border bg-card px-4 py-2 text-sm shadow-sm sm:rounded-2xl">
             <span className="text-muted-foreground">Rupture</span>
             <p className="font-semibold">{outOfStockCount} references</p>
           </div>
-          <Button asChild className="gold-gradient text-accent-foreground hover:opacity-90">
+          <Button asChild className="col-span-2 justify-center gold-gradient text-accent-foreground hover:opacity-90 sm:col-span-1">
             <Link to="/jewelry/add">+ Ajouter un bijou</Link>
           </Button>
         </div>
@@ -304,7 +343,7 @@ const JewelryPage = () => {
 
                 <div className="flex items-center justify-between text-sm md:block md:text-right">
                   <span className="text-xs text-muted-foreground md:hidden">Prix vente</span>
-                  <span className="font-semibold">{formatCFA(item.sale_price)}</span>
+                  <span className="font-semibold">{formatCFA(getJewelryTotalPrice(item))}</span>
                 </div>
 
                 <div className="flex items-center justify-between text-sm md:block md:text-right">
@@ -360,8 +399,8 @@ const JewelryPage = () => {
           {filteredJewelry.length} references · page {page} sur {totalPages}
         </p>
 
-        <Pagination className="mx-0 w-auto justify-start md:justify-end">
-          <PaginationContent>
+        <Pagination className="mx-0 w-full justify-start overflow-x-auto md:w-auto md:justify-end">
+          <PaginationContent className="min-w-max">
             <PaginationItem>
               <PaginationPrevious
                 href="#"
@@ -404,7 +443,15 @@ const JewelryPage = () => {
         </Pagination>
       </div>
 
-      <Dialog open={!!editing} onOpenChange={(open) => !open && setEditing(null)}>
+      <Dialog
+        open={!!editing}
+        onOpenChange={(open) => {
+          if (!open) {
+            setEditing(null);
+            setUploadingPhoto(false);
+          }
+        }}
+      >
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>Modifier la reference</DialogTitle>
@@ -497,16 +544,15 @@ const JewelryPage = () => {
                 />
               </div>
               <div className="space-y-2">
-                <Label>Prix vente</Label>
+                <Label>Prix total vente</Label>
                 <Input
-                  type="number"
-                  min="0"
-                  value={editing.sale_price}
-                  onChange={(e) => setEditing({ ...editing, sale_price: e.target.value })}
+                  value={formatCFA(calculateSalePrice(editing.weight, editing.price_per_gram))}
+                  readOnly
+                  className="bg-muted font-semibold"
                 />
               </div>
               <div className="space-y-2">
-                <Label>Prix/gramme</Label>
+                <Label>Prix unitaire / gramme</Label>
                 <Input
                   type="number"
                   min="0"
@@ -514,19 +560,59 @@ const JewelryPage = () => {
                   onChange={(e) => setEditing({ ...editing, price_per_gram: e.target.value })}
                 />
               </div>
-              <div className="space-y-2">
-                <Label>Image URL</Label>
-                <Input value={editing.photo} onChange={(e) => setEditing({ ...editing, photo: e.target.value })} />
+              <div className="space-y-3 md:col-span-2">
+                <Label>Image</Label>
+                <div className="grid gap-3 md:grid-cols-[0.9fr_1.1fr]">
+                  <label className="flex min-h-32 cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-border bg-muted/30 p-4 text-center transition hover:bg-muted/50">
+                    <ImagePlus className="mb-3 h-8 w-8 text-muted-foreground" />
+                    <span className="text-sm font-medium">
+                      {uploadingPhoto ? 'Import en cours...' : 'Importer une image'}
+                    </span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      disabled={uploadingPhoto}
+                      onChange={(e) => {
+                        void handleEditImageFile(e.target.files?.[0]);
+                        e.target.value = '';
+                      }}
+                    />
+                  </label>
+
+                  <div className="flex min-h-32 items-center justify-center rounded-2xl border bg-background p-4">
+                    {editing.photo ? (
+                      <img src={editing.photo} alt={editing.name} className="max-h-28 rounded-xl object-cover" />
+                    ) : (
+                      <p className="text-sm text-muted-foreground">Apercu image</p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-3 sm:flex-row">
+                  <Input
+                    value={editing.photo}
+                    onChange={(e) => setEditing({ ...editing, photo: e.target.value })}
+                    placeholder="Ou collez une URL d'image"
+                  />
+                  <Button type="button" variant="outline" onClick={() => setEditing({ ...editing, photo: '' })} className="sm:shrink-0">
+                    Retirer
+                  </Button>
+                </div>
               </div>
             </div>
           ) : null}
 
-          <DialogFooter>
+          <DialogFooter className="gap-2 sm:gap-0">
             <Button variant="outline" onClick={() => setEditing(null)}>
               Annuler
             </Button>
-            <Button onClick={() => void handleSaveEdit()} disabled={updateJewelry.isPending} className="gold-gradient text-accent-foreground hover:opacity-90">
-              {updateJewelry.isPending ? 'Enregistrement...' : 'Sauvegarder'}
+            <Button
+              onClick={() => void handleSaveEdit()}
+              disabled={updateJewelry.isPending || uploadingPhoto}
+              className="gold-gradient text-accent-foreground hover:opacity-90"
+            >
+              {updateJewelry.isPending ? 'Enregistrement...' : uploadingPhoto ? 'Import image...' : 'Sauvegarder'}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -3,11 +3,16 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useProfileSettings } from '@/hooks/useProfileSettings';
 import {
   LayoutDashboard, Users, Gem, PlusCircle, Wallet,
-  BookmarkCheck, ShoppingBag, Receipt, LogOut, Diamond, ShieldCheck, UserCog
+  BookmarkCheck, ShoppingBag, Receipt, LogOut, Diamond, ShieldCheck, UserCog, X
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-const AppSidebar = () => {
+interface AppSidebarProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}
+
+const AppSidebar = ({ open, onOpenChange }: AppSidebarProps) => {
   const location = useLocation();
   const { user, logout, isSuperAdmin } = useAuth();
   const { data: profile } = useProfileSettings();
@@ -31,7 +36,22 @@ const AppSidebar = () => {
   ];
 
   return (
-    <aside className="w-[260px] min-h-screen bg-sidebar flex flex-col border-r border-sidebar-border">
+    <>
+      <button
+        type="button"
+        aria-label="Fermer le menu"
+        onClick={() => onOpenChange(false)}
+        className={cn(
+          "fixed inset-0 z-40 bg-black/50 transition-opacity lg:hidden",
+          open ? "opacity-100" : "pointer-events-none opacity-0",
+        )}
+      />
+      <aside
+        className={cn(
+          "fixed inset-y-0 left-0 z-50 flex w-[min(82vw,280px)] min-h-screen flex-col border-r border-sidebar-border bg-sidebar transition-transform duration-200 lg:sticky lg:top-0 lg:z-auto lg:w-[260px] lg:translate-x-0",
+          open ? "translate-x-0" : "-translate-x-full",
+        )}
+      >
       {/* Logo */}
       <div className="h-16 flex items-center gap-2.5 px-5 border-b border-sidebar-border">
         {businessLogo ? (
@@ -42,6 +62,14 @@ const AppSidebar = () => {
         <span className="text-lg font-bold text-sidebar-accent-foreground tracking-tight truncate">
           {businessName}
         </span>
+        <button
+          type="button"
+          aria-label="Fermer le menu"
+          onClick={() => onOpenChange(false)}
+          className="ml-auto rounded-md p-2 text-sidebar-muted transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground lg:hidden"
+        >
+          <X className="h-4 w-4" />
+        </button>
       </div>
 
       {/* Navigation */}
@@ -53,6 +81,7 @@ const AppSidebar = () => {
             <Link
               key={item.path}
               to={item.path}
+              onClick={() => onOpenChange(false)}
               className={cn(
                 "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
                 isActive
@@ -82,7 +111,8 @@ const AppSidebar = () => {
           </button>
         </div>
       </div>
-    </aside>
+      </aside>
+    </>
   );
 };
 

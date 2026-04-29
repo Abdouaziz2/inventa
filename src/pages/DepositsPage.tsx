@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { useClients, useUpdateClientBalance, filterClients, type Client } from '@/features/clients';
+import { useClients, filterClients, type Client } from '@/features/clients';
 import { useAddDeposit, buildDepositReceipt } from '@/features/transactions';
 import { toast } from 'sonner';
 import { formatCFA } from '@/lib/format';
@@ -25,7 +25,6 @@ const DepositsPage = () => {
   const { data: clients = [] } = useClients();
   const { data: profile } = useProfileSettings();
   const addDeposit = useAddDeposit();
-  const updateBalance = useUpdateClientBalance();
   const businessName = profile?.business_name || profile?.full_name || 'Ma boutique';
 
   useEffect(() => { searchRef.current?.focus(); }, []);
@@ -43,10 +42,13 @@ const DepositsPage = () => {
     if (!selectedClient || !amount) return;
     const amountNum = Number(amount);
     try {
-      await addDeposit.mutateAsync({ client_id: selectedClient.id, amount: amountNum, note: note || null });
-      await updateBalance.mutateAsync({ id: selectedClient.id, balance: selectedClient.balance + amountNum });
+      const deposit = await addDeposit.mutateAsync({
+        client_id: selectedClient.id,
+        amount: amountNum,
+        note: note || null,
+      });
 
-      setReceiptData(buildDepositReceipt(selectedClient, amountNum, note));
+      setReceiptData(buildDepositReceipt(selectedClient, deposit, selectedClient.balance));
       setShowReceipt(true);
       toast.success(`Dépôt de ${formatCFA(amountNum)} enregistré pour ${selectedClient.name}`);
       resetForm();
@@ -61,11 +63,11 @@ const DepositsPage = () => {
   };
 
   return (
-    <div className="space-y-6 animate-fade-in max-w-4xl">
+    <div className="mx-auto w-full max-w-4xl space-y-6 animate-fade-in">
       <h1 className="text-2xl font-bold tracking-tight">Dépôt Libre</h1>
 
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-        <div className="lg:col-span-3 bg-card rounded-xl p-6 card-shadow space-y-5">
+        <div className="space-y-5 rounded-xl bg-card p-4 card-shadow sm:p-6 lg:col-span-3">
           <div className="space-y-2 relative">
             <Label>Client</Label>
             <div className="relative">
@@ -83,15 +85,15 @@ const DepositsPage = () => {
               <div className="absolute z-10 mt-1 w-full bg-card border border-border rounded-xl shadow-lg overflow-hidden">
                 {searchResults.map(c => (
                   <button key={c.id} onClick={() => { setSelectedClient(c); setShowResults(false); }}
-                    className="w-full px-4 py-3 text-left hover:bg-muted flex justify-between items-center text-sm transition-colors">
-                    <div className="flex items-center gap-3">
+                    className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left text-sm transition-colors hover:bg-muted">
+                    <div className="flex min-w-0 items-center gap-3">
                       <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center text-xs font-bold">{c.name.charAt(0)}</div>
-                      <div>
-                        <span className="font-medium">{c.name}</span>
-                        <p className="text-xs text-muted-foreground">{c.code} · {c.phone}</p>
+                      <div className="min-w-0">
+                        <span className="block truncate font-medium">{c.name}</span>
+                        <p className="truncate text-xs text-muted-foreground">{c.code} · {c.phone}</p>
                       </div>
                     </div>
-                    <span className="text-xs font-semibold text-success">{formatCFA(c.balance)}</span>
+                    <span className="shrink-0 text-xs font-semibold text-success">{formatCFA(c.balance)}</span>
                   </button>
                 ))}
               </div>
@@ -121,7 +123,7 @@ const DepositsPage = () => {
           </Button>
         </div>
 
-        <div className="lg:col-span-2 bg-card rounded-xl p-6 card-shadow border-2 border-dashed border-border">
+        <div className="rounded-xl border-2 border-dashed border-border bg-card p-4 card-shadow sm:p-6 lg:col-span-2">
           <h3 className="text-sm font-semibold mb-4">Aperçu du Reçu</h3>
           {selectedClient && amount ? (
             <div className="space-y-4 text-sm">
@@ -130,12 +132,12 @@ const DepositsPage = () => {
                 <p className="text-xs text-muted-foreground">Reçu de Dépôt</p>
               </div>
               <div className="space-y-1.5">
-                <div className="flex justify-between"><span className="text-muted-foreground">Client:</span><span className="font-medium">{selectedClient.name}</span></div>
-                <div className="flex justify-between"><span className="text-muted-foreground">Code:</span><span className="font-mono">{selectedClient.code}</span></div>
-                <div className="flex justify-between"><span className="text-muted-foreground">Date:</span><span>{new Date().toLocaleDateString('fr-FR')}</span></div>
+                <div className="flex justify-between gap-3"><span className="text-muted-foreground">Client:</span><span className="text-right font-medium">{selectedClient.name}</span></div>
+                <div className="flex justify-between gap-3"><span className="text-muted-foreground">Code:</span><span className="font-mono">{selectedClient.code}</span></div>
+                <div className="flex justify-between gap-3"><span className="text-muted-foreground">Date:</span><span>{new Date().toLocaleDateString('fr-FR')}</span></div>
               </div>
               <div className="border-t border-border pt-3">
-                <div className="flex justify-between text-lg font-bold">
+                <div className="flex flex-col gap-1 text-lg font-bold sm:flex-row sm:justify-between">
                   <span>Montant:</span>
                   <span>{formatCFA(Number(amount))}</span>
                 </div>

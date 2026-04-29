@@ -36,6 +36,7 @@ export function mapUserRow(row) {
     username: row.username,
     fullName: row.full_name,
     role: row.role,
+    status: row.status,
     mustChangePassword: Boolean(row.must_change_password),
     companyId: row.company_id ? String(row.company_id) : null,
   };
@@ -62,7 +63,6 @@ export function mapClientRow(row) {
   return {
     id: String(row.id),
     code: row.code,
-    material_type: row.material_type,
     name: row.name,
     phone: row.phone ?? '',
     email: row.email,
@@ -76,6 +76,7 @@ export function mapJewelryRow(row) {
   return {
     id: String(row.id),
     code: row.code,
+    material_type: row.material_type,
     name: row.name,
     category: row.category,
     weight: Number(row.weight ?? 0),
@@ -95,6 +96,7 @@ export function mapDepositRow(row) {
     id: String(row.id),
     client_id: String(row.client_id),
     amount: Number(row.amount ?? 0),
+    document_number: row.document_number,
     note: row.note,
     created_at: row.created_at,
     created_by: row.created_by ? String(row.created_by) : null,
@@ -111,14 +113,37 @@ export function mapSaleRow(row) {
   return {
     id: String(row.id),
     client_id: String(row.client_id),
-    jewelry_id: String(row.jewelry_id),
+    jewelry_id: row.jewelry_id ? String(row.jewelry_id) : null,
+    document_number: row.document_number,
     total_price: Number(row.total_price ?? 0),
     paid_from_balance: Number(row.paid_from_balance ?? 0),
     paid_cash: Number(row.paid_cash ?? 0),
+    paid_mobile_money: Number(row.paid_mobile_money ?? 0),
+    paid_card: Number(row.paid_card ?? 0),
+    paid_other: Number(row.paid_other ?? 0),
+    remaining_amount: Number(row.remaining_amount ?? 0),
+    change_amount: Number(row.change_amount ?? 0),
+    change_to_balance: Number(row.change_to_balance ?? 0),
     created_at: row.created_at,
     created_by: row.created_by ? String(row.created_by) : null,
     clients: row.client_name ? { name: row.client_name, code: row.client_code } : null,
     jewelry: row.jewelry_name ? { name: row.jewelry_name } : null,
+    items: row.items ?? [],
+  };
+}
+
+export function mapSaleItemRow(row) {
+  return {
+    id: String(row.id),
+    sale_id: String(row.sale_id),
+    jewelry_id: String(row.jewelry_id),
+    jewelry_code: row.jewelry_code,
+    jewelry_name: row.jewelry_name,
+    material_type: row.material_type,
+    weight: Number(row.weight ?? 0),
+    price_per_gram: Number(row.price_per_gram ?? 0),
+    quantity: Number(row.quantity ?? 0),
+    line_total: Number(row.line_total ?? 0),
   };
 }
 
@@ -127,11 +152,33 @@ export function mapReservationRow(row) {
     id: String(row.id),
     client_id: String(row.client_id),
     jewelry_id: String(row.jewelry_id),
+    document_number: row.document_number,
     deposit_amount: Number(row.deposit_amount ?? 0),
     remaining_amount: Number(row.remaining_amount ?? 0),
     created_at: row.created_at,
     created_by: row.created_by ? String(row.created_by) : null,
     clients: row.client_name ? { name: row.client_name, code: row.client_code } : null,
     jewelry: row.jewelry_name ? { name: row.jewelry_name } : null,
+  };
+}
+
+export function mapWalletTransactionRow(row) {
+  return {
+    id: String(row.id),
+    client_id: String(row.client_id),
+    operation_type: row.operation_type,
+    operation_id: row.operation_id ? String(row.operation_id) : null,
+    document_number: row.document_number,
+    amount: Number(row.amount ?? 0),
+    balance_before: Number(row.balance_before ?? 0),
+    balance_after: Number(row.balance_after ?? 0),
+    created_at: row.created_at,
+    created_by: row.created_by ? String(row.created_by) : null,
+    clients: row.client_name
+      ? {
+          name: row.client_name,
+          code: row.client_code,
+        }
+      : null,
   };
 }

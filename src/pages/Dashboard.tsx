@@ -4,6 +4,7 @@ import { TrendingUp, Wallet, Gem, BookmarkCheck, Plus, ShoppingBag } from 'lucid
 import StatCard from '@/components/StatCard';
 import { Button } from '@/components/ui/button';
 import { useJewelry } from '@/features/jewelry';
+import { getJewelryTotalPrice } from '@/features/jewelry';
 import { useDeposits, useSales, useReservations, type DepositWithClient, type SaleWithRelations } from '@/features/transactions';
 import { formatCFA } from '@/lib/format';
 
@@ -13,32 +14,39 @@ const Dashboard = () => {
   const { data: sales = [] } = useSales();
   const { data: reservations = [] } = useReservations();
 
-  const totalStock = jewelry.filter(j => j.status === 'available').reduce((s, j) => s + j.sale_price, 0);
+  const totalStock = jewelry
+    .filter(j => j.status === 'available')
+    .reduce((sum, item) => sum + getJewelryTotalPrice(item) * item.quantity, 0);
   const totalDeposits = deposits.reduce((s: number, d: DepositWithClient) => s + d.amount, 0);
   const totalSales = sales.reduce((s: number, d: SaleWithRelations) => s + d.total_price, 0);
   const reserved = jewelry.filter(j => j.status === 'reserved').length;
 
-  // Build simple daily chart from sales data
-  const days = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
-  const dailySalesData = days.map((day, i) => {
+  const dailySalesData = Array.from({ length: 7 }, (_, index) => {
+    const current = new Date();
+    current.setHours(0, 0, 0, 0);
+    current.setDate(current.getDate() - (6 - index));
+    const currentKey = current.toISOString().slice(0, 10);
     const dayTotal = sales
-      .filter((sale: SaleWithRelations) => new Date(sale.created_at).getDay() === i)
+      .filter((sale: SaleWithRelations) => new Date(sale.created_at).toISOString().slice(0, 10) === currentKey)
       .reduce((sum: number, sale: SaleWithRelations) => sum + sale.total_price, 0);
-    return { day, amount: dayTotal };
+    return {
+      day: current.toLocaleDateString('fr-FR', { weekday: 'short' }),
+      amount: dayTotal,
+    };
   });
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <div className="flex items-center justify-between">
-        <div>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
           <h1 className="text-2xl font-bold tracking-tight">Tableau de bord</h1>
           <p className="text-muted-foreground text-sm">Vue d'ensemble de votre activité</p>
         </div>
-        <div className="flex gap-2">
-          <Button asChild variant="outline" size="sm">
+        <div className="grid grid-cols-1 gap-2 sm:flex sm:shrink-0">
+          <Button asChild variant="outline" size="sm" className="justify-center">
             <Link to="/deposits"><Plus className="h-4 w-4 mr-1" /> Nouveau Dépôt</Link>
           </Button>
-          <Button asChild size="sm" className="gold-gradient text-accent-foreground hover:opacity-90">
+          <Button asChild size="sm" className="justify-center gold-gradient text-accent-foreground hover:opacity-90">
             <Link to="/sales"><ShoppingBag className="h-4 w-4 mr-1" /> Nouvelle Vente</Link>
           </Button>
         </div>
@@ -73,12 +81,12 @@ const Dashboard = () => {
               <p className="text-sm text-muted-foreground text-center py-4">Aucun dépôt</p>
             ) : (
               deposits.slice(0, 5).map((d: DepositWithClient) => (
-                <div key={d.id} className="flex items-center justify-between py-2 border-b border-border last:border-0">
-                  <div>
+                <div key={d.id} className="flex items-center justify-between gap-3 py-2 border-b border-border last:border-0">
+                  <div className="min-w-0">
                     <p className="text-sm font-medium">{d.clients?.name || '—'}</p>
                     <p className="text-xs text-muted-foreground">{new Date(d.created_at).toLocaleDateString('fr-FR')}</p>
                   </div>
-                  <span className="text-sm font-semibold text-success">+{formatCFA(d.amount)}</span>
+                  <span className="shrink-0 text-sm font-semibold text-success">+{formatCFA(d.amount)}</span>
                 </div>
               ))
             )}

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import QRCode from 'qrcode';
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { CheckCircle2, Download, Printer, X } from 'lucide-react';
 import { formatCFA } from '@/lib/format';
@@ -291,6 +291,57 @@ const buildPrintStyles = () => `
     body { background: white; padding: 0; }
     .sheet { box-shadow: none; margin: 0; width: auto; min-height: auto; padding: 0; }
   }
+  @media screen and (max-width: 760px) {
+    body { padding: 10px; }
+    .sheet { width: 100%; min-height: auto; padding: 18px; }
+    .topbar,
+    .brand,
+    .grid,
+    .footer-grid {
+      display: block;
+    }
+    .doc-badge { text-align: left; margin-top: 16px; }
+    .brand-name { font-size: 24px; }
+    .doc-badge-number { font-size: 20px; word-break: break-word; }
+    .grid,
+    .footer-grid,
+    .invoice {
+      gap: 12px;
+    }
+    .meta-card,
+    .summary-card,
+    .qr-wrap {
+      margin-top: 12px;
+      width: 100%;
+    }
+    table,
+    thead,
+    tbody,
+    tr,
+    th,
+    td {
+      display: block;
+    }
+    thead { display: none; }
+    tbody tr {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      margin-bottom: 10px;
+      overflow: hidden;
+    }
+    tbody td {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      border-bottom: 1px solid #e5e7eb;
+    }
+    tbody td:nth-child(1)::before { content: "#"; color: var(--muted); }
+    tbody td:nth-child(2)::before { content: "Article"; color: var(--muted); }
+    tbody td:nth-child(3)::before { content: "Poids"; color: var(--muted); }
+    tbody td:nth-child(4)::before { content: "Qte"; color: var(--muted); }
+    tbody td:nth-child(5)::before { content: "Prix unitaire"; color: var(--muted); }
+    tbody td:nth-child(6)::before { content: "Prix total"; color: var(--muted); }
+  }
 `;
 
 const buildInvoiceHtml = ({
@@ -312,6 +363,8 @@ const buildInvoiceHtml = ({
   const taxRate = data.taxRate ?? 0;
   const taxAmount = subtotal * taxRate;
   const grandTotal = subtotal + taxAmount;
+  const priceColumnLabel = data.type === 'deposit' ? 'Prix unitaire' : 'Prix/g';
+  const priceSuffix = data.type === 'deposit' ? '' : ' / g';
   const brandMetaHtml = brandMeta.map((line) => `<div>${sanitizeHtml(line)}</div>`).join('');
   const detailsHtml = (data.details ?? [])
     .map(
@@ -331,7 +384,7 @@ const buildInvoiceHtml = ({
           <td>${sanitizeHtml(item.description)}</td>
           <td class="td-right">${item.weight ? `${item.weight.toFixed(2)} g` : '-'}</td>
           <td class="td-right">${item.quantity ?? 1}</td>
-          <td class="td-right">${formatCFA(item.unitPrice)}</td>
+          <td class="td-right">${formatCFA(item.unitPrice)}${priceSuffix}</td>
           <td class="td-right">${formatCFA(item.totalPrice)}</td>
         </tr>
       `,
@@ -398,7 +451,7 @@ const buildInvoiceHtml = ({
                   <th>Article</th>
                   <th style="width: 90px; text-align: right;">Poids</th>
                   <th style="width: 80px; text-align: right;">Qté</th>
-                  <th style="width: 120px; text-align: right;">Prix unitaire</th>
+                  <th style="width: 120px; text-align: right;">${priceColumnLabel}</th>
                   <th style="width: 130px; text-align: right;">Prix total</th>
                 </tr>
               </thead>
@@ -496,6 +549,8 @@ const ReceiptModal = ({ open, onClose, data }: ReceiptModalProps) => {
   const taxRate = data.taxRate ?? 0;
   const totalWithTax = subtotal + subtotal * taxRate;
   const documentLabel = documentLabels[data.type];
+  const priceColumnLabel = data.type === 'deposit' ? 'Prix unitaire' : 'Prix/g';
+  const priceSuffix = data.type === 'deposit' ? '' : ' / g';
 
   const openPrintWindow = () => {
     const popup = window.open('', '_blank', 'width=1200,height=900');
@@ -529,15 +584,77 @@ const ReceiptModal = ({ open, onClose, data }: ReceiptModalProps) => {
             </div>
             <div>
               <DialogTitle className="text-lg">{documentLabel}</DialogTitle>
-              <p className="text-sm text-muted-foreground">
+              <DialogDescription className="text-sm text-muted-foreground">
                 Mise en page optimisee pour impression PDF et papier
-              </p>
+              </DialogDescription>
             </div>
           </div>
         </DialogHeader>
 
-        <div className="max-h-[72vh] overflow-auto rounded-2xl border bg-slate-100 p-4">
-          <div className={`mx-auto origin-top ${previewScaleClass}`} style={{ width: '210mm' }}>
+        <div className="max-h-[72vh] overflow-auto rounded-2xl border bg-slate-100 p-3 sm:p-4">
+          <div className="rounded-2xl bg-white p-4 shadow-sm md:hidden">
+            <div className="border-b-2 border-[#b88917] pb-4">
+              <div className="flex items-start gap-3">
+                {businessLogo ? (
+                  <img src={businessLogo} alt={businessName} className="h-12 w-12 rounded-xl border object-cover" />
+                ) : null}
+                <div className="min-w-0">
+                  <p className="truncate text-xl font-bold text-slate-900">{businessName}</p>
+                  <p className="mt-1 text-xs uppercase tracking-[0.16em] text-[#b88917]">{documentLabel}</p>
+                  <p className="mt-1 break-words font-mono text-sm font-semibold text-slate-700">{data.invoiceNumber}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-4 grid gap-3 text-sm">
+              <div className="rounded-xl border p-3">
+                <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Client</p>
+                <p className="mt-2 font-semibold text-slate-900">{data.clientName}</p>
+                <p className="mt-1 text-slate-500">{data.clientCode} · {data.clientPhone || 'Non renseigne'}</p>
+              </div>
+              <div className="rounded-xl border p-3">
+                <div className="flex justify-between gap-3">
+                  <span className="text-slate-500">Date</span>
+                  <span className="text-right font-medium">{formatDateTime(data.date)}</span>
+                </div>
+                <div className="mt-2 flex justify-between gap-3">
+                  <span className="text-slate-500">Reglement</span>
+                  <span className="text-right font-medium">{data.paymentMethod}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-4 divide-y rounded-xl border">
+              {data.items.map((item, index) => (
+                <div key={`${item.description}-${index}`} className="p-3 text-sm">
+                  <div className="flex justify-between gap-3">
+                    <span className="font-semibold text-slate-900">{item.description}</span>
+                    <span className="shrink-0 font-semibold">{formatCFA(item.totalPrice)}</span>
+                  </div>
+                  <p className="mt-1 text-xs text-slate-500">
+                    Qte {item.quantity ?? 1} · {item.weight ? `${item.weight.toFixed(2)} g` : 'poids non renseigne'} · {formatCFA(item.unitPrice)}{priceSuffix}
+                  </p>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-4 rounded-xl border bg-[#fffdf7] p-3 text-sm">
+              <div className="flex justify-between gap-3">
+                <span className="text-slate-500">Sous-total HT</span>
+                <span className="font-semibold">{formatCFA(subtotal)}</span>
+              </div>
+              <div className="mt-2 flex justify-between gap-3">
+                <span className="text-slate-500">TVA ({(taxRate * 100).toFixed(0)}%)</span>
+                <span className="font-semibold">{formatCFA(subtotal * taxRate)}</span>
+              </div>
+              <div className="mt-3 flex justify-between gap-3 border-t-2 border-[#b88917] pt-3 text-base font-bold">
+                <span>Net a payer TTC</span>
+                <span>{formatCFA(totalWithTax)}</span>
+              </div>
+            </div>
+          </div>
+
+          <div className={`mx-auto hidden origin-top md:block ${previewScaleClass}`} style={{ width: '210mm' }}>
             <div className="min-h-[297mm] bg-white p-[18mm_16mm] shadow-[0_16px_40px_rgba(15,23,42,0.12)]">
               <div className="flex flex-col gap-[18px] text-slate-800">
                 <div className="flex items-start justify-between gap-6 border-b-2 border-[#b88917] pb-4">
@@ -619,7 +736,7 @@ const ReceiptModal = ({ open, onClose, data }: ReceiptModalProps) => {
                         <th className="px-4 py-3 text-left">Article</th>
                         <th className="px-4 py-3 text-right">Poids</th>
                         <th className="px-4 py-3 text-right">Qte</th>
-                        <th className="px-4 py-3 text-right">Prix unitaire</th>
+                        <th className="px-4 py-3 text-right">{priceColumnLabel}</th>
                         <th className="px-4 py-3 text-right">Prix total</th>
                       </tr>
                     </thead>
@@ -632,7 +749,7 @@ const ReceiptModal = ({ open, onClose, data }: ReceiptModalProps) => {
                             {item.weight ? `${item.weight.toFixed(2)} g` : '-'}
                           </td>
                           <td className="px-4 py-4 text-right">{item.quantity ?? 1}</td>
-                          <td className="px-4 py-4 text-right">{formatCFA(item.unitPrice)}</td>
+                          <td className="px-4 py-4 text-right">{formatCFA(item.unitPrice)}{priceSuffix}</td>
                           <td className="px-4 py-4 text-right">{formatCFA(item.totalPrice)}</td>
                         </tr>
                       ))}
@@ -692,7 +809,7 @@ const ReceiptModal = ({ open, onClose, data }: ReceiptModalProps) => {
           </div>
         </div>
 
-        <DialogFooter className="flex gap-2 sm:gap-2">
+        <DialogFooter className="gap-2 sm:gap-2">
           <Button variant="outline" onClick={openPrintWindow} className="flex-1">
             <Download className="mr-2 h-4 w-4" /> Exporter PDF
           </Button>

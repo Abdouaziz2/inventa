@@ -1,6 +1,7 @@
 import jwt from 'jsonwebtoken';
 import { query } from './db.js';
 import { mapUserRow } from './utils.js';
+import { AuthenticationError, ForbiddenError } from './errors.js';
 
 const jwtSecret = process.env.JWT_SECRET || 'change-me-in-production';
 
@@ -10,7 +11,7 @@ export function signToken(userId) {
 
 export async function loadAuthenticatedUser(userId) {
   const rows = await query(
-    `SELECT id, email, username, full_name, role, must_change_password, company_id
+    `SELECT id, email, username, full_name, role, status, must_change_password, company_id
      FROM users
      WHERE id = :userId`,
     { userId }
@@ -32,12 +33,20 @@ export async function requireAuth(request, reply) {
     const user = await loadAuthenticatedUser(payload.userId);
 
     if (!user) {
-      return reply.status(401).json({ error: 'Session invalide' });
+      throw new AuthenticationError('Session invalide');
+    }
+
+    if (user.status !== 'active') {
+      throw new ForbiddenError("Compte désactivé. Contactez l'administrateur.");
     }
 
     request.user = user;
     return null;
-  } catch {
+  } catch (error) {
+    if (error instanceof ForbiddenError) {
+      return reply.status(error.statusCode).json({ error: error.message });
+    }
+
     return reply.status(401).json({ error: 'Session invalide' });
   }
 }

@@ -9,7 +9,10 @@ import type {
   Reservation,
   ReservationWithRelations,
   Sale,
+  SaleItem,
   SaleWithRelations,
+  WalletTransaction,
+  WalletTransactionWithClient,
 } from '@/types/api';
 
 export type {
@@ -17,10 +20,13 @@ export type {
   Jewelry,
   Deposit,
   Sale,
+  SaleItem,
   Reservation,
   DepositWithClient,
   SaleWithRelations,
   ReservationWithRelations,
+  WalletTransaction,
+  WalletTransactionWithClient,
 };
 
 export type ClientSummary = Pick<Client, 'name' | 'code'>;
@@ -70,7 +76,12 @@ export const useUpdateClientBalance = () => {
         body: { balance },
       });
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.clients }),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.clients });
+      queryClient.invalidateQueries({ queryKey: queryKeys.client(variables.id) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.walletTransactions() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.walletTransactions(variables.id) });
+    },
   });
 };
 
@@ -159,9 +170,12 @@ export const useAddDeposit = () => {
       });
       return response.deposit;
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.deposits() });
       queryClient.invalidateQueries({ queryKey: queryKeys.clients });
+      queryClient.invalidateQueries({ queryKey: queryKeys.client(variables.client_id) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.walletTransactions() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.walletTransactions(variables.client_id) });
     },
   });
 };
@@ -182,21 +196,27 @@ export const useAddSale = () => {
   return useMutation({
     mutationFn: async (sale: {
       client_id: string;
-      jewelry_id: string;
-      total_price: number;
-      paid_from_balance: number;
+      items: { jewelry_id: string; quantity: number }[];
+      use_balance: boolean;
       paid_cash: number;
+      paid_mobile_money: number;
+      paid_card: number;
+      paid_other: number;
+      add_change_to_balance: boolean;
     }) => {
-      const response = await apiRequest<{ sale: Sale }>('/sales', {
+      const response = await apiRequest<{ sale: SaleWithRelations }>('/sales', {
         method: 'POST',
         body: sale,
       });
       return response.sale;
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.sales() });
       queryClient.invalidateQueries({ queryKey: queryKeys.clients });
+      queryClient.invalidateQueries({ queryKey: queryKeys.client(variables.client_id) });
       queryClient.invalidateQueries({ queryKey: queryKeys.jewelry });
+      queryClient.invalidateQueries({ queryKey: queryKeys.walletTransactions() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.walletTransactions(variables.client_id) });
     },
   });
 };
@@ -218,7 +238,6 @@ export const useAddReservation = () => {
       client_id: string;
       jewelry_id: string;
       deposit_amount: number;
-      remaining_amount: number;
     }) => {
       const response = await apiRequest<{ reservation: Reservation }>('/reservations', {
         method: 'POST',
@@ -226,9 +245,22 @@ export const useAddReservation = () => {
       });
       return response.reservation;
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.reservations });
+      queryClient.invalidateQueries({ queryKey: queryKeys.client(variables.client_id) });
       queryClient.invalidateQueries({ queryKey: queryKeys.jewelry });
     },
   });
 };
+
+export const useWalletTransactions = (clientId?: string) =>
+  useQuery({
+    queryKey: queryKeys.walletTransactions(clientId),
+    queryFn: async (): Promise<WalletTransactionWithClient[]> => {
+      const suffix = clientId ? `?clientId=${encodeURIComponent(clientId)}` : '';
+      const response = await apiRequest<{ wallet_transactions: WalletTransactionWithClient[] }>(
+        `/wallet-transactions${suffix}`,
+      );
+      return response.wallet_transactions;
+    },
+  });

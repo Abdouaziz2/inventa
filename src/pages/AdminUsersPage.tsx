@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -148,8 +148,8 @@ const AdminUsersPage = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
           <h1 className="text-2xl font-bold flex items-center gap-2">
             <Users className="h-6 w-6 text-muted-foreground" />
             Gestion des Utilisateurs
@@ -159,13 +159,14 @@ const AdminUsersPage = () => {
 
         <Dialog open={showCreate} onOpenChange={setShowCreate}>
           <DialogTrigger asChild>
-            <Button className="gold-gradient text-accent-foreground font-semibold">
+            <Button className="w-full justify-center gold-gradient text-accent-foreground font-semibold sm:w-auto">
               <UserPlus className="h-4 w-4 mr-2" /> Créer un utilisateur
             </Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Nouvel utilisateur</DialogTitle>
+              <DialogDescription>Créez un compte avec son rôle et ses identifiants de connexion.</DialogDescription>
             </DialogHeader>
             <form onSubmit={handleCreate} className="space-y-4">
               <div className="space-y-2">
@@ -217,6 +218,7 @@ const AdminUsersPage = () => {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Réinitialiser le mot de passe</DialogTitle>
+            <DialogDescription>Définissez un nouveau mot de passe pour cet utilisateur.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
@@ -237,7 +239,8 @@ const AdminUsersPage = () => {
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
           ) : (
-            <Table>
+            <>
+            <Table className="hidden md:table">
               <TableHeader>
                 <TableRow>
                   <TableHead>Nom</TableHead>
@@ -290,6 +293,47 @@ const AdminUsersPage = () => {
                 )}
               </TableBody>
             </Table>
+            <div className="divide-y md:hidden">
+              {users.map((u) => (
+                <div key={u.id} className="px-4 py-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold">{u.full_name}</p>
+                      <p className="mt-1 truncate text-sm text-muted-foreground">{u.username || '—'}</p>
+                    </div>
+                    {statusBadge(u.status)}
+                  </div>
+                  <div className="mt-3 flex items-center justify-between gap-3">
+                    <Badge variant="outline" className="text-xs">{roleLabel[u.role] || u.role}</Badge>
+                    {u.id !== user?.id && (
+                      <div className="flex items-center justify-end gap-1">
+                        {u.status === 'active' ? (
+                          <Button variant="ghost" size="icon" onClick={() => handleStatusChange(u.id, 'inactive')} disabled={actionLoading === u.id} title="Désactiver">
+                            <ShieldOff className="h-4 w-4 text-destructive" />
+                          </Button>
+                        ) : (
+                          <Button variant="ghost" size="icon" onClick={() => handleStatusChange(u.id, 'active')} disabled={actionLoading === u.id} title="Activer">
+                            <Shield className="h-4 w-4 text-success" />
+                          </Button>
+                        )}
+                        <Button variant="ghost" size="icon" onClick={() => setResetUserId(u.id)} title="Réinitialiser MDP">
+                          <KeyRound className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" onClick={() => handleDelete(u.id)} disabled={actionLoading === u.id} title="Supprimer">
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+              {users.length === 0 && (
+                <div className="py-8 text-center text-muted-foreground">
+                  Aucun utilisateur trouvé
+                </div>
+              )}
+            </div>
+            </>
           )}
         </CardContent>
       </Card>

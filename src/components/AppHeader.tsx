@@ -1,12 +1,16 @@
 import { useState, useRef, useEffect } from 'react';
-import { Search, Bell } from 'lucide-react';
+import { Search, Bell, Menu } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/contexts/AuthContext';
 import { useClients } from '@/hooks/useDatabase';
 import { useNavigate } from 'react-router-dom';
 import { formatCFA } from '@/lib/format';
 
-const AppHeader = () => {
+interface AppHeaderProps {
+  onMenuClick: () => void;
+}
+
+const AppHeader = ({ onMenuClick }: AppHeaderProps) => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [query, setQuery] = useState('');
@@ -37,8 +41,16 @@ const AppHeader = () => {
   };
 
   return (
-    <header className="h-16 bg-card border-b border-border flex items-center justify-between px-6 card-shadow">
-      <div ref={wrapperRef} className="relative flex-1 max-w-lg">
+    <header className="sticky top-0 z-30 flex min-h-16 items-center gap-3 border-b border-border bg-card/95 px-4 py-3 shadow-sm backdrop-blur sm:px-5 lg:px-6">
+      <button
+        type="button"
+        aria-label="Ouvrir le menu"
+        onClick={onMenuClick}
+        className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted lg:hidden"
+      >
+        <Menu className="h-5 w-5" />
+      </button>
+      <div ref={wrapperRef} className="relative min-w-0 flex-1 lg:max-w-lg">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground z-10" />
         <Input
           placeholder="Rechercher client par nom, code ou téléphone..."
@@ -53,16 +65,16 @@ const AppHeader = () => {
               <button
                 key={c.id}
                 onClick={() => selectClient(c.id)}
-                className="w-full px-4 py-3 text-left hover:bg-muted flex items-center justify-between text-sm transition-colors"
+                className="w-full px-4 py-3 text-left hover:bg-muted flex items-center justify-between gap-3 text-sm transition-colors"
               >
-                <div className="flex items-center gap-3">
+                <div className="flex min-w-0 items-center gap-3">
                   <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center text-xs font-bold">{c.name.charAt(0)}</div>
-                  <div>
-                    <p className="font-medium">{c.name}</p>
-                    <p className="text-xs text-muted-foreground">{c.code} · {c.phone}</p>
+                  <div className="min-w-0">
+                    <p className="truncate font-medium">{c.name}</p>
+                    <p className="truncate text-xs text-muted-foreground">{c.code} · {c.phone}</p>
                   </div>
                 </div>
-                <span className="text-xs font-semibold text-success">{formatCFA(c.balance)}</span>
+                <span className="shrink-0 text-xs font-semibold text-success">{formatCFA(c.balance)}</span>
               </button>
             ))}
           </div>
@@ -73,13 +85,13 @@ const AppHeader = () => {
           </div>
         )}
       </div>
-      <div className="flex items-center gap-3">
+      <div className="flex shrink-0 items-center gap-2 sm:gap-3">
         <button className="relative p-2 rounded-lg text-muted-foreground hover:bg-muted transition-colors">
           <Bell className="h-5 w-5" />
           <span className="absolute top-1 right-1 h-2 w-2 bg-accent rounded-full" />
         </button>
-        <div className="h-6 w-px bg-border" />
-        <div className="text-right leading-tight">
+        <div className="hidden h-6 w-px bg-border sm:block" />
+        <div className="hidden text-right leading-tight sm:block">
           <p className="text-sm font-medium">{user?.fullName}</p>
           <p className="text-xs text-muted-foreground">{user?.username ?? user?.email}</p>
         </div>

@@ -7,100 +7,147 @@ import type {
   SaleWithRelations,
 } from '@/hooks/useDatabase';
 import { formatCFA } from '@/lib/format';
-import { formatJewelryMaterial } from '@/features/jewelry';
+import { formatJewelryMaterial, getJewelryTotalPrice } from '@/features/jewelry';
 
 export type ReceiptOperation = {
   type: 'deposit' | 'sale' | 'reservation';
   id: string;
+  documentNumber: string;
   client: string;
   amount: number;
   date: string;
   label: string;
 };
 
-const createDocumentNumber = (prefix: 'FAC' | 'DEP' | 'RES') => {
-  const now = new Date();
-  const compactDate = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(
-    now.getDate(),
-  ).padStart(2, '0')}`;
-  const compactTime = `${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}`;
-  const randomSuffix = Math.floor(100 + Math.random() * 900);
-  return `${prefix}-${compactDate}-${compactTime}-${randomSuffix}`;
+const getMultiPaymentMethod = (
+  sale: Pick<
+    SaleWithRelations,
+    'paid_from_balance' | 'paid_cash' | 'paid_mobile_money' | 'paid_card' | 'paid_other'
+  >,
+) => {
+  const methods = [
+    sale.paid_from_balance > 0 ? 'Solde client' : null,
+    sale.paid_cash > 0 ? 'Especes' : null,
+    sale.paid_mobile_money > 0 ? 'Mobile money' : null,
+    sale.paid_card > 0 ? 'Carte' : null,
+    sale.paid_other > 0 ? 'Autre' : null,
+  ].filter(Boolean);
+
+  return methods.length > 0 ? methods.join(' + ') : 'Non regle';
 };
 
-const getSalePaymentMethod = (balanceUsed: number, remaining: number) => {
-  if (balanceUsed > 0 && remaining > 0) return 'Solde client + especes';
-  if (balanceUsed > 0) return 'Solde client';
-  return 'Especes';
-};
-
-export function buildDepositReceipt(client: Client, amount: number, note?: string): ReceiptData {
+export function buildDepositReceipt(
+  client: Client,
+  deposit: Pick<DepositWithClient, 'amount' | 'created_at' | 'document_number' | 'note'>,
+  previousBalance: number,
+): ReceiptData {
   return {
     type: 'deposit',
-    invoiceNumber: createDocumentNumber('DEP'),
+    invoiceNumber: deposit.document_number,
     clientName: client.name,
     clientCode: client.code,
     clientPhone: client.phone,
-    amount,
-    date: new Date().toISOString(),
+    amount: deposit.amount,
+    date: deposit.created_at,
     paymentMethod: 'Depot en caisse',
     taxRate: 0,
-    note: note || undefined,
+    note: deposit.note || undefined,
     items: [
       {
         description: 'Approvisionnement du compte client',
         quantity: 1,
         weight: null,
-        unitPrice: amount,
-        totalPrice: amount,
+        unitPrice: deposit.amount,
+        totalPrice: deposit.amount,
       },
     ],
     details: [
-      { label: 'Ancien solde', value: formatCFA(client.balance) },
-      { label: 'Nouveau solde', value: formatCFA(client.balance + amount) },
+      { label: 'Ancien solde', value: formatCFA(previousBalance) },
+      { label: 'Nouveau solde', value: formatCFA(previousBalance + deposit.amount) },
     ],
   };
 }
 
-export function buildSaleReceipt(client: Client, jewelry: Jewelry, balanceUsed: number, remaining: number): ReceiptData {
+export function buildSaleReceipt(
+  client: Client,
+  jewelry: Jewelry,
+  sale: Pick<
+    SaleWithRelations,
+    | 'document_number'
+    | 'total_price'
+    | 'paid_from_balance'
+    | 'paid_cash'
+    | 'paid_mobile_money'
+    | 'paid_card'
+    | 'paid_other'
+    | 'remaining_amount'
+    | 'change_amount'
+    | 'change_to_balance'
+    | 'created_at'
+    | 'items'
+  >,
+): ReceiptData {
+  const items =
+    sale.items.length > 0
+      ? sale.items.map((item) => ({
+          description: item.jewelry_name,
+          quantity: item.quantity,
+          weight: item.weight,
+          unitPrice: item.price_per_gram,
+          totalPrice: item.line_total,
+        }))
+      : [
+          {
+            description: jewelry.name,
+            quantity: 1,
+            weight: jewelry.weight,
+            unitPrice: jewelry.price_per_gram,
+            totalPrice: sale.total_price,
+          },
+        ];
+
   return {
     type: 'sale',
-    invoiceNumber: createDocumentNumber('FAC'),
+    invoiceNumber: sale.document_number,
     clientName: client.name,
     clientCode: client.code,
     clientPhone: client.phone,
-    amount: jewelry.sale_price,
-    date: new Date().toISOString(),
-    paymentMethod: getSalePaymentMethod(balanceUsed, remaining),
+    amount: sale.total_price,
+    date: sale.created_at,
+    paymentMethod: getMultiPaymentMethod(sale),
     taxRate: 0,
-    items: [
-      {
-        description: jewelry.name,
-        quantity: 1,
-        weight: jewelry.weight,
-        unitPrice: jewelry.sale_price,
-        totalPrice: jewelry.sale_price,
-      },
-    ],
+    items,
     details: [
-      { label: 'Matiere', value: formatJewelryMaterial(jewelry.material_type) },
-      { label: 'Categorie', value: jewelry.category },
-      { label: 'Prix/gramme', value: jewelry.price_per_gram > 0 ? formatCFA(jewelry.price_per_gram) : 'N/A' },
-      { label: 'Paye via solde', value: formatCFA(balanceUsed) },
-      { label: 'Paye en especes', value: formatCFA(remaining) },
+      { label: 'Total facture', value: formatCFA(sale.total_price) },
+      { label: 'Paye via solde', value: formatCFA(sale.paid_from_balance) },
+      { label: 'Paye en especes', value: formatCFA(sale.paid_cash) },
+      { label: 'Paye mobile money', value: formatCFA(sale.paid_mobile_money) },
+      { label: 'Paye carte', value: formatCFA(sale.paid_card) },
+      { label: 'Paye autre', value: formatCFA(sale.paid_other) },
+      { label: 'Reste a payer', value: formatCFA(sale.remaining_amount) },
+      { label: 'Monnaie rendue', value: formatCFA(sale.change_amount) },
+      { label: 'Surplus ajoute au solde', value: formatCFA(sale.change_to_balance) },
     ],
   };
 }
 
-export function buildReservationReceipt(client: Client, jewelry: Jewelry, depositAmount: number, remaining: number): ReceiptData {
+export function buildReservationReceipt(
+  client: Client,
+  jewelry: Jewelry,
+  reservation: Pick<
+    ReservationWithRelations,
+    'document_number' | 'deposit_amount' | 'remaining_amount' | 'created_at'
+  >,
+): ReceiptData {
+  const totalPrice = getJewelryTotalPrice(jewelry);
   return {
     type: 'reservation',
-    invoiceNumber: createDocumentNumber('RES'),
+    invoiceNumber: reservation.document_number,
     clientName: client.name,
     clientCode: client.code,
     clientPhone: client.phone,
-    amount: depositAmount,
-    date: new Date().toISOString(),
+    amount: reservation.deposit_amount,
+    date: reservation.created_at,
     paymentMethod: 'Acompte de reservation',
     taxRate: 0,
     items: [
@@ -108,15 +155,15 @@ export function buildReservationReceipt(client: Client, jewelry: Jewelry, deposi
         description: `Reservation - ${jewelry.name}`,
         quantity: 1,
         weight: jewelry.weight,
-        unitPrice: depositAmount,
-        totalPrice: depositAmount,
+        unitPrice: jewelry.price_per_gram,
+        totalPrice,
       },
     ],
     details: [
       { label: 'Matiere', value: formatJewelryMaterial(jewelry.material_type) },
-      { label: 'Prix total bijou', value: formatCFA(jewelry.sale_price) },
-      { label: 'Acompte verse', value: formatCFA(depositAmount) },
-      { label: 'Reste a payer', value: formatCFA(remaining) },
+      { label: 'Prix total bijou', value: formatCFA(totalPrice) },
+      { label: 'Acompte verse', value: formatCFA(reservation.deposit_amount) },
+      { label: 'Reste a payer', value: formatCFA(reservation.remaining_amount) },
     ],
   };
 }
@@ -130,6 +177,7 @@ export function buildReceiptOperations(
     ...deposits.map((deposit) => ({
       type: 'deposit' as const,
       id: deposit.id,
+      documentNumber: deposit.document_number,
       client: deposit.clients?.name || '—',
       amount: deposit.amount,
       date: deposit.created_at,
@@ -138,6 +186,7 @@ export function buildReceiptOperations(
     ...sales.map((sale) => ({
       type: 'sale' as const,
       id: sale.id,
+      documentNumber: sale.document_number,
       client: sale.clients?.name || '—',
       amount: sale.total_price,
       date: sale.created_at,
@@ -146,6 +195,7 @@ export function buildReceiptOperations(
     ...reservations.map((reservation) => ({
       type: 'reservation' as const,
       id: reservation.id,
+      documentNumber: reservation.document_number,
       client: reservation.clients?.name || '—',
       amount: reservation.deposit_amount,
       date: reservation.created_at,

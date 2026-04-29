@@ -43,8 +43,18 @@ export function formatJewelryMaterial(material: string) {
 
 export function calculateSalePrice(weight: string, pricePerGram: string) {
   const parsedWeight = parseFloat(weight) || 0;
-  const parsedPricePerGram = parseInt(pricePerGram, 10) || 0;
+  const parsedPricePerGram = parseFloat(pricePerGram) || 0;
   return Math.round(parsedWeight * parsedPricePerGram);
+}
+
+export function getJewelryTotalPrice<T extends { weight: number; price_per_gram: number; sale_price: number }>(
+  item: T,
+) {
+  if (item.weight > 0 && item.price_per_gram > 0) {
+    return calculateSalePrice(String(item.weight), String(item.price_per_gram));
+  }
+
+  return item.sale_price;
 }
 
 export function filterJewelry(search: string, statusFilter: JewelryStatusFilter) {
@@ -78,7 +88,15 @@ export function filterJewelry(search: string, statusFilter: JewelryStatusFilter)
 }
 
 export function sortJewelry<
-  T extends { created_at: string; name: string; code: string; sale_price: number; quantity: number },
+  T extends {
+    created_at: string;
+    name: string;
+    code: string;
+    weight: number;
+    price_per_gram: number;
+    sale_price: number;
+    quantity: number;
+  },
 >(items: T[], sortKey: JewelrySortKey) {
   const sorted = [...items];
 
@@ -89,9 +107,9 @@ export function sortJewelry<
       case 'code':
         return left.code.localeCompare(right.code, 'fr');
       case 'sale_price_desc':
-        return right.sale_price - left.sale_price;
+        return getJewelryTotalPrice(right) - getJewelryTotalPrice(left);
       case 'sale_price_asc':
-        return left.sale_price - right.sale_price;
+        return getJewelryTotalPrice(left) - getJewelryTotalPrice(right);
       case 'quantity_desc':
         return right.quantity - left.quantity;
       case 'quantity_asc':
