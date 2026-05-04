@@ -4,9 +4,24 @@ function isConfigured() {
   return Boolean(process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY);
 }
 
+function getSupabasePublicAuthKey() {
+  return (
+    process.env.SUPABASE_ANON_KEY ||
+    process.env.SUPABASE_PUBLISHABLE_KEY ||
+    process.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
+    process.env.SUPABASE_SERVICE_ROLE_KEY
+  );
+}
+
 function requireConfig() {
   if (!isConfigured()) {
     throw new Error('SUPABASE_URL et SUPABASE_SERVICE_ROLE_KEY sont requis pour créer des utilisateurs Supabase.');
+  }
+}
+
+function requirePasswordAuthConfig() {
+  if (!process.env.SUPABASE_URL || !getSupabasePublicAuthKey()) {
+    throw new Error('SUPABASE_URL et SUPABASE_ANON_KEY sont requis pour connecter les utilisateurs Supabase.');
   }
 }
 
@@ -40,15 +55,15 @@ async function requestSupabaseAuth(path, options = {}) {
 }
 
 export async function signInWithSupabasePassword({ email, password }) {
-  requireConfig();
+  requirePasswordAuthConfig();
   const supabaseUrl = process.env.SUPABASE_URL.replace(/\/$/, '');
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const publicAuthKey = getSupabasePublicAuthKey();
 
   const response = await fetch(`${supabaseUrl}/auth/v1/token?grant_type=password`, {
     method: 'POST',
     headers: {
-      apikey: serviceRoleKey,
-      Authorization: `Bearer ${serviceRoleKey}`,
+      apikey: publicAuthKey,
+      Authorization: `Bearer ${publicAuthKey}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({ email, password }),

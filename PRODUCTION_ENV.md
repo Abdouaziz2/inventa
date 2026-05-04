@@ -29,6 +29,7 @@ Ce projet ne doit pas contenir de secrets dans le code. Les vraies valeurs vont 
 | `DATABASE_URL` | Production, Preview, Local | Oui | Supabase `Connect` > `Transaction pooler`. Remplacer `[YOUR-PASSWORD]`. |
 | `DIRECT_URL` | Production, Preview, Local | Oui | Supabase `Connect` > `Direct connection`. Remplacer `[YOUR-PASSWORD]`. |
 | `SUPABASE_URL` | Production, Preview, Local | Non | Supabase `Project Settings` > `API` ou menu `Connect`. |
+| `SUPABASE_ANON_KEY` | Production, Preview, Local | Non | Supabase `Project Settings` > `API Keys` > `anon` ou `Publishable key`. Utilise pour connecter les utilisateurs. |
 | `SUPABASE_SERVICE_ROLE_KEY` | Production, Preview, Local | Oui | Supabase `Project Settings` > `API Keys` > `service_role`. |
 | `SUPABASE_STORAGE_BUCKET` | Production, Preview, Local | Non | Optionnel pour le login. Supabase `Storage` > `New bucket`, utile pour les logos/photos persistants. |
 | `ALLOW_DEFAULT_ADMIN_SEED` | Local uniquement | Non | Laisser `false`. Le login production utilise Supabase Auth uniquement. |
@@ -43,13 +44,14 @@ VITE_API_URL=/api
 CORS_ORIGIN=https://gems-flow-suite.vercel.app
 JWT_EXPIRES_IN=7d
 SUPABASE_URL=https://bsingvkmtntkhvkdsypa.supabase.co
+SUPABASE_ANON_KEY=<anon-or-publishable-key>
 SUPABASE_SERVICE_ROLE_KEY=<service-role-key>
 SUPABASE_STORAGE_BUCKET=gems-flow-uploads
 ALLOW_DEFAULT_ADMIN_SEED=false
 RUN_DB_MIGRATIONS_ON_REQUEST=false
 ```
 
-Sans `SUPABASE_URL` et `SUPABASE_SERVICE_ROLE_KEY`, les utilisateurs crees dans Supabase Auth ne pourront pas se connecter. `SUPABASE_STORAGE_BUCKET` peut etre ajoute plus tard si les uploads ne sont pas encore utilises.
+Sans `SUPABASE_URL`, `SUPABASE_ANON_KEY` et `SUPABASE_SERVICE_ROLE_KEY`, les utilisateurs crees dans Supabase Auth ne pourront pas se connecter. `SUPABASE_STORAGE_BUCKET` peut etre ajoute plus tard si les uploads ne sont pas encore utilises.
 
 ## Valeurs recommandees pour Vercel Production
 
@@ -114,6 +116,17 @@ Dans Supabase:
 3. Copier la cle `service_role`.
 
 Ne jamais exposer cette cle dans le frontend, GitHub, screenshots publics ou logs.
+
+### `SUPABASE_ANON_KEY`
+
+Dans Supabase:
+
+1. `Project Settings`.
+2. `API Keys`.
+3. Copier la cle `anon` ou `Publishable key`.
+4. Ajouter dans Vercel sous le nom `SUPABASE_ANON_KEY`.
+
+Cette cle n'est pas aussi sensible que `service_role`, mais elle doit correspondre au meme projet Supabase.
 
 ### `SUPABASE_STORAGE_BUCKET`
 

@@ -427,6 +427,10 @@ app.post('/api/auth/login', authLimiter, async (request, response) => {
       ...buildAuthResponse(user),
     });
   } catch (error) {
+    if (error instanceof Error && /requis|configur/i.test(error.message)) {
+      return response.status(503).json({ error: error.message });
+    }
+
     if (error instanceof Error && /invalid|login|password|credentials|email/i.test(error.message)) {
       return response.status(401).json({ error: 'Identifiant ou mot de passe incorrect' });
     }
