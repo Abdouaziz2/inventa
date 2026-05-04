@@ -33,6 +33,22 @@ Ce projet ne doit pas contenir de secrets dans le code. Les vraies valeurs vont 
 | `SUPABASE_STORAGE_BUCKET` | Production, Preview, Local | Non | Supabase `Storage` > `New bucket`. Utiliser un bucket public pour les logos/photos. |
 | `ALLOW_DEFAULT_ADMIN_SEED` | Local uniquement | Non | Mettre `true` seulement pour creer le compte demo local `admin` / `admin123`. Ne pas activer en production. |
 
+## Variables encore a ajouter dans Vercel
+
+Si Vercel contient seulement `JWT_SECRET`, `DATABASE_URL` et `DIRECT_URL`, ajouter aussi en `Production`:
+
+```env
+VITE_API_URL=/api
+CORS_ORIGIN=https://gems-flow-suite.vercel.app
+JWT_EXPIRES_IN=7d
+SUPABASE_URL=https://bsingvkmtntkhvkdsypa.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=<service-role-key>
+SUPABASE_STORAGE_BUCKET=gems-flow-uploads
+ALLOW_DEFAULT_ADMIN_SEED=false
+```
+
+Sans `SUPABASE_URL` et `SUPABASE_SERVICE_ROLE_KEY`, les utilisateurs crees dans Supabase Auth ne pourront pas se connecter.
+
 ## Valeurs recommandees pour Vercel Production
 
 ```env
@@ -108,6 +124,36 @@ Dans Supabase:
 5. Ajouter le meme nom dans Vercel: `SUPABASE_STORAGE_BUCKET=gems-flow-uploads`.
 
 Les logos et photos de bijoux seront envoyes dans ce bucket au lieu du disque temporaire Vercel.
+
+## Creer des utilisateurs dans Supabase
+
+1. Supabase `Authentication` > `Users`.
+2. Cliquer `Add user`.
+3. Renseigner un vrai email et un mot de passe.
+4. Confirmer l'email ou cocher l'option qui marque l'email comme confirme.
+5. Optionnel: ajouter dans `User Metadata`:
+
+```json
+{
+  "username": "boutique1",
+  "full_name": "Boutique 1",
+  "role": "admin"
+}
+```
+
+Lors de la premiere connexion, l'API cree automatiquement le profil local dans la table `users`. Pour un role `admin`, `company_id` est mis sur l'id du profil local, ce qui isole ses clients, bijoux, ventes, reservations et acomptes.
+
+Pour creer un superadmin via Supabase, definir le role dans les metadata:
+
+```json
+{
+  "username": "superadmin",
+  "full_name": "Super Admin",
+  "role": "super_admin"
+}
+```
+
+Attention: un `super_admin` voit toutes les donnees. Donner ce role uniquement au proprietaire de la plateforme.
 
 ## Commandes utiles
 

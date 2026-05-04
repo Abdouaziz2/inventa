@@ -39,3 +39,5 @@ Ce compte n'est cree automatiquement que si `ALLOW_DEFAULT_ADMIN_SEED=true` est 
 Les secrets ne doivent pas etre commits dans le repo. Configurez les variables dans Vercel puis gardez seulement un `.env` local ignore par Git.
 
 Voir [PRODUCTION_ENV.md](PRODUCTION_ENV.md) pour la liste exacte des variables, ou les trouver dans Supabase, et comment les ajouter dans Vercel.
+
+Les comptes peuvent etre crees dans Supabase `Authentication > Users`. A la premiere connexion, l'API cree le profil local necessaire et isole automatiquement les donnees de chaque admin avec `company_id`.

@@ -38,6 +38,7 @@ import {
   mapReservationRow,
   mapSaleItemRow,
   mapSaleRow,
+  mapUserRow,
   mapWalletTransactionRow,
   normalizeUsername,
   verifyPassword,
@@ -46,6 +47,7 @@ import { requireAuth, requireSuperAdmin, signToken } from './auth.js';
 import {
   createSupabaseAuthUser,
   deleteSupabaseAuthUser,
+  signInWithSupabasePassword,
   updateSupabaseAuthPassword,
 } from './supabaseAuth.js';
 
@@ -276,11 +278,153 @@ async function insertWalletTransaction(connection, {
   );
 }
 
+function buildAuthResponse(user) {
+  const mappedUser = mapUserRow(user);
+  return {
+    token: signToken(user.id),
+    user: mappedUser,
+  };
+}
+
+function deriveUsernameFromSupabaseUser(supabaseUser) {
+  const metadata = supabaseUser.user_metadata ?? {};
+  const emailPrefix = String(supabaseUser.email ?? '').split('@')[0] || `user-${String(supabaseUser.id).slice(0, 8)}`;
+  const username = normalizeUsername(String(metadata.username || metadata.user_name || emailPrefix));
+
+  if (username.length >= 3) {
+    return username;
+  }
+
+  return normalizeUsername(`user-${String(supabaseUser.id).slice(0, 8)}`);
+}
+
+function deriveFullNameFromSupabaseUser(supabaseUser) {
+  const metadata = supabaseUser.user_metadata ?? {};
+  return String(metadata.full_name || metadata.name || supabaseUser.email || 'Utilisateur').trim();
+}
+
+function deriveRoleFromSupabaseUser(supabaseUser) {
+  const role = String(supabaseUser.app_metadata?.role || supabaseUser.user_metadata?.role || 'admin');
+  return USER_ROLES.includes(role) ? role : 'admin';
+}
+
+async function syncSupabaseUserProfile(supabaseUser) {
+  const email = String(supabaseUser.email).toLowerCase();
+  const username = await getAvailableUsername(deriveUsernameFromSupabaseUser(supabaseUser), supabaseUser.id);
+  const fullName = deriveFullNameFromSupabaseUser(supabaseUser);
+  const role = deriveRoleFromSupabaseUser(supabaseUser);
+
+  const rows = await query(
+    `SELECT *
+     FROM users
+     WHERE auth_user_id = :authUserId
+        OR email = :email
+     ORDER BY CASE WHEN auth_user_id = :authUserId THEN 0 ELSE 1 END
+     LIMIT 1`,
+    {
+      authUserId: supabaseUser.id,
+      email,
+    },
+  );
+
+  if (rows[0]) {
+    await query(
+      `UPDATE users
+       SET auth_user_id = COALESCE(auth_user_id, :authUserId),
+           email = :email,
+           full_name = COALESCE(NULLIF(full_name, ''), :fullName)
+       WHERE id = :id`,
+      {
+        authUserId: supabaseUser.id,
+        email,
+        fullName,
+        id: rows[0].id,
+      },
+    );
+
+    const updatedRows = await query('SELECT * FROM users WHERE id = :id', { id: rows[0].id });
+    return updatedRows[0];
+  }
+
+  const passwordHash = await hashPassword(crypto.randomUUID());
+  const result = await transaction(async (connection) => {
+    const [insertResult] = await connection.execute(
+      `INSERT INTO users (
+          auth_user_id, email, username, password_hash, full_name, phone, role, status, must_change_password, business_name
+       ) VALUES (
+          ?, ?, ?, ?, ?, '', ?, 'active', false, ?
+       )`,
+      [
+        supabaseUser.id,
+        email,
+        username,
+        passwordHash,
+        fullName,
+        role,
+        fullName,
+      ],
+    );
+
+    if (role !== 'super_admin') {
+      await connection.execute('UPDATE users SET company_id = ? WHERE id = ?', [insertResult.insertId, insertResult.insertId]);
+    }
+
+    return insertResult;
+  });
+
+  const createdRows = await query('SELECT * FROM users WHERE id = :id', { id: result.insertId });
+  return createdRows[0];
+}
+
+async function getAvailableUsername(baseUsername, authUserId) {
+  const fallback = normalizeUsername(`user-${String(authUserId).slice(0, 8)}`);
+  const normalizedBase = baseUsername || fallback;
+
+  for (let index = 0; index < 20; index += 1) {
+    const candidate = index === 0
+      ? normalizedBase
+      : normalizeUsername(`${normalizedBase}-${String(authUserId).slice(0, 4 + index)}`);
+    const rows = await query('SELECT id FROM users WHERE username = :username LIMIT 1', { username: candidate });
+
+    if (!rows[0]) {
+      return candidate;
+    }
+  }
+
+  return normalizeUsername(`${fallback}-${Date.now()}`);
+}
+
 app.post('/api/auth/login', authLimiter, async (request, response) => {
   const identifier = String(request.body.identifier ?? '').trim();
   const password = String(request.body.password ?? '');
 
   try {
+    if (identifier.includes('@') && process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      try {
+        const supabaseUser = await signInWithSupabasePassword({
+          email: identifier.toLowerCase(),
+          password,
+        });
+        const user = await syncSupabaseUserProfile(supabaseUser);
+
+        if (user.status !== 'active') {
+          return response.status(403).json({ error: 'Compte désactivé. Contactez l’administrateur.' });
+        }
+
+        await query(
+          `UPDATE users
+           SET failed_login_attempts = 0,
+               locked_until = NULL
+           WHERE id = :userId`,
+          { userId: user.id },
+        );
+
+        return response.json(buildAuthResponse(user));
+      } catch {
+        return response.status(401).json({ error: 'Identifiant ou mot de passe incorrect' });
+      }
+    }
+
     const rows = await query(
       `SELECT *
        FROM users
@@ -335,16 +479,7 @@ app.post('/api/auth/login', authLimiter, async (request, response) => {
     );
 
     return response.json({
-      token: signToken(user.id),
-      user: {
-        id: String(user.id),
-        email: user.email,
-        username: user.username,
-        fullName: user.full_name,
-        role: user.role,
-        mustChangePassword: Boolean(user.must_change_password),
-        companyId: user.company_id ? String(user.company_id) : null,
-      },
+      ...buildAuthResponse(user),
     });
   } catch (error) {
     return handleError(response, error);
@@ -367,6 +502,11 @@ app.post('/api/auth/change-password', async (request, response) => {
   }
 
   try {
+    const currentRows = await query('SELECT auth_user_id FROM users WHERE id = :userId', {
+      userId: parseId(request.user.id),
+    });
+    await updateSupabaseAuthPassword(currentRows[0]?.auth_user_id, password);
+
     const passwordHash = await hashPassword(password);
     await query(
       `UPDATE users

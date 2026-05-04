@@ -39,6 +39,37 @@ async function requestSupabaseAuth(path, options = {}) {
   return payload;
 }
 
+export async function signInWithSupabasePassword({ email, password }) {
+  requireConfig();
+  const supabaseUrl = process.env.SUPABASE_URL.replace(/\/$/, '');
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  const response = await fetch(`${supabaseUrl}/auth/v1/token?grant_type=password`, {
+    method: 'POST',
+    headers: {
+      apikey: serviceRoleKey,
+      Authorization: `Bearer ${serviceRoleKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ email, password }),
+  });
+
+  const isJson = response.headers.get('content-type')?.includes('application/json');
+  const payload = isJson ? await response.json() : null;
+
+  if (!response.ok) {
+    const message = payload?.msg || payload?.message || payload?.error_description || payload?.error || 'Identifiant ou mot de passe incorrect';
+    throw new Error(message);
+  }
+
+  const user = payload?.user;
+  if (!user?.id || !user?.email) {
+    throw new Error("Supabase n'a pas retourné d'utilisateur valide.");
+  }
+
+  return user;
+}
+
 export async function createSupabaseAuthUser({ email, password, username, fullName, role }) {
   const user = await requestSupabaseAuth('/admin/users', {
     method: 'POST',
