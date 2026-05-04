@@ -50,16 +50,16 @@ const LoginPage = () => {
 
           <div className="space-y-2 text-center">
             <h2 className="text-2xl font-bold tracking-tight">Connexion</h2>
-            <p className="text-muted-foreground text-sm">Entrez vos identifiants pour accéder au système</p>
+            <p className="text-muted-foreground text-sm">Connectez-vous avec votre compte Supabase</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="identifier">Nom d'utilisateur ou email</Label>
+              <Label htmlFor="identifier">Email</Label>
               <Input
                 id="identifier"
                 type="text"
-                placeholder="nomutilisateur"
+                placeholder="email@exemple.com"
                 value={identifier}
                 onChange={(e) => setIdentifier(e.target.value)}
                 className="h-11"
@@ -103,7 +103,7 @@ const LoginPage = () => {
           </form>
 
           <p className="text-xs text-center text-muted-foreground">
-            Le superadmin vous fournit votre identifiant et votre mot de passe pour vous connecter.
+            Le compte doit exister dans Supabase Authentication.
           </p>
         </div>
       </div>

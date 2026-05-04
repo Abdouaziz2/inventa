@@ -18,12 +18,11 @@ Application de gestion de bijouterie avec :
 Vous pouvez aussi lancer les deux avec :
 `npm run dev:full`
 
-## Compte de demo
+## Connexion
 
-- identifiant : `admin`
-- mot de passe : `admin123`
+Les connexions passent par Supabase Authentication. Creez les comptes dans Supabase `Authentication > Users`, puis connectez-vous avec l'email et le mot de passe Supabase.
 
-Ce compte n'est cree automatiquement que si `ALLOW_DEFAULT_ADMIN_SEED=true` est defini dans l'environnement local. Ne pas activer cette option en production.
+L'ancien compte local `admin` / `admin123` n'est pas autorise dans le mode production.
 
 ## Scripts utiles
 
@@ -40,4 +39,4 @@ Les secrets ne doivent pas etre commits dans le repo. Configurez les variables d
 
 Voir [PRODUCTION_ENV.md](PRODUCTION_ENV.md) pour la liste exacte des variables, ou les trouver dans Supabase, et comment les ajouter dans Vercel.
 
-Les comptes peuvent etre crees dans Supabase `Authentication > Users`. A la premiere connexion, l'API cree le profil local necessaire et isole automatiquement les donnees de chaque admin avec `company_id`.
+Les comptes doivent etre crees dans Supabase `Authentication > Users`. A la premiere connexion, l'API cree le profil local necessaire et isole automatiquement les donnees de chaque admin avec `company_id`.

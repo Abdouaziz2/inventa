@@ -31,7 +31,7 @@ Ce projet ne doit pas contenir de secrets dans le code. Les vraies valeurs vont 
 | `SUPABASE_URL` | Production, Preview, Local | Non | Supabase `Project Settings` > `API` ou menu `Connect`. |
 | `SUPABASE_SERVICE_ROLE_KEY` | Production, Preview, Local | Oui | Supabase `Project Settings` > `API Keys` > `service_role`. |
 | `SUPABASE_STORAGE_BUCKET` | Production, Preview, Local | Non | Supabase `Storage` > `New bucket`. Utiliser un bucket public pour les logos/photos. |
-| `ALLOW_DEFAULT_ADMIN_SEED` | Local uniquement | Non | Mettre `true` seulement pour creer le compte demo local `admin` / `admin123`. Ne pas activer en production. |
+| `ALLOW_DEFAULT_ADMIN_SEED` | Local uniquement | Non | Laisser `false`. Le login production utilise Supabase Auth uniquement. |
 
 ## Variables encore a ajouter dans Vercel
 
@@ -142,6 +142,8 @@ Les logos et photos de bijoux seront envoyes dans ce bucket au lieu du disque te
 ```
 
 Lors de la premiere connexion, l'API cree automatiquement le profil local dans la table `users`. Pour un role `admin`, `company_id` est mis sur l'id du profil local, ce qui isole ses clients, bijoux, ventes, reservations et acomptes.
+
+Le login local par mot de passe stocke dans la table `users` est desactive. Un utilisateur doit exister et s'authentifier dans Supabase Auth.
 
 Pour creer un superadmin via Supabase, definir le role dans les metadata:
 

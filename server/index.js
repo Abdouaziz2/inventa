@@ -41,7 +41,6 @@ import {
   mapUserRow,
   mapWalletTransactionRow,
   normalizeUsername,
-  verifyPassword,
 } from './utils.js';
 import { requireAuth, requireSuperAdmin, signToken } from './auth.js';
 import {
@@ -399,72 +398,18 @@ app.post('/api/auth/login', authLimiter, async (request, response) => {
   const password = String(request.body.password ?? '');
 
   try {
-    if (identifier.includes('@') && process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
-      try {
-        const supabaseUser = await signInWithSupabasePassword({
-          email: identifier.toLowerCase(),
-          password,
-        });
-        const user = await syncSupabaseUserProfile(supabaseUser);
-
-        if (user.status !== 'active') {
-          return response.status(403).json({ error: 'Compte désactivé. Contactez l’administrateur.' });
-        }
-
-        await query(
-          `UPDATE users
-           SET failed_login_attempts = 0,
-               locked_until = NULL
-           WHERE id = :userId`,
-          { userId: user.id },
-        );
-
-        return response.json(buildAuthResponse(user));
-      } catch {
-        return response.status(401).json({ error: 'Identifiant ou mot de passe incorrect' });
-      }
+    if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      return response.status(503).json({ error: 'Authentification Supabase non configurée.' });
     }
 
-    const rows = await query(
-      `SELECT *
-       FROM users
-       WHERE username = :username OR email = :email
-       LIMIT 1`,
-      {
-        username: normalizeUsername(identifier),
-        email: identifier.toLowerCase(),
-      }
-    );
-
-    const user = rows[0];
-    if (!user) {
-      return response.status(401).json({ error: 'Identifiant ou mot de passe incorrect' });
-    }
-
-    if (user.locked_until && new Date(user.locked_until) > new Date()) {
-      const minutes = Math.ceil((new Date(user.locked_until).getTime() - Date.now()) / 60000);
-      return response.status(423).json({ error: `Compte verrouillé. Réessayez dans ${minutes} minute(s).` });
-    }
-
-    const isValidPassword = await verifyPassword(password, user.password_hash);
-    if (!isValidPassword) {
-      const failedAttempts = Number(user.failed_login_attempts ?? 0) + 1;
-      const shouldLock = failedAttempts >= 5;
-
-      await query(
-        `UPDATE users
-         SET failed_login_attempts = :failedAttempts,
-             locked_until = :lockedUntil
-         WHERE id = :userId`,
-        {
-          failedAttempts,
-          lockedUntil: shouldLock ? new Date(Date.now() + 15 * 60 * 1000) : null,
-          userId: user.id,
-        }
-      );
-
-      return response.status(401).json({ error: 'Identifiant ou mot de passe incorrect' });
-    }
+    const loginEmail = identifier.includes('@')
+      ? identifier.toLowerCase()
+      : buildManagedLoginEmail(identifier);
+    const supabaseUser = await signInWithSupabasePassword({
+      email: loginEmail,
+      password,
+    });
+    const user = await syncSupabaseUserProfile(supabaseUser);
 
     if (user.status !== 'active') {
       return response.status(403).json({ error: 'Compte désactivé. Contactez l’administrateur.' });
@@ -482,6 +427,10 @@ app.post('/api/auth/login', authLimiter, async (request, response) => {
       ...buildAuthResponse(user),
     });
   } catch (error) {
+    if (error instanceof Error && /invalid|login|password|credentials|email/i.test(error.message)) {
+      return response.status(401).json({ error: 'Identifiant ou mot de passe incorrect' });
+    }
+
     return handleError(response, error);
   }
 });
