@@ -32,6 +32,7 @@ Ce projet ne doit pas contenir de secrets dans le code. Les vraies valeurs vont 
 | `SUPABASE_SERVICE_ROLE_KEY` | Production, Preview, Local | Oui | Supabase `Project Settings` > `API Keys` > `service_role`. |
 | `SUPABASE_STORAGE_BUCKET` | Production, Preview, Local | Non | Optionnel pour le login. Supabase `Storage` > `New bucket`, utile pour les logos/photos persistants. |
 | `ALLOW_DEFAULT_ADMIN_SEED` | Local uniquement | Non | Laisser `false`. Le login production utilise Supabase Auth uniquement. |
+| `RUN_DB_MIGRATIONS_ON_REQUEST` | Production | Non | Laisser `false`. Lancez le SQL manuellement dans Supabase SQL Editor. |
 
 ## Variables encore a ajouter dans Vercel
 
@@ -45,6 +46,7 @@ SUPABASE_URL=https://bsingvkmtntkhvkdsypa.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=<service-role-key>
 SUPABASE_STORAGE_BUCKET=gems-flow-uploads
 ALLOW_DEFAULT_ADMIN_SEED=false
+RUN_DB_MIGRATIONS_ON_REQUEST=false
 ```
 
 Sans `SUPABASE_URL` et `SUPABASE_SERVICE_ROLE_KEY`, les utilisateurs crees dans Supabase Auth ne pourront pas se connecter. `SUPABASE_STORAGE_BUCKET` peut etre ajoute plus tard si les uploads ne sont pas encore utilises.
