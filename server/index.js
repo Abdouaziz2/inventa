@@ -1,11 +1,15 @@
-import 'dotenv/config';
+import './env.js';
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import express from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
 import multer from 'multer';
 import { query, runMigrations, transaction } from './db.js';
+import { requireProductionEnv } from './env.js';
 import { AppError, ConflictError, ForbiddenError, NotFoundError, ValidationError } from './errors.js';
 import {
   buildDocumentNumber,
@@ -47,29 +51,88 @@ import {
 
 const app = express();
 const port = Number(process.env.API_PORT || 3001);
-const corsOrigin = process.env.CORS_ORIGIN;
+const corsOrigins = String(process.env.CORS_ORIGIN || '')
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean);
 const uploadsDir = process.env.VERCEL ? '/tmp/uploads' : path.resolve('public', 'uploads');
+const storageBucket = process.env.SUPABASE_STORAGE_BUCKET;
+const useSupabaseStorage = Boolean(storageBucket && process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY);
 const PAYMENT_METHODS = ['Espèces', 'Mobile Money', 'Carte', 'Virement bancaire', 'Chèque', 'Mixte', 'Crédit client', 'Autre'];
+
+requireProductionEnv();
 
 fs.mkdirSync(uploadsDir, { recursive: true });
 
-const storage = multer.diskStorage({
+const diskStorage = multer.diskStorage({
   destination: (_request, _file, callback) => callback(null, uploadsDir),
-  filename: (_request, file, callback) => {
-    const extension = path.extname(file.originalname) || '.png';
-    callback(null, `${Date.now()}-${Math.round(Math.random() * 1e6)}${extension}`);
-  },
+  filename: (_request, file, callback) => callback(null, buildStoredFilename(file.originalname)),
 });
 
 const upload = multer({
-  storage,
-  limits: { fileSize: 2 * 1024 * 1024 },
+  storage: useSupabaseStorage ? multer.memoryStorage() : diskStorage,
+  limits: { fileSize: 2 * 1024 * 1024, files: 1 },
+  fileFilter: (_request, file, callback) => {
+    if (!file.mimetype.startsWith('image/')) {
+      callback(new Error('Seules les images sont autorisées.'));
+      return;
+    }
+
+    callback(null, true);
+  },
 });
 
-app.use(cors(corsOrigin ? { origin: corsOrigin } : undefined));
-app.use(express.json({ limit: '5mb' }));
-app.use(express.urlencoded({ extended: true, limit: '5mb' }));
-app.use('/uploads', express.static(uploadsDir));
+if (process.env.VERCEL) {
+  app.set('trust proxy', 1);
+}
+
+app.disable('x-powered-by');
+app.use(helmet({
+  contentSecurityPolicy: false,
+  crossOriginEmbedderPolicy: false,
+}));
+app.use(cors({
+  origin(origin, callback) {
+    if (!origin) {
+      callback(null, true);
+      return;
+    }
+
+    if (corsOrigins.length === 0 && process.env.NODE_ENV !== 'production') {
+      callback(null, true);
+      return;
+    }
+
+    if (corsOrigins.includes(origin)) {
+      callback(null, true);
+      return;
+    }
+
+    callback(new Error('Origine non autorisée par CORS.'));
+  },
+  credentials: false,
+}));
+app.use(rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 600,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+}));
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 20,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  message: { error: 'Trop de tentatives. Réessayez dans quelques minutes.' },
+});
+app.use(express.json({ limit: '1mb' }));
+app.use(express.urlencoded({ extended: true, limit: '1mb' }));
+app.use('/uploads', express.static(uploadsDir, {
+  dotfiles: 'deny',
+  fallthrough: false,
+  index: false,
+  maxAge: '1h',
+}));
 
 function handleError(response, error) {
   if (error instanceof AppError) {
@@ -92,6 +155,41 @@ function isSuperAdmin(user) {
 
 function buildUploadUrl(request, filename) {
   return `${request.protocol}://${request.get('host')}/uploads/${filename}`;
+}
+
+function buildStoredFilename(originalName) {
+  const extension = path.extname(originalName || '').toLowerCase() || '.png';
+  return `${Date.now()}-${crypto.randomUUID()}${extension}`;
+}
+
+async function uploadToSupabaseStorage(file, folder) {
+  const supabaseUrl = process.env.SUPABASE_URL.replace(/\/$/, '');
+  const objectPath = `${folder}/${buildStoredFilename(file.originalname)}`;
+  const response = await fetch(`${supabaseUrl}/storage/v1/object/${storageBucket}/${objectPath}`, {
+    method: 'POST',
+    headers: {
+      apikey: process.env.SUPABASE_SERVICE_ROLE_KEY,
+      Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
+      'Content-Type': file.mimetype,
+      'x-upsert': 'false',
+    },
+    body: file.buffer,
+  });
+
+  if (!response.ok) {
+    const payload = await response.text();
+    throw new Error(`Impossible d'envoyer le fichier vers Supabase Storage: ${payload}`);
+  }
+
+  return `${supabaseUrl}/storage/v1/object/public/${storageBucket}/${objectPath}`;
+}
+
+async function getUploadedFileUrl(request, file, folder) {
+  if (useSupabaseStorage) {
+    return uploadToSupabaseStorage(file, folder);
+  }
+
+  return buildUploadUrl(request, file.filename);
 }
 
 function getCompanyId(user) {
@@ -178,7 +276,7 @@ async function insertWalletTransaction(connection, {
   );
 }
 
-app.post('/api/auth/login', async (request, response) => {
+app.post('/api/auth/login', authLimiter, async (request, response) => {
   const identifier = String(request.body.identifier ?? '').trim();
   const password = String(request.body.password ?? '');
 
@@ -365,9 +463,8 @@ app.post('/api/profile/logo', async (request, response) => {
       return response.status(400).json({ error: 'Aucun fichier envoyé' });
     }
 
-    const logoUrl = buildUploadUrl(request, request.file.filename);
-
     try {
+      const logoUrl = await getUploadedFileUrl(request, request.file, 'logos');
       await query('UPDATE users SET logo = :logo WHERE id = :userId', {
         logo: logoUrl,
         userId: parseId(request.user.id),
@@ -392,7 +489,11 @@ app.post('/api/jewelry/photo', async (request, response) => {
       return response.status(400).json({ error: 'Aucun fichier envoyé' });
     }
 
-    return response.json({ url: buildUploadUrl(request, request.file.filename) });
+    try {
+      return response.json({ url: await getUploadedFileUrl(request, request.file, 'jewelry') });
+    } catch (error) {
+      return handleError(response, error);
+    }
   });
 });
 
@@ -1471,7 +1572,16 @@ app.use((error, _request, response, next) => {
     });
   }
 
-  return next(error);
+  if (error?.message === 'Origine non autorisée par CORS.') {
+    return response.status(403).json({ error: error.message });
+  }
+
+  if (response.headersSent) {
+    return next(error);
+  }
+
+  console.error('Unhandled API middleware error:', error);
+  return response.status(500).json({ error: 'Erreur serveur' });
 });
 
 async function startServer() {

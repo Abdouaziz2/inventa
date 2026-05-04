@@ -94,6 +94,27 @@ export async function runMigrations() {
   try {
     const schema = await readSqlFile('master-schema.sql');
     await migrationPool.query(schema);
+
+    if (process.env.ALLOW_DEFAULT_ADMIN_SEED === 'true') {
+      await migrationPool.query(`
+        INSERT INTO users (
+          email, username, password_hash, full_name, phone, business_name, role, status, must_change_password
+        )
+        SELECT
+          'admin@users.local',
+          'admin',
+          '$2b$10$/M.5BOEkn74ld2jNu8cRLO/Ezj3KpCGtE0Sy3sBWshpEmfRHMnJga',
+          'Super Admin',
+          '',
+          'Ma boutique',
+          'super_admin',
+          'active',
+          TRUE
+        WHERE NOT EXISTS (
+          SELECT 1 FROM users WHERE username = 'admin'
+        );
+      `);
+    }
   } finally {
     await migrationPool.end();
   }

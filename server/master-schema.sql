@@ -171,20 +171,3 @@ CREATE INDEX IF NOT EXISTS idx_sale_items_jewelry ON sale_items(jewelry_id);
 CREATE INDEX IF NOT EXISTS idx_wallet_transactions_client_created_at ON wallet_transactions(client_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_wallet_transactions_company_created_at ON wallet_transactions(company_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_wallet_transactions_operation ON wallet_transactions(operation_type, operation_id);
-
-INSERT INTO users (
-  email, username, password_hash, full_name, phone, business_name, role, status, must_change_password
-)
-SELECT
-  'admin@users.local',
-  'admin',
-  '$2b$10$/M.5BOEkn74ld2jNu8cRLO/Ezj3KpCGtE0Sy3sBWshpEmfRHMnJga',
-  'Super Admin',
-  '',
-  'Ma boutique',
-  'super_admin',
-  'active',
-  FALSE
-WHERE NOT EXISTS (
-  SELECT 1 FROM users WHERE username = 'admin'
-);

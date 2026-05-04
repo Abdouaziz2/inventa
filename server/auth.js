@@ -4,9 +4,22 @@ import { mapUserRow } from './utils.js';
 import { AuthenticationError, ForbiddenError } from './errors.js';
 
 const jwtSecret = process.env.JWT_SECRET || 'change-me-in-production';
+const isProduction = process.env.NODE_ENV === 'production';
+
+if (isProduction && jwtSecret === 'change-me-in-production') {
+  throw new Error('JWT_SECRET must be configured in production.');
+}
 
 export function signToken(userId) {
-  return jwt.sign({ userId: String(userId) }, jwtSecret, { expiresIn: '7d' });
+  return jwt.sign(
+    { userId: String(userId) },
+    jwtSecret,
+    {
+      expiresIn: process.env.JWT_EXPIRES_IN || '7d',
+      issuer: 'gems-flow-suite',
+      audience: 'gems-flow-suite',
+    },
+  );
 }
 
 export async function loadAuthenticatedUser(userId) {
@@ -29,7 +42,10 @@ export async function requireAuth(request, reply) {
 
   try {
     const token = authHeader.slice('Bearer '.length);
-    const payload = jwt.verify(token, jwtSecret);
+    const payload = jwt.verify(token, jwtSecret, {
+      issuer: 'gems-flow-suite',
+      audience: 'gems-flow-suite',
+    });
     const user = await loadAuthenticatedUser(payload.userId);
 
     if (!user) {

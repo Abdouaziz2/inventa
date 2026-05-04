@@ -23,6 +23,8 @@ Vous pouvez aussi lancer les deux avec :
 - identifiant : `admin`
 - mot de passe : `admin123`
 
+Ce compte n'est cree automatiquement que si `ALLOW_DEFAULT_ADMIN_SEED=true` est defini dans l'environnement local. Ne pas activer cette option en production.
+
 ## Scripts utiles
 
 - `npm run dev` : frontend Vite
@@ -31,3 +33,9 @@ Vous pouvez aussi lancer les deux avec :
 - `npm run build` : build frontend
 - `npm run test` : tests
 - `npm run lint` : lint
+
+## Production
+
+Les secrets ne doivent pas etre commits dans le repo. Configurez les variables dans Vercel puis gardez seulement un `.env` local ignore par Git.
+
+Voir [PRODUCTION_ENV.md](PRODUCTION_ENV.md) pour la liste exacte des variables, ou les trouver dans Supabase, et comment les ajouter dans Vercel.

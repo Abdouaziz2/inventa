@@ -53,7 +53,7 @@ const AddJewelryPage = () => {
         method: 'POST',
         body: formData,
       });
-
+      
       setForm((current) => ({ ...current, photo: response.url }));
       toast.success('Image importee');
     } catch (error: unknown) {
@@ -112,7 +112,6 @@ const AddJewelryPage = () => {
             required
           />
         </div>
-
         <div className="grid gap-4 md:grid-cols-2">
           <div className="space-y-2">
             <Label>Matiere</Label>

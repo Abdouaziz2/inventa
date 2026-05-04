@@ -1,21 +1,27 @@
 # Security Policy
 
-## Supported Versions
+## Secrets
 
-Use this section to tell people about which versions of your project are
-currently being supported with security updates.
+Never commit production secrets to this repository. Keep these values only in Vercel Environment Variables and local ignored `.env` files:
 
-| Version | Supported          |
-| ------- | ------------------ |
-| 5.1.x   | :white_check_mark: |
-| 5.0.x   | :x:                |
-| 4.0.x   | :white_check_mark: |
-| < 4.0   | :x:                |
+- `DATABASE_URL`
+- `DIRECT_URL`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `JWT_SECRET`
 
-## Reporting a Vulnerability
+If a secret is exposed, rotate it immediately in Supabase or Vercel, redeploy the app, and invalidate any affected sessions.
 
-Use this section to tell people how to report a vulnerability.
+`SUPABASE_STORAGE_BUCKET` is not secret, but its bucket policy must be reviewed before production use.
 
-Tell them where to go, how often they can expect to get an update on a
-reported vulnerability, what to expect if the vulnerability is accepted or
-declined, etc.
+## Production Checklist
+
+- Set all required variables from `PRODUCTION_ENV.md`.
+- Keep `ALLOW_DEFAULT_ADMIN_SEED=false` in production.
+- Use Supabase Transaction Pooler for `DATABASE_URL`.
+- Store uploaded logos and jewelry photos in Supabase Storage, not Vercel temporary disk.
+- Restrict `CORS_ORIGIN` to the deployed app domain.
+- Use a unique `JWT_SECRET` of at least 32 characters.
+
+## Reporting
+
+Report security issues privately to the project owner. Do not open a public issue containing secrets, database URLs, screenshots of keys, or exploit details.

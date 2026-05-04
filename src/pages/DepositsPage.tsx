@@ -26,7 +26,7 @@ const DepositsPage = () => {
   const { data: profile } = useProfileSettings();
   const addDeposit = useAddDeposit();
   const businessName = profile?.business_name || profile?.full_name || 'Ma boutique';
-
+ 
   useEffect(() => { searchRef.current?.focus(); }, []);
 
   const searchResults = clientSearch.length > 0 ? filterClients(clients, clientSearch) : [];
