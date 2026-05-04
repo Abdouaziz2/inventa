@@ -25,10 +25,6 @@ export function requireProductionEnv() {
 
   const required = [
     'DATABASE_URL',
-    'DIRECT_URL',
-    'SUPABASE_URL',
-    'SUPABASE_SERVICE_ROLE_KEY',
-    'SUPABASE_STORAGE_BUCKET',
     'CORS_ORIGIN',
   ];
 

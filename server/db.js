@@ -20,6 +20,7 @@ function createPool(connectionString = databaseUrl) {
 }
 
 const pool = databaseUrl ? createPool() : null;
+let migrationsPromise = null;
 
 async function readSqlFile(filename) {
   const filePath = path.resolve('server', filename);
@@ -118,6 +119,21 @@ export async function runMigrations() {
   } finally {
     await migrationPool.end();
   }
+}
+
+export async function ensureMigrations() {
+  if (!databaseUrl) {
+    return;
+  }
+
+  if (!migrationsPromise) {
+    migrationsPromise = runMigrations().catch((error) => {
+      migrationsPromise = null;
+      throw error;
+    });
+  }
+
+  await migrationsPromise;
 }
 
 export async function query(sql, params = {}) {

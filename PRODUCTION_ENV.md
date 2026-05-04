@@ -30,7 +30,7 @@ Ce projet ne doit pas contenir de secrets dans le code. Les vraies valeurs vont 
 | `DIRECT_URL` | Production, Preview, Local | Oui | Supabase `Connect` > `Direct connection`. Remplacer `[YOUR-PASSWORD]`. |
 | `SUPABASE_URL` | Production, Preview, Local | Non | Supabase `Project Settings` > `API` ou menu `Connect`. |
 | `SUPABASE_SERVICE_ROLE_KEY` | Production, Preview, Local | Oui | Supabase `Project Settings` > `API Keys` > `service_role`. |
-| `SUPABASE_STORAGE_BUCKET` | Production, Preview, Local | Non | Supabase `Storage` > `New bucket`. Utiliser un bucket public pour les logos/photos. |
+| `SUPABASE_STORAGE_BUCKET` | Production, Preview, Local | Non | Optionnel pour le login. Supabase `Storage` > `New bucket`, utile pour les logos/photos persistants. |
 | `ALLOW_DEFAULT_ADMIN_SEED` | Local uniquement | Non | Laisser `false`. Le login production utilise Supabase Auth uniquement. |
 
 ## Variables encore a ajouter dans Vercel
@@ -47,7 +47,7 @@ SUPABASE_STORAGE_BUCKET=gems-flow-uploads
 ALLOW_DEFAULT_ADMIN_SEED=false
 ```
 
-Sans `SUPABASE_URL` et `SUPABASE_SERVICE_ROLE_KEY`, les utilisateurs crees dans Supabase Auth ne pourront pas se connecter.
+Sans `SUPABASE_URL` et `SUPABASE_SERVICE_ROLE_KEY`, les utilisateurs crees dans Supabase Auth ne pourront pas se connecter. `SUPABASE_STORAGE_BUCKET` peut etre ajoute plus tard si les uploads ne sont pas encore utilises.
 
 ## Valeurs recommandees pour Vercel Production
 
