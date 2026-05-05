@@ -88,18 +88,42 @@ export const useUpdateProfileSettings = () => {
 
       if (profileError) throw profileError;
 
-      const { error: companyError } = await supabase
-        .from('companies')
-        .update({
-          name: settings.business_name,
-          phone: settings.phone,
-          secondary_phone: settings.secondary_phone,
-          address: settings.address,
-          logo: settings.logo || null,
-        })
-        .eq('id', profile.company_id);
+      if (profile.company_id) {
+        const { error: companyError } = await supabase
+          .from('companies')
+          .update({
+            name: settings.business_name,
+            phone: settings.phone,
+            secondary_phone: settings.secondary_phone,
+            address: settings.address,
+            logo: settings.logo || null,
+          })
+          .eq('id', profile.company_id);
 
-      if (companyError) throw companyError;
+        if (companyError) throw companyError;
+      } else {
+        const { data: company, error: companyError } = await supabase
+          .from('companies')
+          .insert({
+            name: settings.business_name || 'Ma boutique',
+            phone: settings.phone,
+            secondary_phone: settings.secondary_phone,
+            address: settings.address,
+            logo: settings.logo || null,
+            created_by: id,
+          })
+          .select('id')
+          .single();
+
+        if (companyError) throw companyError;
+
+        const { error: profileLinkError } = await supabase
+          .from('profiles')
+          .update({ company_id: company.id })
+          .eq('id', id);
+
+        if (profileLinkError) throw profileLinkError;
+      }
 
       return settings;
     },

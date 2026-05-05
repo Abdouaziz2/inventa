@@ -857,7 +857,20 @@ drop policy if exists companies_select on public.companies;
 create policy companies_select on public.companies
 for select
 to authenticated
-using (id = private.current_company_id() or private.is_super_admin());
+using (
+  id = private.current_company_id()
+  or created_by = auth.uid()
+  or private.is_super_admin()
+);
+
+drop policy if exists companies_insert on public.companies;
+create policy companies_insert on public.companies
+for insert
+to authenticated
+with check (
+  created_by = auth.uid()
+  and private.current_role() in ('admin', 'super_admin')
+);
 
 drop policy if exists companies_update on public.companies;
 create policy companies_update on public.companies
@@ -898,7 +911,8 @@ using (
   or private.is_super_admin()
 )
 with check (
-  company_id = private.current_company_id()
+  id = auth.uid()
+  or company_id = private.current_company_id()
   or private.is_super_admin()
 );
 
