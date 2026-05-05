@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { queryKeys } from '@/lib/queryKeys';
 import { getJewelryImageUrl } from '@/services/storage';
+import { getCurrentProfile } from '@/services/auth';
 import type {
   Client,
   Deposit,
@@ -188,13 +189,18 @@ export const useAddClient = () => {
 
   return useMutation({
     mutationFn: async (client: { name: string; phone: string; email?: string }) => {
+      const profile = await getCurrentProfile();
+      if (!profile?.companyId) throw new Error("Configurez d'abord la boutique");
+
       const { data, error } = await supabase
         .from('clients')
         .insert({
+          company_id: profile.companyId,
           code: createClientCode(),
           name: client.name,
           phone: client.phone,
           email: client.email ?? null,
+          created_by: profile.id,
         })
         .select('id, code, name, phone, email, balance, created_at, created_by')
         .single();
@@ -256,9 +262,16 @@ export const useAddJewelry = () => {
 
   return useMutation({
     mutationFn: async (item: Omit<Jewelry, 'id' | 'created_at' | 'created_by'>) => {
+      const profile = await getCurrentProfile();
+      if (!profile?.companyId) throw new Error("Configurez d'abord la boutique");
+
       const { data, error } = await supabase
         .from('jewelry')
-        .insert(item)
+        .insert({
+          ...item,
+          company_id: profile.companyId,
+          created_by: profile.id,
+        })
         .select('id, code, material_type, name, category, weight, price_per_gram, purchase_price, sale_price, quantity, status, photo, created_at, created_by')
         .single();
 

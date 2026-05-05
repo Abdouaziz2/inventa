@@ -12,6 +12,8 @@ drop function if exists public.create_sale(uuid, jsonb, jsonb, numeric, numeric,
 drop function if exists public.apply_deposit_to_client_balance() cascade;
 drop function if exists public.sync_jewelry_status() cascade;
 drop function if exists public.handle_new_user() cascade;
+drop function if exists public.set_company_context() cascade;
+drop function if exists public.set_created_by_context() cascade;
 drop function if exists public.is_super_admin() cascade;
 drop function if exists public.current_role() cascade;
 drop function if exists public.current_company_id() cascade;
@@ -39,6 +41,38 @@ language plpgsql
 as $$
 begin
   new.updated_at = timezone('utc', now());
+  return new;
+end;
+$$;
+
+create or replace function public.set_company_context()
+returns trigger
+language plpgsql
+as $$
+declare
+  v_company_id uuid;
+begin
+  if new.company_id is null then
+    select company_id into v_company_id
+    from public.profiles
+    where id = auth.uid();
+
+    new.company_id = v_company_id;
+  end if;
+
+  return new;
+end;
+$$;
+
+create or replace function public.set_created_by_context()
+returns trigger
+language plpgsql
+as $$
+begin
+  if new.created_by is null then
+    new.created_by = auth.uid();
+  end if;
+
   return new;
 end;
 $$;
@@ -221,6 +255,102 @@ create trigger set_jewelry_updated_at
 before update on public.jewelry
 for each row
 execute function public.set_updated_at();
+
+drop trigger if exists set_companies_created_by_context on public.companies;
+create trigger set_companies_created_by_context
+before insert on public.companies
+for each row
+execute function public.set_created_by_context();
+
+drop trigger if exists set_clients_company_context on public.clients;
+create trigger set_clients_company_context
+before insert on public.clients
+for each row
+execute function public.set_company_context();
+
+drop trigger if exists set_clients_created_by_context on public.clients;
+create trigger set_clients_created_by_context
+before insert on public.clients
+for each row
+execute function public.set_created_by_context();
+
+drop trigger if exists set_jewelry_company_context on public.jewelry;
+create trigger set_jewelry_company_context
+before insert on public.jewelry
+for each row
+execute function public.set_company_context();
+
+drop trigger if exists set_jewelry_created_by_context on public.jewelry;
+create trigger set_jewelry_created_by_context
+before insert on public.jewelry
+for each row
+execute function public.set_created_by_context();
+
+drop trigger if exists set_sales_company_context on public.sales;
+create trigger set_sales_company_context
+before insert on public.sales
+for each row
+execute function public.set_company_context();
+
+drop trigger if exists set_sales_created_by_context on public.sales;
+create trigger set_sales_created_by_context
+before insert on public.sales
+for each row
+execute function public.set_created_by_context();
+
+drop trigger if exists set_sale_items_company_context on public.sale_items;
+create trigger set_sale_items_company_context
+before insert on public.sale_items
+for each row
+execute function public.set_company_context();
+
+drop trigger if exists set_payments_company_context on public.payments;
+create trigger set_payments_company_context
+before insert on public.payments
+for each row
+execute function public.set_company_context();
+
+drop trigger if exists set_payments_created_by_context on public.payments;
+create trigger set_payments_created_by_context
+before insert on public.payments
+for each row
+execute function public.set_created_by_context();
+
+drop trigger if exists set_reservations_company_context on public.reservations;
+create trigger set_reservations_company_context
+before insert on public.reservations
+for each row
+execute function public.set_company_context();
+
+drop trigger if exists set_reservations_created_by_context on public.reservations;
+create trigger set_reservations_created_by_context
+before insert on public.reservations
+for each row
+execute function public.set_created_by_context();
+
+drop trigger if exists set_deposits_company_context on public.deposits;
+create trigger set_deposits_company_context
+before insert on public.deposits
+for each row
+execute function public.set_company_context();
+
+drop trigger if exists set_deposits_created_by_context on public.deposits;
+create trigger set_deposits_created_by_context
+before insert on public.deposits
+for each row
+execute function public.set_created_by_context();
+
+drop trigger if exists set_wallet_transactions_company_context on public.wallet_transactions;
+create trigger set_wallet_transactions_company_context
+before insert on public.wallet_transactions
+for each row
+execute function public.set_company_context();
+
+drop trigger if exists set_wallet_transactions_created_by_context on public.wallet_transactions;
+create trigger set_wallet_transactions_created_by_context
+before insert on public.wallet_transactions
+for each row
+execute function public.set_created_by_context();
 
 create or replace function private.current_company_id()
 returns uuid

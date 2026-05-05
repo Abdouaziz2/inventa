@@ -56,6 +56,7 @@ export const useProfileSettings = () =>
       const company = Array.isArray(profile.companies) ? profile.companies[0] : profile.companies;
       return {
         id: String(profile.id),
+        company_id: profile.company_id ? String(profile.company_id) : null,
         full_name: String(profile.full_name ?? ''),
         phone: String(profile.phone ?? company?.phone ?? ''),
         status: 'active',
@@ -88,7 +89,9 @@ export const useUpdateProfileSettings = () => {
 
       if (profileError) throw profileError;
 
-      if (profile.company_id) {
+      let companyId = profile.company_id as string | null;
+
+      if (companyId) {
         const { error: companyError } = await supabase
           .from('companies')
           .update({
@@ -98,7 +101,7 @@ export const useUpdateProfileSettings = () => {
             address: settings.address,
             logo: settings.logo || null,
           })
-          .eq('id', profile.company_id);
+          .eq('id', companyId);
 
         if (companyError) throw companyError;
       } else {
@@ -117,6 +120,8 @@ export const useUpdateProfileSettings = () => {
 
         if (companyError) throw companyError;
 
+        companyId = company.id;
+
         const { error: profileLinkError } = await supabase
           .from('profiles')
           .update({ company_id: company.id })
@@ -125,7 +130,10 @@ export const useUpdateProfileSettings = () => {
         if (profileLinkError) throw profileLinkError;
       }
 
-      return settings;
+      return {
+        ...settings,
+        company_id: companyId,
+      };
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.profileSettings });

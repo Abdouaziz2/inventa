@@ -137,6 +137,7 @@ export type WalletTransactionWithClient = WalletTransaction & { clients: ClientS
 
 export type ProfileSettings = {
   id: string;
+  company_id: string | null;
   full_name: string;
   phone: string;
   status: UserStatus;

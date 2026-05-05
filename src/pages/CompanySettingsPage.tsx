@@ -10,10 +10,11 @@ import { Loader2, Save, Upload, X, UserCog } from 'lucide-react';
 import { toast } from 'sonner';
 import { getErrorMessage } from '@/lib/errors';
 import { uploadCompanyAsset } from '@/services/storage';
+import { getCurrentProfile } from '@/services/auth';
 
 const CompanySettingsPage = () => {
   const { data: settings, isLoading } = useProfileSettings();
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
   const updateMutation = useUpdateProfileSettings();
 
   const [fullName, setFullName] = useState('');
@@ -47,8 +48,30 @@ const CompanySettingsPage = () => {
 
     setUploading(true);
     try {
-      if (!user?.companyId) throw new Error('Entreprise introuvable');
-      const upload = await uploadCompanyAsset(user.companyId, user.id, file, 'branding');
+      let companyId = settings.company_id ?? user?.companyId ?? null;
+
+      if (!companyId) {
+        const result = await updateMutation.mutateAsync({
+          id: settings.id,
+          full_name: fullName,
+          business_name: name || 'Ma boutique',
+          phone,
+          secondary_phone: secondaryPhone,
+          address,
+          logo: logoUrl,
+        });
+
+        companyId = result.company_id;
+        await refreshUser();
+      }
+
+      if (!companyId) {
+        const profile = await getCurrentProfile();
+        companyId = profile?.companyId ?? null;
+      }
+
+      if (!companyId) throw new Error("Enregistrez d'abord les informations de la boutique");
+      const upload = await uploadCompanyAsset(companyId, user?.id ?? settings.id, file, 'branding');
       setLogoUrl(upload.url);
       toast.success('Logo uploadé');
     } catch (error: unknown) {
@@ -70,6 +93,7 @@ const CompanySettingsPage = () => {
         address,
         logo: logoUrl,
       });
+      await refreshUser();
       toast.success('Profil mis à jour');
     } catch (error: unknown) {
       toast.error(getErrorMessage(error));

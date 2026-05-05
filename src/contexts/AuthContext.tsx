@@ -20,6 +20,7 @@ interface AuthContextType {
   login: (identifier: string, password: string) => Promise<{ error?: string }>;
   register: (input: RegisterInput) => Promise<{ error?: string; message?: string }>;
   logout: () => Promise<void>;
+  refreshUser: () => Promise<void>;
   isAuthenticated: boolean;
   isSuperAdmin: boolean;
   changePassword: (newPassword: string) => Promise<{ error?: string }>;
@@ -53,6 +54,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     return () => subscription.unsubscribe();
   }, []);
+
+  const refreshUser = async () => {
+    setLoading(true);
+    try {
+      const profile = await getCurrentProfile();
+      setUser(profile);
+    } catch {
+      setUser(null);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const login = async (identifier: string, password: string) => {
     try {
@@ -104,6 +117,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         login,
         register,
         logout,
+        refreshUser,
         isAuthenticated: !!user,
         isSuperAdmin: user?.role === 'super_admin',
         changePassword,

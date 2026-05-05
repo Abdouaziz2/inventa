@@ -17,6 +17,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { formatCFA } from '@/lib/format';
 import { getErrorMessage } from '@/lib/errors';
 import { uploadJewelryImage } from '@/services/storage';
+import { getCurrentProfile } from '@/services/auth';
 
 const createJewelryCode = () =>
   `JW-${new Date().toISOString().slice(0, 10).replaceAll('-', '')}-${Math.floor(1000 + Math.random() * 9000)}`;
@@ -48,8 +49,15 @@ const AddJewelryPage = () => {
     setUploadingPhoto(true);
 
     try {
-      if (!user?.companyId) throw new Error('Entreprise introuvable');
-      const upload = await uploadJewelryImage(user.companyId, user.id, file);
+      let companyId = user?.companyId ?? null;
+
+      if (!companyId) {
+        const profile = await getCurrentProfile();
+        companyId = profile?.companyId ?? null;
+      }
+
+      if (!companyId) throw new Error("Configurez d'abord la boutique");
+      const upload = await uploadJewelryImage(companyId, user.id, file);
       setForm((current) => ({ ...current, photo: upload.url }));
       toast.success('Image importee');
     } catch (error: unknown) {
