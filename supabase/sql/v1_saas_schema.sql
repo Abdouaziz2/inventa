@@ -24,6 +24,8 @@ drop type if exists public.jewelry_status cascade;
 drop type if exists public.app_role cascade;
 
 create extension if not exists pgcrypto;
+create schema if not exists private;
+revoke all on schema private from public;
 
 create type public.app_role as enum ('super_admin', 'admin', 'vendeur');
 create type public.jewelry_status as enum ('available', 'reserved', 'sold', 'out_of_stock');
@@ -220,26 +222,32 @@ before update on public.jewelry
 for each row
 execute function public.set_updated_at();
 
-create or replace function public.current_company_id()
+create or replace function private.current_company_id()
 returns uuid
 language sql
 stable
+security definer
+set search_path = public
 as $$
   select company_id from public.profiles where id = auth.uid()
 $$;
 
-create or replace function public.current_role()
+create or replace function private.current_role()
 returns public.app_role
 language sql
 stable
+security definer
+set search_path = public
 as $$
   select role from public.profiles where id = auth.uid()
 $$;
 
-create or replace function public.is_super_admin()
+create or replace function private.is_super_admin()
 returns boolean
 language sql
 stable
+security definer
+set search_path = public
 as $$
   select exists (
     select 1
@@ -829,6 +837,10 @@ grant execute on function public.create_sale(uuid, jsonb, jsonb, numeric, numeri
 grant execute on function public.create_deposit(uuid, numeric, public.payment_method, text, text) to authenticated;
 grant execute on function public.create_reservation(uuid, uuid, numeric, timestamptz) to authenticated;
 grant execute on function public.adjust_client_balance(uuid, numeric, text) to authenticated;
+grant usage on schema private to authenticated;
+grant execute on function private.current_company_id() to authenticated;
+grant execute on function private.current_role() to authenticated;
+grant execute on function private.is_super_admin() to authenticated;
 
 alter table public.companies enable row level security;
 alter table public.profiles enable row level security;
@@ -845,14 +857,14 @@ drop policy if exists companies_select on public.companies;
 create policy companies_select on public.companies
 for select
 to authenticated
-using (id = public.current_company_id() or public.is_super_admin());
+using (id = private.current_company_id() or private.is_super_admin());
 
 drop policy if exists companies_update on public.companies;
 create policy companies_update on public.companies
 for update
 to authenticated
-using (id = public.current_company_id() or public.is_super_admin())
-with check (id = public.current_company_id() or public.is_super_admin());
+using (id = private.current_company_id() or private.is_super_admin())
+with check (id = private.current_company_id() or private.is_super_admin());
 
 drop policy if exists profiles_select on public.profiles;
 create policy profiles_select on public.profiles
@@ -860,8 +872,8 @@ for select
 to authenticated
 using (
   id = auth.uid()
-  or company_id = public.current_company_id()
-  or public.is_super_admin()
+  or company_id = private.current_company_id()
+  or private.is_super_admin()
 );
 
 drop policy if exists profiles_insert on public.profiles;
@@ -870,7 +882,7 @@ for insert
 to authenticated
 with check (
   id = auth.uid()
-  or public.is_super_admin()
+  or private.is_super_admin()
 );
 
 drop policy if exists profiles_update on public.profiles;
@@ -880,166 +892,166 @@ to authenticated
 using (
   id = auth.uid()
   or (
-    company_id = public.current_company_id()
-    and public.current_role() in ('admin', 'super_admin')
+    company_id = private.current_company_id()
+    and private.current_role() in ('admin', 'super_admin')
   )
-  or public.is_super_admin()
+  or private.is_super_admin()
 )
 with check (
-  company_id = public.current_company_id()
-  or public.is_super_admin()
+  company_id = private.current_company_id()
+  or private.is_super_admin()
 );
 
 drop policy if exists clients_select on public.clients;
 create policy clients_select on public.clients
 for select
 to authenticated
-using (company_id = public.current_company_id() or public.is_super_admin());
+using (company_id = private.current_company_id() or private.is_super_admin());
 
 drop policy if exists clients_insert on public.clients;
 create policy clients_insert on public.clients
 for insert
 to authenticated
 with check (
-  company_id = public.current_company_id()
-  and public.current_role() in ('admin', 'vendeur', 'super_admin')
+  company_id = private.current_company_id()
+  and private.current_role() in ('admin', 'vendeur', 'super_admin')
 );
 
 drop policy if exists clients_update on public.clients;
 create policy clients_update on public.clients
 for update
 to authenticated
-using (company_id = public.current_company_id() or public.is_super_admin())
+using (company_id = private.current_company_id() or private.is_super_admin())
 with check (
-  company_id = public.current_company_id()
-  and public.current_role() in ('admin', 'vendeur', 'super_admin')
+  company_id = private.current_company_id()
+  and private.current_role() in ('admin', 'vendeur', 'super_admin')
 );
 
 drop policy if exists jewelry_select on public.jewelry;
 create policy jewelry_select on public.jewelry
 for select
 to authenticated
-using (company_id = public.current_company_id() or public.is_super_admin());
+using (company_id = private.current_company_id() or private.is_super_admin());
 
 drop policy if exists jewelry_insert on public.jewelry;
 create policy jewelry_insert on public.jewelry
 for insert
 to authenticated
 with check (
-  company_id = public.current_company_id()
-  and public.current_role() in ('admin', 'vendeur', 'super_admin')
+  company_id = private.current_company_id()
+  and private.current_role() in ('admin', 'vendeur', 'super_admin')
 );
 
 drop policy if exists jewelry_update on public.jewelry;
 create policy jewelry_update on public.jewelry
 for update
 to authenticated
-using (company_id = public.current_company_id() or public.is_super_admin())
+using (company_id = private.current_company_id() or private.is_super_admin())
 with check (
-  company_id = public.current_company_id()
-  and public.current_role() in ('admin', 'vendeur', 'super_admin')
+  company_id = private.current_company_id()
+  and private.current_role() in ('admin', 'vendeur', 'super_admin')
 );
 
 drop policy if exists sales_select on public.sales;
 create policy sales_select on public.sales
 for select
 to authenticated
-using (company_id = public.current_company_id() or public.is_super_admin());
+using (company_id = private.current_company_id() or private.is_super_admin());
 
 drop policy if exists sales_insert on public.sales;
 create policy sales_insert on public.sales
 for insert
 to authenticated
 with check (
-  company_id = public.current_company_id()
-  and public.current_role() in ('admin', 'vendeur', 'super_admin')
+  company_id = private.current_company_id()
+  and private.current_role() in ('admin', 'vendeur', 'super_admin')
 );
 
 drop policy if exists sales_update on public.sales;
 create policy sales_update on public.sales
 for update
 to authenticated
-using (company_id = public.current_company_id() or public.is_super_admin())
+using (company_id = private.current_company_id() or private.is_super_admin())
 with check (
-  company_id = public.current_company_id()
-  and public.current_role() in ('admin', 'vendeur', 'super_admin')
+  company_id = private.current_company_id()
+  and private.current_role() in ('admin', 'vendeur', 'super_admin')
 );
 
 drop policy if exists sale_items_select on public.sale_items;
 create policy sale_items_select on public.sale_items
 for select
 to authenticated
-using (company_id = public.current_company_id() or public.is_super_admin());
+using (company_id = private.current_company_id() or private.is_super_admin());
 
 drop policy if exists sale_items_insert on public.sale_items;
 create policy sale_items_insert on public.sale_items
 for insert
 to authenticated
 with check (
-  company_id = public.current_company_id()
-  and public.current_role() in ('admin', 'vendeur', 'super_admin')
+  company_id = private.current_company_id()
+  and private.current_role() in ('admin', 'vendeur', 'super_admin')
 );
 
 drop policy if exists payments_select on public.payments;
 create policy payments_select on public.payments
 for select
 to authenticated
-using (company_id = public.current_company_id() or public.is_super_admin());
+using (company_id = private.current_company_id() or private.is_super_admin());
 
 drop policy if exists payments_insert on public.payments;
 create policy payments_insert on public.payments
 for insert
 to authenticated
 with check (
-  company_id = public.current_company_id()
-  and public.current_role() in ('admin', 'vendeur', 'super_admin')
+  company_id = private.current_company_id()
+  and private.current_role() in ('admin', 'vendeur', 'super_admin')
 );
 
 drop policy if exists reservations_select on public.reservations;
 create policy reservations_select on public.reservations
 for select
 to authenticated
-using (company_id = public.current_company_id() or public.is_super_admin());
+using (company_id = private.current_company_id() or private.is_super_admin());
 
 drop policy if exists reservations_insert on public.reservations;
 create policy reservations_insert on public.reservations
 for insert
 to authenticated
 with check (
-  company_id = public.current_company_id()
-  and public.current_role() in ('admin', 'vendeur', 'super_admin')
+  company_id = private.current_company_id()
+  and private.current_role() in ('admin', 'vendeur', 'super_admin')
 );
 
 drop policy if exists reservations_update on public.reservations;
 create policy reservations_update on public.reservations
 for update
 to authenticated
-using (company_id = public.current_company_id() or public.is_super_admin())
+using (company_id = private.current_company_id() or private.is_super_admin())
 with check (
-  company_id = public.current_company_id()
-  and public.current_role() in ('admin', 'vendeur', 'super_admin')
+  company_id = private.current_company_id()
+  and private.current_role() in ('admin', 'vendeur', 'super_admin')
 );
 
 drop policy if exists deposits_select on public.deposits;
 create policy deposits_select on public.deposits
 for select
 to authenticated
-using (company_id = public.current_company_id() or public.is_super_admin());
+using (company_id = private.current_company_id() or private.is_super_admin());
 
 drop policy if exists deposits_insert on public.deposits;
 create policy deposits_insert on public.deposits
 for insert
 to authenticated
 with check (
-  company_id = public.current_company_id()
-  and public.current_role() in ('admin', 'vendeur', 'super_admin')
+  company_id = private.current_company_id()
+  and private.current_role() in ('admin', 'vendeur', 'super_admin')
 );
 
 drop policy if exists wallet_transactions_select on public.wallet_transactions;
 create policy wallet_transactions_select on public.wallet_transactions
 for select
 to authenticated
-using (company_id = public.current_company_id() or public.is_super_admin());
+using (company_id = private.current_company_id() or private.is_super_admin());
 
 insert into storage.buckets (id, name, public)
 values ('jewelry-images', 'jewelry-images', true)
@@ -1051,7 +1063,7 @@ for insert
 to authenticated
 with check (
   bucket_id = 'jewelry-images'
-  and (storage.foldername(name))[1] = public.current_company_id()::text
+  and (storage.foldername(name))[1] = private.current_company_id()::text
 );
 
 drop policy if exists jewelry_images_update on storage.objects;
@@ -1060,11 +1072,11 @@ for update
 to authenticated
 using (
   bucket_id = 'jewelry-images'
-  and (storage.foldername(name))[1] = public.current_company_id()::text
+  and (storage.foldername(name))[1] = private.current_company_id()::text
 )
 with check (
   bucket_id = 'jewelry-images'
-  and (storage.foldername(name))[1] = public.current_company_id()::text
+  and (storage.foldername(name))[1] = private.current_company_id()::text
 );
 
 drop policy if exists jewelry_images_delete on storage.objects;
@@ -1073,5 +1085,5 @@ for delete
 to authenticated
 using (
   bucket_id = 'jewelry-images'
-  and (storage.foldername(name))[1] = public.current_company_id()::text
+  and (storage.foldername(name))[1] = private.current_company_id()::text
 );
