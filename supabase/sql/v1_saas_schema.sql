@@ -1203,6 +1203,15 @@ for select
 to authenticated
 using (company_id = private.current_company_id() or private.is_super_admin());
 
+drop policy if exists wallet_transactions_insert on public.wallet_transactions;
+create policy wallet_transactions_insert on public.wallet_transactions
+for insert
+to authenticated
+with check (
+  company_id = private.current_company_id()
+  and private.current_role() in ('admin', 'vendeur', 'super_admin')
+);
+
 insert into storage.buckets (id, name, public)
 values ('jewelry-images', 'jewelry-images', true)
 on conflict (id) do nothing;
