@@ -1,6 +1,14 @@
 import React, { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
-import { apiRequest, clearAuthToken, getAuthToken, setAuthToken } from '@/lib/api';
 import { getErrorMessage } from '@/lib/errors';
+import { supabase } from '@/lib/supabase';
+import {
+  getCurrentProfile,
+  signInWithPassword,
+  signOutCurrentUser,
+  signUpWithPassword,
+  updateCurrentPassword,
+  type RegisterInput,
+} from '@/services/auth';
 import type { AppUser } from '@/types/api';
 
 export type { AppUser };
@@ -10,6 +18,7 @@ interface AuthContextType {
   user: AppUser | null;
   loading: boolean;
   login: (identifier: string, password: string) => Promise<{ error?: string }>;
+  register: (input: RegisterInput) => Promise<{ error?: string; message?: string }>;
   logout: () => Promise<void>;
   isAuthenticated: boolean;
   isSuperAdmin: boolean;
@@ -23,61 +32,64 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    async function loadSession() {
-      const token = getAuthToken();
-      if (!token) {
-        setLoading(false);
-        return;
-      }
-
+    async function loadProfile() {
       try {
-        const response = await apiRequest<{ user: AppUser }>('/auth/me');
-        setUser(response.user);
+        const profile = await getCurrentProfile();
+        setUser(profile);
       } catch {
-        clearAuthToken();
         setUser(null);
       } finally {
         setLoading(false);
       }
     }
 
-    loadSession();
+    void loadProfile();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(() => {
+      void loadProfile();
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
   const login = async (identifier: string, password: string) => {
     try {
-      const response = await apiRequest<{ token: string; user: AppUser }>('/auth/login', {
-        method: 'POST',
-        auth: false,
-        body: {
-          identifier,
-          password,
-        },
-      });
-
-      setAuthToken(response.token);
-      setUser(response.user);
+      const profile = await signInWithPassword(identifier, password);
+      setUser(profile);
       return {};
     } catch (error: unknown) {
       return { error: getErrorMessage(error, 'Erreur de connexion') };
     }
   };
 
+  const register = async (input: RegisterInput) => {
+    try {
+      const result = await signUpWithPassword(input);
+      setUser(result.user);
+
+      if (result.needsEmailConfirmation) {
+        return {
+          message: "Compte cree. Verifiez votre email avant de vous connecter.",
+        };
+      }
+
+      return {};
+    } catch (error: unknown) {
+      return { error: getErrorMessage(error, 'Impossible de creer le compte') };
+    }
+  };
+
   const logout = async () => {
-    clearAuthToken();
+    await signOutCurrentUser();
     setUser(null);
   };
 
   const changePassword = async (newPassword: string) => {
     try {
-      const response = await apiRequest<{ user: AppUser }>('/auth/change-password', {
-        method: 'POST',
-        body: {
-          password: newPassword,
-        },
-      });
-
-      setUser(response.user);
+      const profile = await updateCurrentPassword(newPassword);
+      setUser(profile);
       return {};
     } catch (error: unknown) {
       return { error: getErrorMessage(error, 'Impossible de modifier le mot de passe') };
@@ -90,6 +102,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         user,
         loading,
         login,
+        register,
         logout,
         isAuthenticated: !!user,
         isSuperAdmin: user?.role === 'super_admin',

@@ -1,4 +1,4 @@
-export type AppRole = 'super_admin' | 'admin';
+export type AppRole = 'super_admin' | 'admin' | 'vendeur';
 export type UserStatus = 'active' | 'inactive' | 'suspended';
 export type JewelryStatus = 'available' | 'reserved' | 'sold' | 'out_of_stock';
 export type JewelryCategory = 'rings' | 'necklaces' | 'bracelets' | 'earrings' | 'watches' | 'other';
