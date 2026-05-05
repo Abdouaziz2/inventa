@@ -953,6 +953,11 @@ end;
 $$;
 
 grant usage on schema public to authenticated;
+grant usage on type public.app_role to authenticated;
+grant usage on type public.jewelry_status to authenticated;
+grant usage on type public.payment_method to authenticated;
+grant usage on type public.sale_status to authenticated;
+grant usage on type public.reservation_status to authenticated;
 grant select, insert, update, delete on public.companies to authenticated;
 grant select, insert, update, delete on public.profiles to authenticated;
 grant select, insert, update, delete on public.clients to authenticated;
@@ -967,6 +972,7 @@ grant execute on function public.create_sale(uuid, jsonb, jsonb, numeric, numeri
 grant execute on function public.create_deposit(uuid, numeric, public.payment_method, text, text) to authenticated;
 grant execute on function public.create_reservation(uuid, uuid, numeric, timestamptz) to authenticated;
 grant execute on function public.adjust_client_balance(uuid, numeric, text) to authenticated;
+grant execute on all functions in schema public to authenticated;
 grant usage on schema private to authenticated;
 grant execute on function private.current_company_id() to authenticated;
 grant execute on function private.current_role() to authenticated;
@@ -1200,6 +1206,12 @@ using (company_id = private.current_company_id() or private.is_super_admin());
 insert into storage.buckets (id, name, public)
 values ('jewelry-images', 'jewelry-images', true)
 on conflict (id) do nothing;
+
+drop policy if exists jewelry_images_public_select on storage.objects;
+create policy jewelry_images_public_select on storage.objects
+for select
+to public
+using (bucket_id = 'jewelry-images');
 
 drop policy if exists jewelry_images_insert on storage.objects;
 create policy jewelry_images_insert on storage.objects

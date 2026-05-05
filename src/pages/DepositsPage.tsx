@@ -8,7 +8,6 @@ import { useClients, filterClients, type Client } from '@/features/clients';
 import { useAddDeposit, buildDepositReceipt } from '@/features/transactions';
 import { toast } from 'sonner';
 import { formatCFA } from '@/lib/format';
-import NumericKeypad from '@/components/NumericKeypad';
 import ReceiptModal, { ReceiptData } from '@/components/ReceiptModal';
 import { getErrorMessage } from '@/lib/errors';
 import { useProfileSettings } from '@/hooks/useProfileSettings';
@@ -110,7 +109,6 @@ const DepositsPage = () => {
               placeholder="Tapez le montant..."
               className="text-2xl font-bold h-14 text-center"
             />
-            <NumericKeypad value={amount} onChange={setAmount} />
           </div>
 
           <div className="space-y-2">
