@@ -226,6 +226,12 @@ create table if not exists public.wallet_transactions (
 
 create index if not exists idx_profiles_company on public.profiles(company_id);
 create index if not exists idx_clients_company_created on public.clients(company_id, created_at desc);
+create unique index if not exists idx_clients_company_phone_unique
+on public.clients (
+  company_id,
+  regexp_replace(phone, '\D', '', 'g')
+)
+where nullif(regexp_replace(phone, '\D', '', 'g'), '') is not null;
 create index if not exists idx_jewelry_company_status on public.jewelry(company_id, status);
 create index if not exists idx_sales_company_created on public.sales(company_id, created_at desc);
 create index if not exists idx_sale_items_sale on public.sale_items(sale_id);

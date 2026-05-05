@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { queryKeys } from '@/lib/queryKeys';
+import { normalizePhone } from '@/lib/clients';
 import { getJewelryImageUrl } from '@/services/storage';
 import { getCurrentProfile } from '@/services/auth';
 import type {
@@ -192,6 +193,25 @@ export const useAddClient = () => {
     mutationFn: async (client: { name: string; phone: string; email?: string }) => {
       const profile = await getCurrentProfile();
       if (!profile?.companyId) throw new Error("Configurez d'abord la boutique");
+      const trimmedPhone = client.phone.trim();
+      const normalizedPhone = normalizePhone(trimmedPhone);
+
+      if (normalizedPhone) {
+        const { data: existingClients, error: existingClientsError } = await supabase
+          .from('clients')
+          .select('id, phone')
+          .eq('company_id', profile.companyId);
+
+        if (existingClientsError) throw existingClientsError;
+
+        const duplicateClient = (existingClients ?? []).find((existing) =>
+          normalizePhone(String(existing.phone ?? '')) === normalizedPhone,
+        );
+
+        if (duplicateClient) {
+          throw new Error('Un client avec ce numero de telephone existe deja dans cette boutique.');
+        }
+      }
 
       const { data, error } = await supabase
         .from('clients')
@@ -199,7 +219,7 @@ export const useAddClient = () => {
           company_id: profile.companyId,
           code: createClientCode(),
           name: client.name,
-          phone: client.phone,
+          phone: trimmedPhone,
           email: client.email ?? null,
           created_by: profile.id,
         })

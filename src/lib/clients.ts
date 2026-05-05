@@ -4,8 +4,8 @@ function normalizeSearchValue(value: string) {
   return value.trim().toLowerCase();
 }
 
-function normalizePhone(value: string) {
-  return value.replace(/\s/g, '');
+export function normalizePhone(value: string) {
+  return value.replace(/\D/g, '');
 }
 
 export function filterClients(clients: Client[], search: string) {
