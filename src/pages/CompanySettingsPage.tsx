@@ -23,6 +23,7 @@ const CompanySettingsPage = () => {
   const [secondaryPhone, setSecondaryPhone] = useState('');
   const [address, setAddress] = useState('');
   const [logoUrl, setLogoUrl] = useState('');
+  const [logoValue, setLogoValue] = useState('');
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -33,6 +34,7 @@ const CompanySettingsPage = () => {
       setPhone(settings.phone);
       setAddress(settings.address);
       setLogoUrl(settings.logo);
+      setLogoValue(settings.logo);
       setSecondaryPhone(settings.secondary_phone);
     }
   }, [settings]);
@@ -58,7 +60,7 @@ const CompanySettingsPage = () => {
           phone,
           secondary_phone: secondaryPhone,
           address,
-          logo: logoUrl,
+          logo: logoValue,
         });
 
         companyId = result.company_id;
@@ -73,9 +75,25 @@ const CompanySettingsPage = () => {
       if (!companyId) throw new Error("Enregistrez d'abord les informations de la boutique");
       const upload = await uploadCompanyAsset(companyId, user?.id ?? settings.id, file, 'branding');
       setLogoUrl(upload.url);
-      toast.success('Logo uploadé');
+      setLogoValue(upload.path);
+
+      await updateMutation.mutateAsync({
+        id: settings.id,
+        full_name: fullName,
+        business_name: name || 'Ma boutique',
+        phone,
+        secondary_phone: secondaryPhone,
+        address,
+        logo: upload.path,
+      });
+
+      await refreshUser();
+      toast.success('Logo mis a jour');
     } catch (error: unknown) {
       toast.error('Erreur upload: ' + getErrorMessage(error));
+    }
+    if (fileRef.current) {
+      fileRef.current.value = '';
     }
     setUploading(false);
   };
@@ -91,7 +109,7 @@ const CompanySettingsPage = () => {
         phone,
         secondary_phone: secondaryPhone,
         address,
-        logo: logoUrl,
+        logo: logoValue,
       });
       await refreshUser();
       toast.success('Profil mis à jour');
@@ -132,7 +150,10 @@ const CompanySettingsPage = () => {
                   <img src={logoUrl} alt="Logo" className="h-20 w-20 rounded-xl object-cover border border-border" />
                   <button
                     type="button"
-                    onClick={() => setLogoUrl('')}
+                    onClick={() => {
+                      setLogoUrl('');
+                      setLogoValue('');
+                    }}
                     className="absolute -top-2 -right-2 p-1 rounded-full bg-destructive text-destructive-foreground"
                   >
                     <X className="h-3 w-3" />
