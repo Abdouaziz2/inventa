@@ -21,6 +21,15 @@ export async function uploadCompanyAsset(companyId: string, userId: string, file
 
 export async function getJewelryImageUrl(path: string) {
   if (path.startsWith('http://') || path.startsWith('https://')) return path;
+
+  const { data: signedData, error: signedError } = await supabase.storage
+    .from(BUCKET)
+    .createSignedUrl(path, 60 * 60 * 24 * 7);
+
+  if (!signedError && signedData?.signedUrl) {
+    return signedData.signedUrl;
+  }
+
   const { data } = supabase.storage.from(BUCKET).getPublicUrl(path);
   return data.publicUrl;
 }

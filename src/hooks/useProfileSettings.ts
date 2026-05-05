@@ -63,6 +63,7 @@ export const useProfileSettings = () =>
         business_name: String(company?.name ?? ''),
         address: String(company?.address ?? ''),
         logo: company?.logo ? await getJewelryImageUrl(company.logo) : '',
+        logo_path: String(company?.logo ?? ''),
         secondary_phone: String(company?.secondary_phone ?? ''),
         created_at: String(profile.created_at),
       } as ProfileSettings;

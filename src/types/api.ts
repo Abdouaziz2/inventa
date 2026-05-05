@@ -143,6 +143,7 @@ export type ProfileSettings = {
   business_name: string;
   address: string;
   logo: string;
+  logo_path: string;
   secondary_phone: string;
   created_at: string;
 };

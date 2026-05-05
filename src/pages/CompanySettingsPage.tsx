@@ -37,7 +37,7 @@ const CompanySettingsPage = () => {
       setPhone(settings.phone);
       setAddress(settings.address);
       setLogoUrl(settings.logo);
-      setLogoValue(settings.logo);
+      setLogoValue(settings.logo_path);
       setSecondaryPhone(settings.secondary_phone);
     }
   }, [settings]);
