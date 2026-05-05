@@ -12,6 +12,9 @@ import { getErrorMessage } from '@/lib/errors';
 import { uploadCompanyAsset } from '@/services/storage';
 import { getCurrentProfile } from '@/services/auth';
 
+const ALLOWED_LOGO_TYPES = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
+const ALLOWED_LOGO_EXTENSIONS = '.png,.jpg,.jpeg,.webp';
+
 const CompanySettingsPage = () => {
   const { data: settings, isLoading } = useProfileSettings();
   const { user, refreshUser } = useAuth();
@@ -43,8 +46,8 @@ const CompanySettingsPage = () => {
     const file = e.target.files?.[0];
     if (!file || !settings) return;
     
-    if (!file.type.startsWith('image/')) {
-      toast.error('Veuillez sélectionner une image');
+    if (!ALLOWED_LOGO_TYPES.includes(file.type)) {
+      toast.error('Formats acceptes: PNG, JPG, JPEG, WEBP');
       return;
     }
 
@@ -172,9 +175,15 @@ const CompanySettingsPage = () => {
               <Button type="button" variant="outline" size="sm" onClick={() => fileRef.current?.click()} disabled={uploading} className="w-full sm:w-auto">
                 {uploading ? 'Upload...' : 'Changer le logo'}
               </Button>
-              <p className="text-xs text-muted-foreground mt-1">JPG, PNG. Max 2MB</p>
+              <p className="text-xs text-muted-foreground mt-1">PNG, JPG, JPEG, WEBP. Max 2MB</p>
             </div>
-            <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} />
+            <input
+              ref={fileRef}
+              type="file"
+              accept={ALLOWED_LOGO_EXTENSIONS}
+              className="hidden"
+              onChange={handleLogoUpload}
+            />
           </div>
         </CardContent>
       </Card>
