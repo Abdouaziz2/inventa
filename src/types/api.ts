@@ -24,7 +24,6 @@ export type AppUser = {
   username: string | null;
   fullName: string;
   role: AppRole;
-  mustChangePassword: boolean;
   companyId: string | null;
 };
 
@@ -141,23 +140,9 @@ export type ProfileSettings = {
   full_name: string;
   phone: string;
   status: UserStatus;
-  must_change_password: boolean;
-  failed_login_attempts: number;
-  locked_until: string | null;
   business_name: string;
   address: string;
   logo: string;
   secondary_phone: string;
-  created_at: string;
-};
-
-export type ManagedUser = {
-  id: string;
-  full_name: string;
-  username: string;
-  email: string;
-  phone: string;
-  status: UserStatus;
-  role: AppRole;
   created_at: string;
 };

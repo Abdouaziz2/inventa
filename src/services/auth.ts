@@ -9,13 +9,6 @@ type ProfileRow = {
   company_id: string | null;
 };
 
-export type RegisterInput = {
-  fullName: string;
-  companyName: string;
-  email: string;
-  password: string;
-};
-
 function normalizeRole(role: ProfileRow['role']): AppUser['role'] {
   return role === 'super_admin' ? 'super_admin' : 'admin';
 }
@@ -27,7 +20,6 @@ function mapProfileToUser(profile: ProfileRow): AppUser {
     username: null,
     fullName: profile.full_name,
     role: normalizeRole(profile.role),
-    mustChangePassword: false,
     companyId: profile.company_id,
   };
 }
@@ -88,45 +80,7 @@ export async function signInWithPassword(email: string, password: string) {
   return getCurrentProfile();
 }
 
-export async function signUpWithPassword(input: RegisterInput) {
-  const emailRedirectTo =
-    typeof window !== 'undefined' ? `${window.location.origin}/login` : undefined;
-
-  const { data, error } = await supabase.auth.signUp({
-    email: input.email,
-    password: input.password,
-    options: {
-      emailRedirectTo,
-      data: {
-        full_name: input.fullName,
-        company_name: input.companyName,
-      },
-    },
-  });
-
-  if (error) throw error;
-
-  if (!data.session) {
-    return {
-      user: null,
-      needsEmailConfirmation: true,
-    };
-  }
-
-  return {
-    user: await getCurrentProfile(),
-    needsEmailConfirmation: false,
-  };
-}
-
 export async function signOutCurrentUser() {
   const { error } = await supabase.auth.signOut();
   if (error) throw error;
-}
-
-export async function updateCurrentPassword(password: string) {
-  const { error } = await supabase.auth.updateUser({ password });
-  if (error) throw error;
-
-  return getCurrentProfile();
 }

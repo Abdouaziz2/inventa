@@ -5,9 +5,6 @@ import {
   getCurrentProfile,
   signInWithPassword,
   signOutCurrentUser,
-  signUpWithPassword,
-  updateCurrentPassword,
-  type RegisterInput,
 } from '@/services/auth';
 import type { AppUser } from '@/types/api';
 
@@ -18,12 +15,10 @@ interface AuthContextType {
   user: AppUser | null;
   loading: boolean;
   login: (identifier: string, password: string) => Promise<{ error?: string }>;
-  register: (input: RegisterInput) => Promise<{ error?: string; message?: string }>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
   isAuthenticated: boolean;
   isSuperAdmin: boolean;
-  changePassword: (newPassword: string) => Promise<{ error?: string }>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -77,36 +72,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const register = async (input: RegisterInput) => {
-    try {
-      const result = await signUpWithPassword(input);
-      setUser(result.user);
-
-      if (result.needsEmailConfirmation) {
-        return {
-          message: "Compte cree. Verifiez votre email avant de vous connecter.",
-        };
-      }
-
-      return {};
-    } catch (error: unknown) {
-      return { error: getErrorMessage(error, 'Impossible de creer le compte') };
-    }
-  };
-
   const logout = async () => {
     await signOutCurrentUser();
     setUser(null);
-  };
-
-  const changePassword = async (newPassword: string) => {
-    try {
-      const profile = await updateCurrentPassword(newPassword);
-      setUser(profile);
-      return {};
-    } catch (error: unknown) {
-      return { error: getErrorMessage(error, 'Impossible de modifier le mot de passe') };
-    }
   };
 
   return (
@@ -115,12 +83,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         user,
         loading,
         login,
-        register,
         logout,
         refreshUser,
         isAuthenticated: !!user,
         isSuperAdmin: user?.role === 'super_admin',
-        changePassword,
       }}
     >
       {children}

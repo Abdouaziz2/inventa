@@ -7,7 +7,6 @@ import AppLayout from "@/components/AppLayout";
 import AppErrorBoundary from "@/components/AppErrorBoundary";
 import AppSpinner from "@/components/AppSpinner";
 import LoginPage from "@/pages/LoginPage";
-import ChangePasswordPage from "@/pages/ChangePasswordPage";
 import Dashboard from "@/pages/Dashboard";
 import ClientsPage from "@/pages/ClientsPage";
 import ClientDetailPage from "@/pages/ClientDetailPage";
@@ -37,14 +36,11 @@ const appRoutes = [
 ] as const;
 
 const ProtectedRoutes = () => {
-  const { isAuthenticated, loading, user } = useAuth();
+  const { isAuthenticated, loading } = useAuth();
 
   if (loading) return <AppSpinner fullScreen />;
 
   if (!isAuthenticated) return <Navigate to="/login" replace />;
-
-  // Force password change
-  if (user?.mustChangePassword) return <ChangePasswordPage />;
 
   return <AppLayout />;
 };
