@@ -42,6 +42,39 @@ const documentLabels: Record<ReceiptData['type'], string> = {
   reservation: 'Bon de reservation',
 };
 
+const partyLabels: Record<ReceiptData['type'], string> = {
+  deposit: 'Client deposant',
+  sale: 'Client acheteur',
+  reservation: 'Client reservataire',
+};
+
+const infoPanelTitle: Record<ReceiptData['type'], string> = {
+  deposit: 'Details du depot',
+  sale: 'Details du paiement',
+  reservation: 'Details de la reservation',
+};
+
+const totalPanelTitle: Record<ReceiptData['type'], string> = {
+  deposit: 'Solde et depot',
+  sale: 'Totaux de vente',
+  reservation: 'Acompte et reste',
+};
+
+const footerMessages: Record<ReceiptData['type'], string> = {
+  deposit:
+    'Merci. Ce recu confirme le depot effectue sur le compte client et le nouveau solde disponible.',
+  sale:
+    'Merci pour votre confiance. Cette facture confirme la vente enregistree et peut servir de justificatif client.',
+  reservation:
+    'Merci. Ce bon confirme la reservation du bijou avec acompte et le montant restant a regler.',
+};
+
+const qrLabels: Record<ReceiptData['type'], string> = {
+  deposit: 'Verification depot',
+  sale: 'Verification facture',
+  reservation: 'Verification reservation',
+};
+
 const formatDateTime = (value: string) => {
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) return value;
@@ -365,6 +398,11 @@ const buildInvoiceHtml = ({
   const grandTotal = subtotal + taxAmount;
   const priceColumnLabel = data.type === 'deposit' ? 'Prix unitaire' : 'Prix/g';
   const priceSuffix = data.type === 'deposit' ? '' : ' / g';
+  const clientPanelLabel = partyLabels[data.type];
+  const infoTitle = infoPanelTitle[data.type];
+  const totalTitle = totalPanelTitle[data.type];
+  const footerMessage = footerMessages[data.type];
+  const qrLabel = qrLabels[data.type];
   const brandMetaHtml = brandMeta.map((line) => `<div>${sanitizeHtml(line)}</div>`).join('');
   const detailsHtml = (data.details ?? [])
     .map(
@@ -418,7 +456,7 @@ const buildInvoiceHtml = ({
 
             <div class="grid">
               <div class="client-card">
-                <div class="card-title">Facture a</div>
+                <div class="card-title">${sanitizeHtml(clientPanelLabel)}</div>
                 <div class="client-name">${sanitizeHtml(data.clientName)}</div>
                 <div class="kv">
                   <span class="kv-label">Code client</span>
@@ -431,7 +469,7 @@ const buildInvoiceHtml = ({
               </div>
 
               <div class="meta-card">
-                <div class="card-title">Informations</div>
+                <div class="card-title">${sanitizeHtml(infoTitle)}</div>
                 <div class="kv">
                   <span class="kv-label">Mode de reglement</span>
                   <span class="kv-value">${sanitizeHtml(data.paymentMethod)}</span>
@@ -460,7 +498,7 @@ const buildInvoiceHtml = ({
 
             <div class="summary-wrap">
               <div class="summary-card">
-                <div class="card-title">Totaux</div>
+                <div class="card-title">${sanitizeHtml(totalTitle)}</div>
                 <div class="summary-line">
                   <span class="summary-label">Sous-total HT</span>
                   <span class="summary-value">${formatCFA(subtotal)}</span>
@@ -479,13 +517,13 @@ const buildInvoiceHtml = ({
             <div class="footer-grid">
               <div>
                 <div class="thank-you">
-                  Merci pour votre confiance. Cette facture est generee automatiquement par votre systeme de gestion de bijouterie et peut etre utilisee comme justificatif client.
+                  ${sanitizeHtml(footerMessage)}
                 </div>
                 ${data.note ? `<div class="note">Note: ${sanitizeHtml(data.note)}</div>` : ''}
               </div>
               <div class="qr-wrap">
                 <img src="${qrCodeUrl}" alt="QR code facture" />
-                <div class="qr-label">Verification facture</div>
+                <div class="qr-label">${sanitizeHtml(qrLabel)}</div>
               </div>
             </div>
           </div>
@@ -551,6 +589,11 @@ const ReceiptModal = ({ open, onClose, data }: ReceiptModalProps) => {
   const documentLabel = documentLabels[data.type];
   const priceColumnLabel = data.type === 'deposit' ? 'Prix unitaire' : 'Prix/g';
   const priceSuffix = data.type === 'deposit' ? '' : ' / g';
+  const clientPanelLabel = partyLabels[data.type];
+  const infoTitle = infoPanelTitle[data.type];
+  const totalTitle = totalPanelTitle[data.type];
+  const footerMessage = footerMessages[data.type];
+  const qrLabel = qrLabels[data.type];
 
   const openPrintWindow = () => {
     const popup = window.open('', '_blank', 'width=1200,height=900');
@@ -600,7 +643,7 @@ const ReceiptModal = ({ open, onClose, data }: ReceiptModalProps) => {
                 ) : null}
                 <div className="min-w-0">
                   <p className="truncate text-xl font-bold text-slate-900">{businessName}</p>
-                  <p className="mt-1 text-xs uppercase tracking-[0.16em] text-[#b88917]">{documentLabel}</p>
+                <p className="mt-1 text-xs uppercase tracking-[0.16em] text-[#b88917]">{documentLabel}</p>
                   <p className="mt-1 break-words font-mono text-sm font-semibold text-slate-700">{data.invoiceNumber}</p>
                 </div>
               </div>
@@ -608,7 +651,7 @@ const ReceiptModal = ({ open, onClose, data }: ReceiptModalProps) => {
 
             <div className="mt-4 grid gap-3 text-sm">
               <div className="rounded-xl border p-3">
-                <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Client</p>
+                <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">{clientPanelLabel}</p>
                 <p className="mt-2 font-semibold text-slate-900">{data.clientName}</p>
                 <p className="mt-1 text-slate-500">{data.clientCode} · {data.clientPhone || 'Non renseigne'}</p>
               </div>
@@ -690,7 +733,7 @@ const ReceiptModal = ({ open, onClose, data }: ReceiptModalProps) => {
                 <div className="grid grid-cols-[1.15fr_0.85fr] gap-4">
                   <div className="rounded-[14px] border p-4">
                     <p className="font-sans text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
-                      Facture a
+                      {clientPanelLabel}
                     </p>
                     <p className="mt-2 text-lg font-bold">{data.clientName}</p>
                     <div className="mt-2 space-y-1.5 font-sans text-[13px]">
@@ -707,7 +750,7 @@ const ReceiptModal = ({ open, onClose, data }: ReceiptModalProps) => {
 
                   <div className="rounded-[14px] border p-4">
                     <p className="font-sans text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
-                      Informations
+                      {infoTitle}
                     </p>
                     <div className="mt-2 space-y-1.5 font-sans text-[13px]">
                       <div className="flex justify-between gap-3">
@@ -760,7 +803,7 @@ const ReceiptModal = ({ open, onClose, data }: ReceiptModalProps) => {
                 <div className="flex justify-end">
                   <div className="w-[92mm] rounded-[14px] border bg-[linear-gradient(180deg,#fffdf7_0%,#ffffff_100%)] p-4">
                     <p className="font-sans text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
-                      Totaux
+                      {totalTitle}
                     </p>
                     <div className="mt-2 space-y-2 font-sans text-[13px]">
                       <div className="flex justify-between gap-3">
@@ -782,7 +825,7 @@ const ReceiptModal = ({ open, onClose, data }: ReceiptModalProps) => {
                 <div className="grid grid-cols-[1fr_120px] items-end gap-4">
                   <div>
                     <div className="rounded-[14px] border bg-[rgba(184,137,23,0.12)] p-4 font-sans text-[13px] leading-relaxed text-slate-600">
-                      Merci pour votre confiance. Cette facture est generee automatiquement par votre systeme de gestion de bijouterie et reste optimisee pour impression et export PDF.
+                      {footerMessage}
                     </div>
                     {data.note ? (
                       <p className="mt-3 font-sans text-xs text-slate-500">Note: {data.note}</p>
@@ -800,7 +843,7 @@ const ReceiptModal = ({ open, onClose, data }: ReceiptModalProps) => {
                       <div className="mx-auto mb-2 h-[92px] w-[92px] animate-pulse rounded bg-slate-100" />
                     )}
                     <p className="font-sans text-[10px] uppercase tracking-[0.06em] text-slate-500">
-                      Verification facture
+                      {qrLabel}
                     </p>
                   </div>
                 </div>

@@ -51,6 +51,7 @@ type SaleItemRow = {
   jewelry_code: string;
   jewelry_name: string;
   quantity: number | string;
+  unit_price: number | string;
   weight: number | string;
   line_total: number | string;
 };
@@ -423,7 +424,7 @@ export const useSales = (clientId?: string) =>
           jewelry_name: String(item.jewelry_name),
           material_type: 'gold',
           weight: Number(item.weight ?? 0),
-          price_per_gram: 0,
+          price_per_gram: Number(item.unit_price ?? 0),
           quantity: Number(item.quantity ?? 0),
           line_total: Number(item.line_total ?? 0),
         }));
@@ -503,7 +504,7 @@ export const useAddSale = () => {
 
       const { data, error } = await supabase
         .from('sales')
-        .select('id, client_id, sale_number, total_amount, balance_used, paid_amount, remaining_amount, created_at, created_by, sale_items(id, jewelry_id, jewelry_code, jewelry_name, quantity, weight, line_total)')
+        .select('id, client_id, sale_number, total_amount, balance_used, paid_amount, remaining_amount, created_at, created_by, sale_items(id, jewelry_id, jewelry_code, jewelry_name, quantity, unit_price, weight, line_total)')
         .eq('id', saleId)
         .single();
       if (error) throw error;
@@ -517,7 +518,7 @@ export const useAddSale = () => {
         jewelry_name: String(item.jewelry_name),
         material_type: 'gold',
         weight: Number(item.weight ?? 0),
-        price_per_gram: 0,
+        price_per_gram: Number(item.unit_price ?? 0),
         quantity: Number(item.quantity ?? 0),
         line_total: Number(item.line_total ?? 0),
       }));

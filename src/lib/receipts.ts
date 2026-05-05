@@ -33,12 +33,12 @@ export function buildDepositReceipt(
     clientPhone: client.phone,
     amount: deposit.amount,
     date: deposit.created_at,
-    paymentMethod: 'Depot en caisse',
+    paymentMethod: 'Depot libre',
     taxRate: 0,
     note: deposit.note || undefined,
     items: [
       {
-        description: 'Approvisionnement du compte client',
+        description: 'Depot sur compte client',
         quantity: 1,
         weight: null,
         unitPrice: deposit.amount,
@@ -46,7 +46,9 @@ export function buildDepositReceipt(
       },
     ],
     details: [
+      { label: 'Operation', value: 'Depot de fonds' },
       { label: 'Ancien solde', value: formatCFA(previousBalance) },
+      { label: 'Montant depose', value: formatCFA(deposit.amount) },
       { label: 'Nouveau solde', value: formatCFA(previousBalance + deposit.amount) },
     ],
   };
@@ -100,12 +102,14 @@ export function buildSaleReceipt(
     taxRate: 0,
     items,
     details: [
+      { label: 'Nombre d articles', value: String(items.reduce((sum, item) => sum + (item.quantity ?? 1), 0)) },
+      { label: 'Mode de paiement', value: sale.payment_method },
       { label: 'Total facture', value: formatCFA(sale.total_price) },
       { label: 'Paye via solde', value: formatCFA(sale.paid_from_balance) },
-      { label: 'Montant remis', value: formatCFA(sale.paid_amount) },
-      { label: 'Montant paye', value: formatCFA(sale.paid_from_balance + sale.paid_amount) },
+      { label: 'Montant encaisse', value: formatCFA(sale.paid_amount) },
+      { label: 'Montant total paye', value: formatCFA(sale.paid_from_balance + sale.paid_amount) },
       { label: 'Reste a payer', value: formatCFA(sale.remaining_amount) },
-      { label: 'Monnaie rendue', value: formatCFA(sale.change_amount) },
+      ...(sale.change_amount > 0 ? [{ label: 'Monnaie rendue', value: formatCFA(sale.change_amount) }] : []),
     ],
   };
 }
@@ -139,7 +143,10 @@ export function buildReservationReceipt(
       },
     ],
     details: [
+      { label: 'Bijou reserve', value: jewelry.name },
       { label: 'Matiere', value: formatJewelryMaterial(jewelry.material_type) },
+      { label: 'Code bijou', value: jewelry.code },
+      { label: 'Poids', value: `${jewelry.weight.toFixed(2)} g` },
       { label: 'Prix total bijou', value: formatCFA(totalPrice) },
       { label: 'Acompte verse', value: formatCFA(reservation.deposit_amount) },
       { label: 'Reste a payer', value: formatCFA(reservation.remaining_amount) },
