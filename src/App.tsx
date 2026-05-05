@@ -17,7 +17,6 @@ import DepositsPage from "@/pages/DepositsPage";
 import ReservationsPage from "@/pages/ReservationsPage";
 import SalesPage from "@/pages/SalesPage";
 import ReceiptsPage from "@/pages/ReceiptsPage";
-import AdminUsersPage from "@/pages/AdminUsersPage";
 import ProfileSettingsPage from "@/pages/CompanySettingsPage";
 import NotFound from "@/pages/NotFound";
 
@@ -34,7 +33,6 @@ const appRoutes = [
   { path: "/sales", element: <SalesPage /> },
   { path: "/receipts", element: <ReceiptsPage /> },
   { path: "/profile", element: <ProfileSettingsPage /> },
-  { path: "/admin/users", element: <AdminUsersPage /> },
   { path: "/admin/settings", element: <Navigate to="/profile" replace /> },
 ] as const;
 

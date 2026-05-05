@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useProfileSettings, useUpdateProfileSettings } from '@/hooks/useProfileSettings';
+import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -7,11 +8,12 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Loader2, Save, Upload, X, UserCog } from 'lucide-react';
 import { toast } from 'sonner';
-import { apiRequest } from '@/lib/api';
 import { getErrorMessage } from '@/lib/errors';
+import { uploadCompanyAsset } from '@/services/storage';
 
 const CompanySettingsPage = () => {
   const { data: settings, isLoading } = useProfileSettings();
+  const { user } = useAuth();
   const updateMutation = useUpdateProfileSettings();
 
   const [fullName, setFullName] = useState('');
@@ -45,13 +47,9 @@ const CompanySettingsPage = () => {
 
     setUploading(true);
     try {
-      const formData = new FormData();
-      formData.append('logo', file);
-      const response = await apiRequest<{ url: string }>('/profile/logo', {
-        method: 'POST',
-        body: formData,
-      });
-      setLogoUrl(response.url + '?t=' + Date.now());
+      if (!user?.companyId) throw new Error('Entreprise introuvable');
+      const upload = await uploadCompanyAsset(user.companyId, user.id, file, 'branding');
+      setLogoUrl(upload.url);
       toast.success('Logo uploadé');
     } catch (error: unknown) {
       toast.error('Erreur upload: ' + getErrorMessage(error));

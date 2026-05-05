@@ -40,9 +40,10 @@ import {
   PaginationPrevious,
 } from '@/components/ui/pagination';
 import StatusBadge from '@/components/StatusBadge';
-import { apiRequest } from '@/lib/api';
+import { useAuth } from '@/contexts/AuthContext';
 import { formatCFA } from '@/lib/format';
 import { getErrorMessage } from '@/lib/errors';
+import { uploadJewelryImage } from '@/services/storage';
 import {
   filterJewelry,
   calculateSalePrice,
@@ -79,6 +80,7 @@ const emptyEditor = {
 };
 
 const JewelryPage = () => {
+  const { user } = useAuth();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<JewelryStatusFilter>('all');
   const [sortKey, setSortKey] = useState<JewelrySortKey>('recent');
@@ -190,15 +192,9 @@ const JewelryPage = () => {
     setUploadingPhoto(true);
 
     try {
-      const formData = new FormData();
-      formData.append('photo', file);
-
-      const response = await apiRequest<{ url: string }>('/jewelry/photo', {
-        method: 'POST',
-        body: formData,
-      });
-
-      setEditing((current) => (current ? { ...current, photo: response.url } : current));
+      if (!user?.companyId) throw new Error('Entreprise introuvable');
+      const upload = await uploadJewelryImage(user.companyId, user.id, file);
+      setEditing((current) => (current ? { ...current, photo: upload.url } : current));
       toast.success('Image importee');
     } catch (error: unknown) {
       toast.error(getErrorMessage(error, "Impossible d'importer l'image."));

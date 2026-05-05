@@ -45,7 +45,9 @@ create table if not exists public.companies (
   id uuid primary key default gen_random_uuid(),
   name text not null,
   phone text default '',
+  secondary_phone text default '',
   address text default '',
+  logo text,
   currency_code text not null default 'XOF',
   created_by uuid references auth.users(id) on delete set null,
   created_at timestamptz not null default timezone('utc', now()),
@@ -160,11 +162,27 @@ create table if not exists public.deposits (
   id uuid primary key default gen_random_uuid(),
   company_id uuid not null references public.companies(id) on delete cascade,
   client_id uuid not null references public.clients(id) on delete cascade,
+  deposit_number text not null,
   amount numeric(12,2) not null check (amount > 0),
   method public.payment_method not null default 'cash',
   reference text,
   note text,
   created_by uuid not null references public.profiles(id) on delete restrict,
+  created_at timestamptz not null default timezone('utc', now()),
+  constraint deposits_company_number_key unique (company_id, deposit_number)
+);
+
+create table if not exists public.wallet_transactions (
+  id uuid primary key default gen_random_uuid(),
+  company_id uuid not null references public.companies(id) on delete cascade,
+  client_id uuid not null references public.clients(id) on delete cascade,
+  operation_type text not null,
+  operation_id uuid,
+  document_number text not null,
+  amount numeric(12,2) not null,
+  balance_before numeric(12,2) not null,
+  balance_after numeric(12,2) not null,
+  created_by uuid references public.profiles(id) on delete set null,
   created_at timestamptz not null default timezone('utc', now())
 );
 
@@ -176,6 +194,7 @@ create index if not exists idx_sale_items_sale on public.sale_items(sale_id);
 create index if not exists idx_payments_sale on public.payments(sale_id);
 create index if not exists idx_reservations_company_created on public.reservations(company_id, created_at desc);
 create index if not exists idx_deposits_company_created on public.deposits(company_id, created_at desc);
+create index if not exists idx_wallet_transactions_client_created on public.wallet_transactions(client_id, created_at desc);
 
 drop trigger if exists set_companies_updated_at on public.companies;
 create trigger set_companies_updated_at
@@ -310,6 +329,261 @@ create trigger apply_deposit_to_client_balance_trigger
 after insert on public.deposits
 for each row
 execute function public.apply_deposit_to_client_balance();
+
+create or replace function public.create_deposit(
+  p_client_id uuid,
+  p_amount numeric,
+  p_method public.payment_method default 'cash',
+  p_reference text default null,
+  p_note text default null
+)
+returns uuid
+language plpgsql
+set search_path = public
+as $$
+declare
+  v_company_id uuid;
+  v_profile_id uuid;
+  v_deposit_id uuid;
+  v_deposit_number text;
+  v_balance_before numeric(12,2);
+  v_balance_after numeric(12,2);
+begin
+  v_profile_id := auth.uid();
+  if v_profile_id is null then
+    raise exception 'Not authenticated';
+  end if;
+
+  select company_id into v_company_id
+  from public.profiles
+  where id = v_profile_id and is_active = true;
+
+  if v_company_id is null then
+    raise exception 'No company linked to profile';
+  end if;
+
+  select balance into v_balance_before
+  from public.clients
+  where id = p_client_id and company_id = v_company_id
+  for update;
+
+  if not found then
+    raise exception 'Client not found';
+  end if;
+
+  v_deposit_number := 'DEP-' || to_char(timezone('utc', now()), 'YYYYMMDD-HH24MISSMS');
+
+  insert into public.deposits (
+    company_id,
+    client_id,
+    deposit_number,
+    amount,
+    method,
+    reference,
+    note,
+    created_by
+  )
+  values (
+    v_company_id,
+    p_client_id,
+    v_deposit_number,
+    p_amount,
+    p_method,
+    p_reference,
+    p_note,
+    v_profile_id
+  )
+  returning id into v_deposit_id;
+
+  select balance into v_balance_after
+  from public.clients
+  where id = p_client_id;
+
+  insert into public.wallet_transactions (
+    company_id,
+    client_id,
+    operation_type,
+    operation_id,
+    document_number,
+    amount,
+    balance_before,
+    balance_after,
+    created_by
+  )
+  values (
+    v_company_id,
+    p_client_id,
+    'deposit_credit',
+    v_deposit_id,
+    v_deposit_number,
+    p_amount,
+    v_balance_before,
+    v_balance_after,
+    v_profile_id
+  );
+
+  return v_deposit_id;
+end;
+$$;
+
+create or replace function public.create_reservation(
+  p_client_id uuid,
+  p_jewelry_id uuid,
+  p_deposit_amount numeric,
+  p_expires_at timestamptz default null
+)
+returns uuid
+language plpgsql
+set search_path = public
+as $$
+declare
+  v_company_id uuid;
+  v_profile_id uuid;
+  v_reservation_id uuid;
+  v_reservation_number text;
+  v_jewelry record;
+  v_remaining numeric(12,2);
+begin
+  v_profile_id := auth.uid();
+  if v_profile_id is null then
+    raise exception 'Not authenticated';
+  end if;
+
+  select company_id into v_company_id
+  from public.profiles
+  where id = v_profile_id and is_active = true;
+
+  if v_company_id is null then
+    raise exception 'No company linked to profile';
+  end if;
+
+  perform 1
+  from public.clients
+  where id = p_client_id and company_id = v_company_id;
+
+  if not found then
+    raise exception 'Client not found';
+  end if;
+
+  select *
+  into v_jewelry
+  from public.jewelry
+  where id = p_jewelry_id and company_id = v_company_id
+  for update;
+
+  if not found then
+    raise exception 'Jewelry not found';
+  end if;
+
+  if v_jewelry.status <> 'available' or v_jewelry.quantity <= 0 then
+    raise exception 'Jewelry not available';
+  end if;
+
+  v_remaining := greatest(v_jewelry.sale_price - coalesce(p_deposit_amount, 0), 0);
+  v_reservation_number := 'RES-' || to_char(timezone('utc', now()), 'YYYYMMDD-HH24MISSMS');
+
+  insert into public.reservations (
+    company_id,
+    client_id,
+    jewelry_id,
+    reservation_number,
+    deposit_amount,
+    remaining_amount,
+    status,
+    expires_at,
+    created_by
+  )
+  values (
+    v_company_id,
+    p_client_id,
+    p_jewelry_id,
+    v_reservation_number,
+    p_deposit_amount,
+    v_remaining,
+    'active',
+    p_expires_at,
+    v_profile_id
+  )
+  returning id into v_reservation_id;
+
+  update public.jewelry
+  set status = 'reserved'
+  where id = p_jewelry_id;
+
+  return v_reservation_id;
+end;
+$$;
+
+create or replace function public.adjust_client_balance(
+  p_client_id uuid,
+  p_amount numeric,
+  p_reason text default 'balance_adjustment'
+)
+returns uuid
+language plpgsql
+set search_path = public
+as $$
+declare
+  v_company_id uuid;
+  v_profile_id uuid;
+  v_balance_before numeric(12,2);
+  v_balance_after numeric(12,2);
+  v_document_number text;
+  v_transaction_id uuid;
+begin
+  v_profile_id := auth.uid();
+  if v_profile_id is null then
+    raise exception 'Not authenticated';
+  end if;
+
+  select company_id into v_company_id
+  from public.profiles
+  where id = v_profile_id and is_active = true;
+
+  select balance into v_balance_before
+  from public.clients
+  where id = p_client_id and company_id = v_company_id
+  for update;
+
+  if not found then
+    raise exception 'Client not found';
+  end if;
+
+  v_balance_after := greatest(v_balance_before + p_amount, 0);
+
+  update public.clients
+  set balance = v_balance_after
+  where id = p_client_id;
+
+  v_document_number := 'BAL-' || to_char(timezone('utc', now()), 'YYYYMMDD-HH24MISSMS');
+
+  insert into public.wallet_transactions (
+    company_id,
+    client_id,
+    operation_type,
+    operation_id,
+    document_number,
+    amount,
+    balance_before,
+    balance_after,
+    created_by
+  )
+  values (
+    v_company_id,
+    p_client_id,
+    case when p_amount >= 0 then 'balance_adjustment_credit' else 'balance_adjustment_debit' end,
+    null,
+    v_document_number,
+    p_amount,
+    v_balance_before,
+    v_balance_after,
+    v_profile_id
+  )
+  returning id into v_transaction_id;
+
+  return v_transaction_id;
+end;
+$$;
 
 create or replace function public.create_sale(
   p_client_id uuid,
@@ -507,6 +781,30 @@ begin
   end loop;
 
   if p_client_id is not null and coalesce(p_balance_used, 0) > 0 then
+    insert into public.wallet_transactions (
+      company_id,
+      client_id,
+      operation_type,
+      operation_id,
+      document_number,
+      amount,
+      balance_before,
+      balance_after,
+      created_by
+    )
+    select
+      v_company_id,
+      p_client_id,
+      'sale_balance_debit',
+      v_sale_id,
+      v_sale_number,
+      -p_balance_used,
+      balance,
+      balance - p_balance_used,
+      v_profile_id
+    from public.clients
+    where id = p_client_id;
+
     update public.clients
     set balance = balance - p_balance_used
     where id = p_client_id;
@@ -526,7 +824,11 @@ grant select, insert, update, delete on public.sale_items to authenticated;
 grant select, insert, update, delete on public.payments to authenticated;
 grant select, insert, update, delete on public.reservations to authenticated;
 grant select, insert, update, delete on public.deposits to authenticated;
+grant select, insert, update, delete on public.wallet_transactions to authenticated;
 grant execute on function public.create_sale(uuid, jsonb, jsonb, numeric, numeric, text) to authenticated;
+grant execute on function public.create_deposit(uuid, numeric, public.payment_method, text, text) to authenticated;
+grant execute on function public.create_reservation(uuid, uuid, numeric, timestamptz) to authenticated;
+grant execute on function public.adjust_client_balance(uuid, numeric, text) to authenticated;
 
 alter table public.companies enable row level security;
 alter table public.profiles enable row level security;
@@ -537,6 +839,7 @@ alter table public.sale_items enable row level security;
 alter table public.payments enable row level security;
 alter table public.reservations enable row level security;
 alter table public.deposits enable row level security;
+alter table public.wallet_transactions enable row level security;
 
 drop policy if exists companies_select on public.companies;
 create policy companies_select on public.companies
@@ -732,18 +1035,15 @@ with check (
   and public.current_role() in ('admin', 'vendeur', 'super_admin')
 );
 
-insert into storage.buckets (id, name, public)
-values ('jewelry-images', 'jewelry-images', false)
-on conflict (id) do nothing;
-
-drop policy if exists jewelry_images_select on storage.objects;
-create policy jewelry_images_select on storage.objects
+drop policy if exists wallet_transactions_select on public.wallet_transactions;
+create policy wallet_transactions_select on public.wallet_transactions
 for select
 to authenticated
-using (
-  bucket_id = 'jewelry-images'
-  and (storage.foldername(name))[1] = public.current_company_id()::text
-);
+using (company_id = public.current_company_id() or public.is_super_admin());
+
+insert into storage.buckets (id, name, public)
+values ('jewelry-images', 'jewelry-images', true)
+on conflict (id) do nothing;
 
 drop policy if exists jewelry_images_insert on storage.objects;
 create policy jewelry_images_insert on storage.objects

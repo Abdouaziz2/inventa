@@ -13,15 +13,17 @@ import {
   type JewelryCategory,
   type JewelryMaterial,
 } from '@/features/jewelry';
-import { apiRequest } from '@/lib/api';
+import { useAuth } from '@/contexts/AuthContext';
 import { formatCFA } from '@/lib/format';
 import { getErrorMessage } from '@/lib/errors';
+import { uploadJewelryImage } from '@/services/storage';
 
 const createJewelryCode = () =>
   `JW-${new Date().toISOString().slice(0, 10).replaceAll('-', '')}-${Math.floor(1000 + Math.random() * 9000)}`;
 
 const AddJewelryPage = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const addJewelry = useAddJewelry();
   const [form, setForm] = useState({
     name: '',
@@ -46,15 +48,9 @@ const AddJewelryPage = () => {
     setUploadingPhoto(true);
 
     try {
-      const formData = new FormData();
-      formData.append('photo', file);
-
-      const response = await apiRequest<{ url: string }>('/jewelry/photo', {
-        method: 'POST',
-        body: formData,
-      });
-      
-      setForm((current) => ({ ...current, photo: response.url }));
+      if (!user?.companyId) throw new Error('Entreprise introuvable');
+      const upload = await uploadJewelryImage(user.companyId, user.id, file);
+      setForm((current) => ({ ...current, photo: upload.url }));
       toast.success('Image importee');
     } catch (error: unknown) {
       toast.error(getErrorMessage(error, "Impossible d'importer l'image."));

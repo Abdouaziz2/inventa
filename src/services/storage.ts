@@ -2,9 +2,9 @@ import { supabase } from '@/lib/supabase';
 
 const BUCKET = 'jewelry-images';
 
-export async function uploadJewelryImage(companyId: string, userId: string, file: File) {
+export async function uploadCompanyAsset(companyId: string, userId: string, file: File, folder = 'jewelry') {
   const extension = file.name.split('.').pop()?.toLowerCase() || 'jpg';
-  const path = `${companyId}/${userId}/${crypto.randomUUID()}.${extension}`;
+  const path = `${companyId}/${folder}/${userId}/${crypto.randomUUID()}.${extension}`;
 
   const { error } = await supabase.storage
     .from(BUCKET)
@@ -15,14 +15,16 @@ export async function uploadJewelryImage(companyId: string, userId: string, file
     });
 
   if (error) throw error;
-  return path;
+  const url = await getJewelryImageUrl(path);
+  return { path, url };
 }
 
 export async function getJewelryImageUrl(path: string) {
-  const { data, error } = await supabase.storage
-    .from(BUCKET)
-    .createSignedUrl(path, 60 * 60);
+  if (path.startsWith('http://') || path.startsWith('https://')) return path;
+  const { data } = supabase.storage.from(BUCKET).getPublicUrl(path);
+  return data.publicUrl;
+}
 
-  if (error) throw error;
-  return data.signedUrl;
+export async function uploadJewelryImage(companyId: string, userId: string, file: File) {
+  return uploadCompanyAsset(companyId, userId, file, 'jewelry');
 }

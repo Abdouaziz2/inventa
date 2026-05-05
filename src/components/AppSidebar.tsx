@@ -3,7 +3,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useProfileSettings } from '@/hooks/useProfileSettings';
 import {
   LayoutDashboard, Users, Gem, PlusCircle, Wallet,
-  BookmarkCheck, ShoppingBag, Receipt, LogOut, Diamond, ShieldCheck, UserCog, X
+  BookmarkCheck, ShoppingBag, Receipt, LogOut, Diamond, UserCog, X
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -14,7 +14,7 @@ interface AppSidebarProps {
 
 const AppSidebar = ({ open, onOpenChange }: AppSidebarProps) => {
   const location = useLocation();
-  const { user, logout, isSuperAdmin } = useAuth();
+  const { user, logout } = useAuth();
   const { data: profile } = useProfileSettings();
 
   const businessName = profile?.business_name || user?.fullName || 'Ma boutique';
@@ -30,9 +30,6 @@ const AppSidebar = ({ open, onOpenChange }: AppSidebarProps) => {
     { label: 'Vente', path: '/sales', icon: ShoppingBag },
     { label: 'Reçus', path: '/receipts', icon: Receipt },
     { label: 'Profil', path: '/profile', icon: UserCog },
-    ...(isSuperAdmin ? [
-      { label: 'Utilisateurs', path: '/admin/users', icon: ShieldCheck },
-    ] : []),
   ];
 
   return (
