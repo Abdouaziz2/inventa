@@ -31,6 +31,7 @@ const AppSidebar = ({ open, onOpenChange }: AppSidebarProps) => {
     { label: 'Reçus', path: '/receipts', icon: Receipt },
     { label: 'Profil', path: '/profile', icon: UserCog },
   ];
+  const userLabel = user?.role === 'super_admin' ? 'Super Admin' : 'Administrateur';
 
   return (
     <>
@@ -101,7 +102,7 @@ const AppSidebar = ({ open, onOpenChange }: AppSidebarProps) => {
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium text-sidebar-accent-foreground truncate">{user?.fullName}</p>
-            <p className="text-xs text-sidebar-muted capitalize">{user?.role?.replace('_', ' ')}</p>
+            <p className="text-xs text-sidebar-muted">{userLabel}</p>
           </div>
           <button onClick={logout} className="p-1.5 rounded-md text-sidebar-muted hover:text-sidebar-accent-foreground hover:bg-sidebar-accent transition-colors">
             <LogOut className="h-4 w-4" />

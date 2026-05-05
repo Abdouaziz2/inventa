@@ -11,10 +11,12 @@ drop table if exists public.companies cascade;
 drop function if exists public.create_sale(uuid, jsonb, jsonb, numeric, numeric, text) cascade;
 drop function if exists public.apply_deposit_to_client_balance() cascade;
 drop function if exists public.sync_jewelry_status() cascade;
+drop function if exists private.handle_new_user() cascade;
 drop function if exists public.handle_new_user() cascade;
 drop function if exists public.set_company_context() cascade;
 drop function if exists public.set_created_by_context() cascade;
 drop function if exists public.is_super_admin() cascade;
+drop function if exists private.current_role() cascade;
 drop function if exists public.current_role() cascade;
 drop function if exists public.current_company_id() cascade;
 drop function if exists public.set_updated_at() cascade;
@@ -362,16 +364,6 @@ as $$
   select company_id from public.profiles where id = auth.uid()
 $$;
 
-create or replace function private.current_role()
-returns public.app_role
-language sql
-stable
-security definer
-set search_path = public
-as $$
-  select role from public.profiles where id = auth.uid()
-$$;
-
 create or replace function private.is_super_admin()
 returns boolean
 language sql
@@ -386,11 +378,11 @@ as $$
   )
 $$;
 
-create or replace function public.handle_new_user()
+create or replace function private.handle_new_user()
 returns trigger
 language plpgsql
 security definer
-set search_path = public
+set search_path = ''
 as $$
 declare
   new_company_id uuid;
@@ -425,7 +417,7 @@ drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created
 after insert on auth.users
 for each row
-execute function public.handle_new_user();
+execute function private.handle_new_user();
 
 create or replace function public.sync_jewelry_status()
 returns trigger
@@ -975,7 +967,6 @@ grant execute on function public.adjust_client_balance(uuid, numeric, text) to a
 grant execute on all functions in schema public to authenticated;
 grant usage on schema private to authenticated;
 grant execute on function private.current_company_id() to authenticated;
-grant execute on function private.current_role() to authenticated;
 grant execute on function private.is_super_admin() to authenticated;
 
 alter table public.companies enable row level security;
@@ -1005,7 +996,6 @@ for insert
 to authenticated
 with check (
   created_by = auth.uid()
-  and private.current_role() in ('admin', 'super_admin')
 );
 
 drop policy if exists companies_update on public.companies;
@@ -1042,7 +1032,6 @@ using (
   id = auth.uid()
   or (
     company_id = private.current_company_id()
-    and private.current_role() in ('admin', 'super_admin')
   )
   or private.is_super_admin()
 )
@@ -1064,7 +1053,6 @@ for insert
 to authenticated
 with check (
   company_id = private.current_company_id()
-  and private.current_role() in ('admin', 'vendeur', 'super_admin')
 );
 
 drop policy if exists clients_update on public.clients;
@@ -1074,7 +1062,6 @@ to authenticated
 using (company_id = private.current_company_id() or private.is_super_admin())
 with check (
   company_id = private.current_company_id()
-  and private.current_role() in ('admin', 'vendeur', 'super_admin')
 );
 
 drop policy if exists jewelry_select on public.jewelry;
@@ -1089,7 +1076,6 @@ for insert
 to authenticated
 with check (
   company_id = private.current_company_id()
-  and private.current_role() in ('admin', 'vendeur', 'super_admin')
 );
 
 drop policy if exists jewelry_update on public.jewelry;
@@ -1099,7 +1085,6 @@ to authenticated
 using (company_id = private.current_company_id() or private.is_super_admin())
 with check (
   company_id = private.current_company_id()
-  and private.current_role() in ('admin', 'vendeur', 'super_admin')
 );
 
 drop policy if exists sales_select on public.sales;
@@ -1114,7 +1099,6 @@ for insert
 to authenticated
 with check (
   company_id = private.current_company_id()
-  and private.current_role() in ('admin', 'vendeur', 'super_admin')
 );
 
 drop policy if exists sales_update on public.sales;
@@ -1124,7 +1108,6 @@ to authenticated
 using (company_id = private.current_company_id() or private.is_super_admin())
 with check (
   company_id = private.current_company_id()
-  and private.current_role() in ('admin', 'vendeur', 'super_admin')
 );
 
 drop policy if exists sale_items_select on public.sale_items;
@@ -1139,7 +1122,6 @@ for insert
 to authenticated
 with check (
   company_id = private.current_company_id()
-  and private.current_role() in ('admin', 'vendeur', 'super_admin')
 );
 
 drop policy if exists payments_select on public.payments;
@@ -1154,7 +1136,6 @@ for insert
 to authenticated
 with check (
   company_id = private.current_company_id()
-  and private.current_role() in ('admin', 'vendeur', 'super_admin')
 );
 
 drop policy if exists reservations_select on public.reservations;
@@ -1169,7 +1150,6 @@ for insert
 to authenticated
 with check (
   company_id = private.current_company_id()
-  and private.current_role() in ('admin', 'vendeur', 'super_admin')
 );
 
 drop policy if exists reservations_update on public.reservations;
@@ -1179,7 +1159,6 @@ to authenticated
 using (company_id = private.current_company_id() or private.is_super_admin())
 with check (
   company_id = private.current_company_id()
-  and private.current_role() in ('admin', 'vendeur', 'super_admin')
 );
 
 drop policy if exists deposits_select on public.deposits;
@@ -1194,7 +1173,6 @@ for insert
 to authenticated
 with check (
   company_id = private.current_company_id()
-  and private.current_role() in ('admin', 'vendeur', 'super_admin')
 );
 
 drop policy if exists wallet_transactions_select on public.wallet_transactions;
@@ -1209,7 +1187,6 @@ for insert
 to authenticated
 with check (
   company_id = private.current_company_id()
-  and private.current_role() in ('admin', 'vendeur', 'super_admin')
 );
 
 insert into storage.buckets (id, name, public)

@@ -50,7 +50,7 @@ const LoginPage = () => {
 
           <div className="space-y-2 text-center">
             <h2 className="text-2xl font-bold tracking-tight">Connexion</h2>
-            <p className="text-muted-foreground text-sm">Connectez-vous avec votre compte Supabase</p>
+            <p className="text-muted-foreground text-sm">Connectez-vous pour gerer votre boutique</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -103,7 +103,7 @@ const LoginPage = () => {
           </form>
 
           <p className="text-xs text-center text-muted-foreground">
-            Les comptes sont créés par l'administrateur dans Supabase.
+            Les comptes sont crees par le super admin dans Supabase.
           </p>
         </div>
       </div>

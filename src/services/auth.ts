@@ -5,7 +5,7 @@ type ProfileRow = {
   id: string;
   email: string;
   full_name: string;
-  role: AppUser['role'];
+  role: AppUser['role'] | 'vendeur';
   company_id: string | null;
 };
 
@@ -16,13 +16,17 @@ export type RegisterInput = {
   password: string;
 };
 
+function normalizeRole(role: ProfileRow['role']): AppUser['role'] {
+  return role === 'super_admin' ? 'super_admin' : 'admin';
+}
+
 function mapProfileToUser(profile: ProfileRow): AppUser {
   return {
     id: profile.id,
     email: profile.email,
     username: null,
     fullName: profile.full_name,
-    role: profile.role,
+    role: normalizeRole(profile.role),
     mustChangePassword: false,
     companyId: profile.company_id,
   };
