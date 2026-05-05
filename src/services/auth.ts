@@ -28,6 +28,38 @@ function mapProfileToUser(profile: ProfileRow): AppUser {
   };
 }
 
+async function ensureCurrentProfileRow(user: {
+  id: string;
+  email?: string | null;
+  user_metadata?: Record<string, unknown>;
+}) {
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('id, email, full_name, role, company_id')
+    .eq('id', user.id)
+    .maybeSingle();
+
+  if (error) throw error;
+  if (data) return data as ProfileRow;
+
+  const fullName =
+    typeof user.user_metadata?.full_name === 'string' ? user.user_metadata.full_name : '';
+
+  const { data: inserted, error: insertError } = await supabase
+    .from('profiles')
+    .insert({
+      id: user.id,
+      email: user.email ?? '',
+      full_name: fullName,
+    })
+    .select('id, email, full_name, role, company_id')
+    .single();
+
+  if (insertError) throw insertError;
+
+  return inserted as ProfileRow;
+}
+
 export async function getCurrentProfile() {
   const {
     data: { user },
@@ -37,15 +69,8 @@ export async function getCurrentProfile() {
   if (authError) throw authError;
   if (!user) return null;
 
-  const { data, error } = await supabase
-    .from('profiles')
-    .select('id, email, full_name, role, company_id')
-    .eq('id', user.id)
-    .single();
-
-  if (error) throw error;
-
-  return mapProfileToUser(data as ProfileRow);
+  const profile = await ensureCurrentProfileRow(user);
+  return mapProfileToUser(profile);
 }
 
 export async function signInWithPassword(email: string, password: string) {
