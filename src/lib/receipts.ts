@@ -74,7 +74,7 @@ export function buildSaleReceipt(
   const items =
     sale.items.length > 0
       ? sale.items.map((item) => ({
-          description: item.jewelry_name,
+          description: `${item.jewelry_name} (${formatJewelryMaterial(item.material_type)})`,
           quantity: item.quantity,
           weight: item.weight,
           unitPrice: item.price_per_gram,

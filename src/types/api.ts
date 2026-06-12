@@ -1,8 +1,9 @@
 export type AppRole = 'super_admin' | 'admin';
 export type UserStatus = 'active' | 'inactive' | 'suspended';
 export type JewelryStatus = 'available' | 'reserved' | 'sold' | 'out_of_stock';
+export type ReservationStatus = 'active' | 'cancelled' | 'completed' | 'expired';
 export type JewelryCategory = 'rings' | 'necklaces' | 'bracelets' | 'earrings' | 'watches' | 'other';
-export type JewelryMaterial = 'gold' | 'silver' | 'diamond';
+export type JewelryMaterial = 'gold_18k' | 'gold_21k' | 'silver' | 'diamond';
 export type WalletTransactionType =
   | 'deposit_credit'
   | 'sale_balance_debit'
@@ -108,6 +109,8 @@ export type Reservation = {
   document_number: string;
   deposit_amount: number;
   remaining_amount: number;
+  status: ReservationStatus;
+  expires_at?: string | null;
   created_at: string;
   created_by?: string | null;
 };

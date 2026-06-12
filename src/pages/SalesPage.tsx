@@ -12,6 +12,17 @@ import { formatCFA } from '@/lib/format';
 import StatusBadge from '@/components/StatusBadge';
 import ReceiptModal, { ReceiptData } from '@/components/ReceiptModal';
 import { getErrorMessage } from '@/lib/errors';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { validatePositiveAmount } from '@/lib/validation';
 
 type CartLine = {
   jewelry: Jewelry;
@@ -35,6 +46,8 @@ const SalesPage = () => {
   const [paymentMethod, setPaymentMethod] = useState('Espèces');
   const [receiptData, setReceiptData] = useState<ReceiptData | null>(null);
   const [showReceipt, setShowReceipt] = useState(false);
+  const [creditApproved, setCreditApproved] = useState(false);
+  const [showCreditConfirmation, setShowCreditConfirmation] = useState(false);
 
   const { data: clients = [] } = useClients();
   const { data: jewelryList = [] } = useJewelry();
@@ -60,6 +73,7 @@ const SalesPage = () => {
   const remaining = Math.max(0, totalInvoice - paidTotal);
   const overpaid = Math.max(0, paidTotal - totalInvoice);
   const changeAmount = overpaid;
+  const paidAmountError = paidAmount ? validatePositiveAmount(paidAmount, 'Le montant remis') : '';
 
   const resetForm = () => {
     setClientMode('existing');
@@ -72,6 +86,7 @@ const SalesPage = () => {
     setUseBalance(true);
     setPaidAmount('');
     setPaymentMethod('Espèces');
+    setCreditApproved(false);
   };
 
   const handleMoneyChange = (setter: (value: string) => void) => (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -121,7 +136,7 @@ const SalesPage = () => {
     setCart((current) => current.filter((line) => line.jewelry.id !== jewelryId));
   };
 
-  const handleSubmit = async () => {
+  const completeSale = async () => {
     if (cart.length === 0) return;
 
     try {
@@ -155,10 +170,21 @@ const SalesPage = () => {
     }
   };
 
+  const handleSubmit = () => {
+    if (remaining > 0) {
+      setShowCreditConfirmation(true);
+      return;
+    }
+
+    void completeSale();
+  };
+
   const canSubmit =
     cart.length > 0 &&
     !addSale.isPending &&
     !addClient.isPending &&
+    !paidAmountError &&
+    (remaining === 0 || creditApproved) &&
     (clientMode === 'existing' ? !!clientId : !!newClientName.trim() && !!newClientPhone.trim());
 
   return (
@@ -166,7 +192,7 @@ const SalesPage = () => {
       <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="page-title">Nouvelle vente</h1>
-          <p className="text-sm text-muted-foreground">Caisse multi-bijoux avec paiement simplifié.</p>
+          <p className="text-sm text-muted-foreground">Sélectionnez le client, ajoutez les bijoux et encaissez.</p>
         </div>
         <div className="sticky top-[84px] z-20 rounded-xl border bg-card px-4 py-3 shadow-sm sm:static">
           <p className="text-xs text-muted-foreground">Total facture</p>
@@ -359,7 +385,19 @@ const SalesPage = () => {
             <div className="grid gap-3">
               <div className="space-y-2">
                 <Label>Montant remis par le client</Label>
-                <Input inputMode="numeric" value={formatMoneyInput(paidAmount)} onChange={handleMoneyChange(setPaidAmount)} />
+                <Input
+                  id="paid-amount"
+                  inputMode="numeric"
+                  value={formatMoneyInput(paidAmount)}
+                  onChange={handleMoneyChange(setPaidAmount)}
+                  aria-invalid={!!paidAmountError}
+                  aria-describedby={paidAmountError ? 'paid-amount-error' : undefined}
+                />
+                {paidAmountError ? (
+                  <p id="paid-amount-error" className="text-sm font-medium text-destructive">
+                    {paidAmountError}
+                  </p>
+                ) : null}
               </div>
               <div className="space-y-2">
                 <Label>Mode de paiement</Label>
@@ -409,6 +447,21 @@ const SalesPage = () => {
               ) : null}
             </div>
 
+            {remaining > 0 ? (
+              <label className="flex items-start gap-3 rounded-xl border border-warning/40 bg-warning/10 p-4 text-sm">
+                <input
+                  type="checkbox"
+                  checked={creditApproved}
+                  onChange={(event) => setCreditApproved(event.target.checked)}
+                  className="mt-0.5 h-4 w-4 rounded border-border"
+                />
+                <span>
+                  <strong className="block">Autoriser une vente à crédit</strong>
+                  Je confirme que {formatCFA(remaining)} restera dû par le client après cette vente.
+                </span>
+              </label>
+            ) : null}
+
             <Button
               onClick={handleSubmit}
               disabled={!canSubmit}
@@ -418,11 +471,11 @@ const SalesPage = () => {
                 'Enregistrement...'
               ) : remaining === 0 ? (
                 <>
-                  <CheckCircle2 className="mr-2 h-5 w-5" /> Valider la vente
+                  <CheckCircle2 className="mr-2 h-5 w-5" /> Encaisser {formatCFA(totalInvoice)}
                 </>
               ) : (
                 <>
-                  <AlertCircle className="mr-2 h-5 w-5" /> Valider avec reste
+                  <AlertCircle className="mr-2 h-5 w-5" /> Enregistrer avec {formatCFA(remaining)} à payer
                 </>
               )}
             </Button>
@@ -454,6 +507,27 @@ const SalesPage = () => {
       </div>
 
       <ReceiptModal open={showReceipt} onClose={() => setShowReceipt(false)} data={receiptData} />
+
+      <AlertDialog open={showCreditConfirmation} onOpenChange={setShowCreditConfirmation}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmer la vente à crédit ?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Cette opération créera une créance de {formatCFA(remaining)} pour le client. Vérifiez le montant avant
+              de continuer.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Revenir au paiement</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => void completeSale()}
+              className="bg-warning text-warning-foreground hover:bg-warning/90"
+            >
+              Confirmer la créance
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

@@ -28,7 +28,7 @@ const AddJewelryPage = () => {
   const addJewelry = useAddJewelry();
   const [form, setForm] = useState({
     name: '',
-    materialType: 'gold',
+    materialType: 'gold_18k',
     category: 'other',
     quantity: '1',
     weight: '',
@@ -102,7 +102,7 @@ const AddJewelryPage = () => {
         </Button>
         <div className="min-w-0">
           <h1 className="page-title">Ajouter un bijou</h1>
-          <p className="text-sm text-muted-foreground">Formulaire simple avec type de matiere.</p>
+          <p className="text-sm text-muted-foreground">Formulaire stock avec matiere et titrage.</p>
         </div>
       </div>
 

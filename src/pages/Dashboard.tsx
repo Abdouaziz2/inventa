@@ -15,11 +15,10 @@ const Dashboard = () => {
   const { data: reservations = [] } = useReservations();
 
   const totalStock = jewelry
-    .filter(j => j.status === 'available')
+    .filter(j => j.quantity > 0)
     .reduce((sum, item) => sum + getJewelryTotalPrice(item) * item.quantity, 0);
   const totalDeposits = deposits.reduce((s: number, d: DepositWithClient) => s + d.amount, 0);
   const totalSales = sales.reduce((s: number, d: SaleWithRelations) => s + d.total_price, 0);
-  const reserved = jewelry.filter(j => j.status === 'reserved').length;
 
   const dailySalesData = Array.from({ length: 7 }, (_, index) => {
     const current = new Date();
@@ -44,7 +43,7 @@ const Dashboard = () => {
         </div>
         <div className="grid grid-cols-1 gap-2 sm:flex sm:shrink-0">
           <Button asChild variant="outline" size="sm" className="justify-center">
-            <Link to="/deposits"><Plus className="h-4 w-4 mr-1" /> Nouveau Dépôt</Link>
+            <Link to="/deposits"><Plus className="h-4 w-4 mr-1" /> Dépôt client</Link>
           </Button>
           <Button asChild size="sm" className="justify-center gold-gradient text-accent-foreground hover:opacity-90">
             <Link to="/sales"><ShoppingBag className="h-4 w-4 mr-1" /> Nouvelle Vente</Link>
@@ -55,8 +54,8 @@ const Dashboard = () => {
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard title="Total Ventes" value={formatCFA(totalSales)} icon={TrendingUp} variant="gold" trend={{ value: `${sales.length} ventes`, positive: true }} />
         <StatCard title="Total Dépôts" value={formatCFA(totalDeposits)} icon={Wallet} trend={{ value: `${deposits.length} dépôts`, positive: true }} />
-        <StatCard title="Valeur du Stock" value={formatCFA(totalStock)} icon={Gem} subtitle={`${jewelry.filter(j => j.status === 'available').length} pièces disponibles`} />
-        <StatCard title="Réservations" value={String(reserved)} icon={BookmarkCheck} variant="dark" subtitle={`${reservations.length} en cours`} />
+        <StatCard title="Valeur du Stock" value={formatCFA(totalStock)} icon={Gem} subtitle={`${jewelry.filter(j => j.quantity > 0).length} references disponibles`} />
+        <StatCard title="Réservations" value={String(reservations.length)} icon={BookmarkCheck} variant="dark" subtitle={`${reservations.length} en cours`} />
       </div>
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">

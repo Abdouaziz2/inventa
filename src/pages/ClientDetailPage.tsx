@@ -58,7 +58,7 @@ const ClientDetailPage = () => {
           </div>
         </div>
         <Button asChild size="sm" className="w-full justify-center gold-gradient text-accent-foreground hover:opacity-90 sm:w-auto">
-          <Link to="/deposits"><Plus className="h-4 w-4 mr-1" /> Nouveau Dépôt</Link>
+          <Link to="/deposits"><Plus className="h-4 w-4 mr-1" /> Dépôt client</Link>
         </Button>
       </div>
 

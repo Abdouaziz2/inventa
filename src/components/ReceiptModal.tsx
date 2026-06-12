@@ -75,6 +75,71 @@ const qrLabels: Record<ReceiptData['type'], string> = {
   reservation: 'Verification reservation',
 };
 
+const priceColumnLabels: Record<ReceiptData['type'], string> = {
+  deposit: 'Prix unitaire',
+  sale: 'Prix unitaire',
+  reservation: 'Prix / g',
+};
+
+const amountLabels: Record<ReceiptData['type'], string> = {
+  deposit: 'Montant du depot',
+  sale: 'Total facture',
+  reservation: 'Acompte verse',
+};
+
+const summaryPrimaryLabels: Record<ReceiptData['type'], string> = {
+  deposit: 'Montant credite',
+  sale: 'Total a payer',
+  reservation: 'Montant du bijou',
+};
+
+const getDetailValue = (data: ReceiptData, label: string) =>
+  data.details?.find((detail) => detail.label === label)?.value;
+
+const getSummaryRows = (data: ReceiptData, subtotal: number, taxAmount: number, totalWithTax: number) => {
+  if (data.type === 'deposit') {
+    return [
+      { label: 'Ancien solde', value: getDetailValue(data, 'Ancien solde') ?? formatCFA(0) },
+      { label: 'Depot effectue', value: getDetailValue(data, 'Montant depose') ?? formatCFA(data.amount) },
+      {
+        label: summaryPrimaryLabels.deposit,
+        value: getDetailValue(data, 'Nouveau solde') ?? formatCFA(totalWithTax),
+        accent: true,
+      },
+    ];
+  }
+
+  if (data.type === 'reservation') {
+    return [
+      { label: summaryPrimaryLabels.reservation, value: getDetailValue(data, 'Prix total bijou') ?? formatCFA(subtotal) },
+      { label: 'Acompte verse', value: getDetailValue(data, 'Acompte verse') ?? formatCFA(data.amount) },
+      {
+        label: 'Reste a payer',
+        value: getDetailValue(data, 'Reste a payer') ?? formatCFA(Math.max(subtotal - data.amount, 0)),
+        accent: true,
+      },
+    ];
+  }
+
+  const rows = [
+    { label: 'Sous-total HT', value: formatCFA(subtotal) },
+    ...(taxAmount > 0 ? [{ label: `TVA (${((data.taxRate ?? 0) * 100).toFixed(0)}%)`, value: formatCFA(taxAmount) }] : []),
+    { label: summaryPrimaryLabels.sale, value: formatCFA(totalWithTax), accent: true },
+  ];
+
+  const balanceUsed = getDetailValue(data, 'Paye via solde');
+  const paidAmount = getDetailValue(data, 'Montant encaisse');
+  const remainingAmount = getDetailValue(data, 'Reste a payer');
+
+  if (balanceUsed) rows.splice(rows.length - 1, 0, { label: 'Paye via solde', value: balanceUsed });
+  if (paidAmount) rows.splice(rows.length - 1, 0, { label: 'Montant encaisse', value: paidAmount });
+  if (remainingAmount && remainingAmount !== formatCFA(0)) {
+    rows.push({ label: 'Reste a payer', value: remainingAmount });
+  }
+
+  return rows;
+};
+
 const formatDateTime = (value: string) => {
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) return value;
@@ -180,6 +245,7 @@ const buildPrintStyles = () => `
     font-size: 28px;
     font-weight: 700;
     letter-spacing: 0.6px;
+    white-space: nowrap;
   }
   .doc-badge-date {
     margin-top: 6px;
@@ -335,7 +401,10 @@ const buildPrintStyles = () => `
     }
     .doc-badge { text-align: left; margin-top: 16px; }
     .brand-name { font-size: 24px; }
-    .doc-badge-number { font-size: 20px; word-break: break-word; }
+    .doc-badge-number {
+      font-size: 18px;
+      white-space: nowrap;
+    }
     .grid,
     .footer-grid,
     .invoice {
@@ -396,13 +465,14 @@ const buildInvoiceHtml = ({
   const taxRate = data.taxRate ?? 0;
   const taxAmount = subtotal * taxRate;
   const grandTotal = subtotal + taxAmount;
-  const priceColumnLabel = data.type === 'deposit' ? 'Prix unitaire' : 'Prix/g';
-  const priceSuffix = data.type === 'deposit' ? '' : ' / g';
+  const priceColumnLabel = priceColumnLabels[data.type];
+  const priceSuffix = data.type === 'reservation' ? ' / g' : '';
   const clientPanelLabel = partyLabels[data.type];
   const infoTitle = infoPanelTitle[data.type];
   const totalTitle = totalPanelTitle[data.type];
   const footerMessage = footerMessages[data.type];
   const qrLabel = qrLabels[data.type];
+  const summaryRows = getSummaryRows(data, subtotal, taxAmount, grandTotal);
   const brandMetaHtml = brandMeta.map((line) => `<div>${sanitizeHtml(line)}</div>`).join('');
   const detailsHtml = (data.details ?? [])
     .map(
@@ -471,12 +541,16 @@ const buildInvoiceHtml = ({
               <div class="meta-card">
                 <div class="card-title">${sanitizeHtml(infoTitle)}</div>
                 <div class="kv">
+                  <span class="kv-label">Date d'operation</span>
+                  <span class="kv-value">${sanitizeHtml(formatDateTime(data.date))}</span>
+                </div>
+                <div class="kv">
                   <span class="kv-label">Mode de reglement</span>
                   <span class="kv-value">${sanitizeHtml(data.paymentMethod)}</span>
                 </div>
                 <div class="kv">
-                  <span class="kv-label">Net a payer TTC</span>
-                  <span class="kv-value">${formatCFA(grandTotal)}</span>
+                  <span class="kv-label">${sanitizeHtml(amountLabels[data.type])}</span>
+                  <span class="kv-value">${formatCFA(data.amount)}</span>
                 </div>
                 ${detailsHtml}
               </div>
@@ -499,18 +573,16 @@ const buildInvoiceHtml = ({
             <div class="summary-wrap">
               <div class="summary-card">
                 <div class="card-title">${sanitizeHtml(totalTitle)}</div>
-                <div class="summary-line">
-                  <span class="summary-label">Sous-total HT</span>
-                  <span class="summary-value">${formatCFA(subtotal)}</span>
-                </div>
-                <div class="summary-line">
-                  <span class="summary-label">TVA (${(taxRate * 100).toFixed(0)}%)</span>
-                  <span class="summary-value">${formatCFA(taxAmount)}</span>
-                </div>
-                <div class="summary-line summary-total">
-                  <span class="summary-label">Net a payer TTC</span>
-                  <span class="summary-value">${formatCFA(grandTotal)}</span>
-                </div>
+                ${summaryRows
+                  .map(
+                    (row) => `
+                      <div class="summary-line ${row.accent ? 'summary-total' : ''}">
+                        <span class="summary-label">${sanitizeHtml(row.label)}</span>
+                        <span class="summary-value">${sanitizeHtml(row.value)}</span>
+                      </div>
+                    `,
+                  )
+                  .join('')}
               </div>
             </div>
 
@@ -522,7 +594,7 @@ const buildInvoiceHtml = ({
                 ${data.note ? `<div class="note">Note: ${sanitizeHtml(data.note)}</div>` : ''}
               </div>
               <div class="qr-wrap">
-                <img src="${qrCodeUrl}" alt="QR code facture" />
+                <img src="${qrCodeUrl}" alt="${sanitizeHtml(qrLabel)}" />
                 <div class="qr-label">${sanitizeHtml(qrLabel)}</div>
               </div>
             </div>
@@ -585,17 +657,19 @@ const ReceiptModal = ({ open, onClose, data }: ReceiptModalProps) => {
 
   const subtotal = data.items.reduce((sum, item) => sum + item.totalPrice, 0);
   const taxRate = data.taxRate ?? 0;
-  const totalWithTax = subtotal + subtotal * taxRate;
+  const taxAmount = subtotal * taxRate;
+  const totalWithTax = subtotal + taxAmount;
   const documentLabel = documentLabels[data.type];
-  const priceColumnLabel = data.type === 'deposit' ? 'Prix unitaire' : 'Prix/g';
-  const priceSuffix = data.type === 'deposit' ? '' : ' / g';
+  const priceColumnLabel = priceColumnLabels[data.type];
+  const priceSuffix = data.type === 'reservation' ? ' / g' : '';
   const clientPanelLabel = partyLabels[data.type];
   const infoTitle = infoPanelTitle[data.type];
   const totalTitle = totalPanelTitle[data.type];
   const footerMessage = footerMessages[data.type];
   const qrLabel = qrLabels[data.type];
+  const summaryRows = getSummaryRows(data, subtotal, taxAmount, totalWithTax);
 
-  const openPrintWindow = () => {
+  const openReceiptWindow = (autoPrint: boolean) => {
     const popup = window.open('', '_blank', 'width=1200,height=900');
     if (!popup) return;
 
@@ -611,7 +685,9 @@ const ReceiptModal = ({ open, onClose, data }: ReceiptModalProps) => {
     );
     popup.document.close();
     popup.focus();
-    popup.print();
+    if (autoPrint) {
+      popup.print();
+    }
   };
 
   const previewScaleClass =
@@ -644,7 +720,9 @@ const ReceiptModal = ({ open, onClose, data }: ReceiptModalProps) => {
                 <div className="min-w-0">
                   <p className="truncate text-xl font-bold text-slate-900">{businessName}</p>
                 <p className="mt-1 text-xs uppercase tracking-[0.16em] text-[#b88917]">{documentLabel}</p>
-                  <p className="mt-1 break-words font-mono text-sm font-semibold text-slate-700">{data.invoiceNumber}</p>
+                  <p className="mt-1 overflow-x-auto whitespace-nowrap font-mono text-sm font-semibold text-slate-700">
+                    {data.invoiceNumber}
+                  </p>
                 </div>
               </div>
             </div>
@@ -657,12 +735,16 @@ const ReceiptModal = ({ open, onClose, data }: ReceiptModalProps) => {
               </div>
               <div className="rounded-xl border p-3">
                 <div className="flex justify-between gap-3">
-                  <span className="text-slate-500">Date</span>
+                  <span className="text-slate-500">Date d'operation</span>
                   <span className="text-right font-medium">{formatDateTime(data.date)}</span>
                 </div>
                 <div className="mt-2 flex justify-between gap-3">
                   <span className="text-slate-500">Reglement</span>
                   <span className="text-right font-medium">{data.paymentMethod}</span>
+                </div>
+                <div className="mt-2 flex justify-between gap-3">
+                  <span className="text-slate-500">{amountLabels[data.type]}</span>
+                  <span className="text-right font-semibold">{formatCFA(data.amount)}</span>
                 </div>
               </div>
             </div>
@@ -682,19 +764,25 @@ const ReceiptModal = ({ open, onClose, data }: ReceiptModalProps) => {
             </div>
 
             <div className="mt-4 rounded-xl border bg-[#fffdf7] p-3 text-sm">
-              <div className="flex justify-between gap-3">
-                <span className="text-slate-500">Sous-total HT</span>
-                <span className="font-semibold">{formatCFA(subtotal)}</span>
-              </div>
-              <div className="mt-2 flex justify-between gap-3">
-                <span className="text-slate-500">TVA ({(taxRate * 100).toFixed(0)}%)</span>
-                <span className="font-semibold">{formatCFA(subtotal * taxRate)}</span>
-              </div>
-              <div className="mt-3 flex justify-between gap-3 border-t-2 border-[#b88917] pt-3 text-base font-bold">
-                <span>Net a payer TTC</span>
-                <span>{formatCFA(totalWithTax)}</span>
-              </div>
+              {summaryRows.map((row, index) => (
+                <div
+                  key={`${row.label}-${row.value}`}
+                  className={`flex justify-between gap-3 ${index > 0 ? 'mt-2' : ''} ${
+                    row.accent ? 'mt-3 border-t-2 border-[#b88917] pt-3 text-base font-bold' : ''
+                  }`}
+                >
+                  <span className={row.accent ? '' : 'text-slate-500'}>{row.label}</span>
+                  <span className="text-right font-semibold">{row.value}</span>
+                </div>
+              ))}
             </div>
+
+            {data.note ? (
+              <div className="mt-4 rounded-xl border border-dashed p-3 text-sm text-slate-600">
+                <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Note</p>
+                <p className="mt-2">{data.note}</p>
+              </div>
+            ) : null}
           </div>
 
           <div className={`mx-auto hidden origin-top md:block ${previewScaleClass}`} style={{ width: '210mm' }}>
@@ -723,7 +811,9 @@ const ReceiptModal = ({ open, onClose, data }: ReceiptModalProps) => {
                     <p className="font-sans text-[13px] font-bold uppercase tracking-[0.24em] text-[#b88917]">
                       {documentLabel}
                     </p>
-                    <p className="mt-2 text-[28px] font-bold">{data.invoiceNumber}</p>
+                    <p className="mt-2 overflow-hidden whitespace-nowrap text-[28px] font-bold text-ellipsis">
+                      {data.invoiceNumber}
+                    </p>
                     <p className="mt-1 font-sans text-xs text-slate-500">
                       Date d'emission: {formatDateTime(data.date)}
                     </p>
@@ -754,12 +844,16 @@ const ReceiptModal = ({ open, onClose, data }: ReceiptModalProps) => {
                     </p>
                     <div className="mt-2 space-y-1.5 font-sans text-[13px]">
                       <div className="flex justify-between gap-3">
+                        <span className="text-slate-500">Date d'operation</span>
+                        <span className="font-semibold">{formatDateTime(data.date)}</span>
+                      </div>
+                      <div className="flex justify-between gap-3">
                         <span className="text-slate-500">Mode de reglement</span>
                         <span className="font-semibold">{data.paymentMethod}</span>
                       </div>
                       <div className="flex justify-between gap-3">
-                        <span className="text-slate-500">Net a payer TTC</span>
-                        <span className="font-semibold">{formatCFA(totalWithTax)}</span>
+                        <span className="text-slate-500">{amountLabels[data.type]}</span>
+                        <span className="font-semibold">{formatCFA(data.amount)}</span>
                       </div>
                       {(data.details ?? []).map((detail) => (
                         <div key={`${detail.label}-${detail.value}`} className="flex justify-between gap-3">
@@ -806,18 +900,15 @@ const ReceiptModal = ({ open, onClose, data }: ReceiptModalProps) => {
                       {totalTitle}
                     </p>
                     <div className="mt-2 space-y-2 font-sans text-[13px]">
-                      <div className="flex justify-between gap-3">
-                        <span className="text-slate-500">Sous-total HT</span>
-                        <span className="font-semibold">{formatCFA(subtotal)}</span>
-                      </div>
-                      <div className="flex justify-between gap-3">
-                        <span className="text-slate-500">TVA ({(taxRate * 100).toFixed(0)}%)</span>
-                        <span className="font-semibold">{formatCFA(subtotal * taxRate)}</span>
-                      </div>
-                      <div className="flex justify-between gap-3 border-t-2 border-[#b88917] pt-3 text-[17px] font-bold">
-                        <span>Net a payer TTC</span>
-                        <span>{formatCFA(totalWithTax)}</span>
-                      </div>
+                      {summaryRows.map((row) => (
+                        <div
+                          key={`${row.label}-${row.value}`}
+                          className={`flex justify-between gap-3 ${row.accent ? 'border-t-2 border-[#b88917] pt-3 text-[17px] font-bold' : ''}`}
+                        >
+                          <span className={row.accent ? '' : 'text-slate-500'}>{row.label}</span>
+                          <span className="font-semibold">{row.value}</span>
+                        </div>
+                      ))}
                     </div>
                   </div>
                 </div>
@@ -836,7 +927,7 @@ const ReceiptModal = ({ open, onClose, data }: ReceiptModalProps) => {
                     {qrCodeUrl ? (
                       <img
                         src={qrCodeUrl}
-                        alt="QR code facture"
+                        alt={qrLabel}
                         className="mx-auto mb-2 h-[92px] w-[92px]"
                       />
                     ) : (
@@ -853,10 +944,10 @@ const ReceiptModal = ({ open, onClose, data }: ReceiptModalProps) => {
         </div>
 
         <DialogFooter className="gap-2 sm:gap-2">
-          <Button variant="outline" onClick={openPrintWindow} className="flex-1">
-            <Download className="mr-2 h-4 w-4" /> Exporter PDF
+          <Button variant="outline" onClick={() => openReceiptWindow(false)} className="flex-1">
+            <Download className="mr-2 h-4 w-4" /> Ouvrir version PDF
           </Button>
-          <Button variant="outline" onClick={openPrintWindow} className="flex-1">
+          <Button variant="outline" onClick={() => openReceiptWindow(true)} className="flex-1">
             <Printer className="mr-2 h-4 w-4" /> Imprimer
           </Button>
           <Button onClick={onClose} className="flex-1 gold-gradient text-accent-foreground hover:opacity-90">

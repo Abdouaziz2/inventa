@@ -51,6 +51,7 @@ type SaleItemRow = {
   jewelry_id: string;
   jewelry_code: string;
   jewelry_name: string;
+  material_type: string;
   quantity: number | string;
   unit_price: number | string;
   weight: number | string;
@@ -79,6 +80,8 @@ type ReservationRow = {
   reservation_number: string;
   deposit_amount: number | string;
   remaining_amount: number | string;
+  status: Reservation['status'];
+  expires_at: string | null;
   created_at: string;
   created_by: string | null;
   clients: JoinedClient;
@@ -347,6 +350,34 @@ export const useUpdateJewelryStatus = () => {
   });
 };
 
+export const useAdjustJewelryStock = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      id,
+      delta,
+      reason,
+    }: {
+      id: string;
+      delta: number;
+      reason: string;
+    }) => {
+      const { data, error } = await supabase.rpc('adjust_jewelry_stock', {
+        p_jewelry_id: id,
+        p_delta: delta,
+        p_reason: reason,
+      });
+
+      if (error) throw error;
+      return Number(data);
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.jewelry });
+    },
+  });
+};
+
 export const useDeposits = (clientId?: string) =>
   useQuery({
     queryKey: queryKeys.deposits(clientId),
@@ -426,7 +457,7 @@ export const useSales = (clientId?: string) =>
     queryFn: async (): Promise<SaleWithRelations[]> => {
       let query = supabase
         .from('sales')
-        .select('id, client_id, sale_number, total_amount, balance_used, paid_amount, remaining_amount, status, created_at, created_by, clients(name, code), sale_items(id, jewelry_id, jewelry_code, jewelry_name, quantity, unit_price, weight, line_total)')
+        .select('id, client_id, sale_number, total_amount, balance_used, paid_amount, remaining_amount, status, created_at, created_by, clients(name, code), sale_items(id, jewelry_id, jewelry_code, jewelry_name, material_type, quantity, unit_price, weight, line_total)')
         .order('created_at', { ascending: false });
 
       if (clientId) query = query.eq('client_id', clientId);
@@ -442,7 +473,7 @@ export const useSales = (clientId?: string) =>
           jewelry_id: String(item.jewelry_id),
           jewelry_code: String(item.jewelry_code),
           jewelry_name: String(item.jewelry_name),
-          material_type: 'gold',
+          material_type: String(item.material_type) as Jewelry['material_type'],
           weight: Number(item.weight ?? 0),
           price_per_gram: Number(item.unit_price ?? 0),
           quantity: Number(item.quantity ?? 0),
@@ -524,7 +555,7 @@ export const useAddSale = () => {
 
       const { data, error } = await supabase
         .from('sales')
-        .select('id, client_id, sale_number, total_amount, balance_used, paid_amount, remaining_amount, created_at, created_by, sale_items(id, jewelry_id, jewelry_code, jewelry_name, quantity, unit_price, weight, line_total)')
+        .select('id, client_id, sale_number, total_amount, balance_used, paid_amount, remaining_amount, created_at, created_by, sale_items(id, jewelry_id, jewelry_code, jewelry_name, material_type, quantity, unit_price, weight, line_total)')
         .eq('id', saleId)
         .single();
       if (error) throw error;
@@ -536,7 +567,7 @@ export const useAddSale = () => {
         jewelry_id: String(item.jewelry_id),
         jewelry_code: String(item.jewelry_code),
         jewelry_name: String(item.jewelry_name),
-        material_type: 'gold',
+        material_type: String(item.material_type) as Jewelry['material_type'],
         weight: Number(item.weight ?? 0),
         price_per_gram: Number(item.unit_price ?? 0),
         quantity: Number(item.quantity ?? 0),
@@ -583,7 +614,7 @@ export const useReservations = () =>
     queryFn: async (): Promise<ReservationWithRelations[]> => {
       const { data, error } = await supabase
         .from('reservations')
-        .select('id, client_id, jewelry_id, reservation_number, deposit_amount, remaining_amount, created_at, created_by, clients(name, code), jewelry(name)')
+        .select('id, client_id, jewelry_id, reservation_number, deposit_amount, remaining_amount, status, expires_at, created_at, created_by, clients(name, code), jewelry(name)')
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -597,6 +628,8 @@ export const useReservations = () =>
           document_number: String(reservation.reservation_number),
           deposit_amount: Number(reservation.deposit_amount ?? 0),
           remaining_amount: Number(reservation.remaining_amount ?? 0),
+          status: reservation.status,
+          expires_at: reservation.expires_at,
           created_at: String(reservation.created_at),
           created_by: reservation.created_by ? String(reservation.created_by) : null,
           clients: reservation.clients ? { name: reservation.clients.name, code: reservation.clients.code } : null,
@@ -614,18 +647,19 @@ export const useAddReservation = () => {
       client_id: string;
       jewelry_id: string;
       deposit_amount: number;
+      expires_at?: string | null;
     }) => {
       const { data: reservationId, error: createError } = await supabase.rpc('create_reservation', {
         p_client_id: reservation.client_id,
         p_jewelry_id: reservation.jewelry_id,
         p_deposit_amount: reservation.deposit_amount,
-        p_expires_at: null,
+        p_expires_at: reservation.expires_at ?? null,
       });
       if (createError) throw createError;
 
       const { data, error } = await supabase
         .from('reservations')
-        .select('id, client_id, jewelry_id, reservation_number, deposit_amount, remaining_amount, created_at, created_by')
+        .select('id, client_id, jewelry_id, reservation_number, deposit_amount, remaining_amount, status, expires_at, created_at, created_by')
         .eq('id', reservationId)
         .single();
       if (error) throw error;
@@ -637,6 +671,8 @@ export const useAddReservation = () => {
         document_number: String(data.reservation_number),
         deposit_amount: Number(data.deposit_amount ?? 0),
         remaining_amount: Number(data.remaining_amount ?? 0),
+        status: data.status as Reservation['status'],
+        expires_at: data.expires_at,
         created_at: String(data.created_at),
         created_by: data.created_by ? String(data.created_by) : null,
       } as Reservation;
@@ -644,6 +680,25 @@ export const useAddReservation = () => {
     onSuccess: (_data, variables) => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.reservations });
       void queryClient.invalidateQueries({ queryKey: queryKeys.client(variables.client_id) });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.jewelry });
+    },
+  });
+};
+
+export const useCancelReservation = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (reservationId: string) => {
+      const { error } = await supabase.rpc('cancel_reservation', {
+        p_reservation_id: reservationId,
+      });
+
+      if (error) throw error;
+      return reservationId;
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.reservations });
       void queryClient.invalidateQueries({ queryKey: queryKeys.jewelry });
     },
   });

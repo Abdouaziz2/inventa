@@ -5,6 +5,7 @@ export {
   useAddSale,
   useReservations,
   useAddReservation,
+  useCancelReservation,
   useWalletTransactions,
   type DepositWithClient,
   type ReservationWithRelations,

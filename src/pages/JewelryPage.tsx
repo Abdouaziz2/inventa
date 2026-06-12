@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import {
   ArrowUpDown,
   CirclePlus,
+  CircleMinus,
   ImagePlus,
   MoreHorizontal,
   Package2,
@@ -14,6 +15,7 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   DropdownMenu,
@@ -54,6 +56,7 @@ import {
   jewelryStatusOptions,
   sortJewelry,
   useJewelry,
+  useAdjustJewelryStock,
   useUpdateJewelry,
   useUpdateJewelryStatus,
   type Jewelry,
@@ -67,7 +70,7 @@ const PAGE_SIZE = 10;
 const emptyEditor = {
   id: '',
   code: '',
-  material_type: 'gold',
+  material_type: 'gold_18k',
   name: '',
   quantity: '0',
   weight: '0',
@@ -87,10 +90,17 @@ const JewelryPage = () => {
   const [page, setPage] = useState(1);
   const [editing, setEditing] = useState<typeof emptyEditor | null>(null);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [stockAdjustment, setStockAdjustment] = useState<{
+    item: Jewelry;
+    direction: 'add' | 'remove';
+    quantity: string;
+    reason: string;
+  } | null>(null);
 
   const { data: jewelry = [], isLoading } = useJewelry();
   const updateJewelry = useUpdateJewelry();
   const updateJewelryStatus = useUpdateJewelryStatus();
+  const adjustJewelryStock = useAdjustJewelryStock();
 
   const filteredJewelry = useMemo(
     () => sortJewelry(filterJewelry(search, statusFilter)(jewelry), sortKey),
@@ -100,7 +110,7 @@ const JewelryPage = () => {
   const totalPages = Math.max(1, Math.ceil(filteredJewelry.length / PAGE_SIZE));
   const paginatedJewelry = filteredJewelry.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
   const lowStockCount = jewelry.filter((item) => item.quantity > 0 && item.quantity <= 3).length;
-  const outOfStockCount = jewelry.filter((item) => item.quantity <= 0 || item.status === 'out_of_stock').length;
+  const outOfStockCount = jewelry.filter((item) => item.quantity <= 0).length;
 
   useEffect(() => {
     setPage(1);
@@ -140,15 +150,34 @@ const JewelryPage = () => {
     }
   };
 
-  const handleQuickRestock = async (item: Jewelry, increment: number) => {
-    const nextQuantity = item.quantity + increment;
+  const handleStockAdjustment = async () => {
+    if (!stockAdjustment) return;
+    const quantity = Number(stockAdjustment.quantity);
+    const delta = stockAdjustment.direction === 'add' ? quantity : -quantity;
+
+    if (!Number.isInteger(quantity) || quantity <= 0) {
+      toast.error('La quantité doit être un entier supérieur à zéro.');
+      return;
+    }
+
+    if (stockAdjustment.direction === 'remove' && quantity > stockAdjustment.item.quantity) {
+      toast.error('La sortie ne peut pas dépasser le stock disponible.');
+      return;
+    }
+
+    if (!stockAdjustment.reason.trim()) {
+      toast.error('Indiquez un motif pour conserver une trace du mouvement.');
+      return;
+    }
+
     try {
-      await updateJewelryStatus.mutateAsync({
-        id: item.id,
-        quantity: nextQuantity,
-        status: nextQuantity > 0 && item.status === 'out_of_stock' ? 'available' : item.status,
+      const nextQuantity = await adjustJewelryStock.mutateAsync({
+        id: stockAdjustment.item.id,
+        delta,
+        reason: stockAdjustment.reason.trim(),
       });
       toast.success(`Stock mis a jour: ${nextQuantity}`);
+      setStockAdjustment(null);
     } catch (error: unknown) {
       toast.error(getErrorMessage(error));
     }
@@ -360,23 +389,21 @@ const JewelryPage = () => {
                         <PencilLine className="mr-2 h-4 w-4" />
                         Modifier la fiche
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => void handleQuickRestock(item, 1)}>
+                      <DropdownMenuItem
+                        onClick={() => setStockAdjustment({ item, direction: 'add', quantity: '1', reason: '' })}
+                      >
                         <CirclePlus className="mr-2 h-4 w-4" />
-                        Restocker +1
+                        Entrée de stock
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => void handleQuickRestock(item, 5)}>
-                        <CirclePlus className="mr-2 h-4 w-4" />
-                        Restocker +5
+                      <DropdownMenuItem
+                        onClick={() => setStockAdjustment({ item, direction: 'remove', quantity: '1', reason: '' })}
+                      >
+                        <CircleMinus className="mr-2 h-4 w-4" />
+                        Sortie de stock
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem onClick={() => void handleQuickStatus(item, 'available', Math.max(1, item.quantity))}>
                         Marquer disponible
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => void handleQuickStatus(item, 'reserved')}>
-                        Marquer reserve
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => void handleQuickStatus(item, 'sold')}>
-                        Marquer vendu
                       </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => void handleQuickStatus(item, 'out_of_stock', 0)}>
                         Marquer en rupture
@@ -521,7 +548,7 @@ const JewelryPage = () => {
                   </SelectTrigger>
                   <SelectContent>
                     {jewelryStatusOptions
-                      .filter((option) => option.key !== 'all' && option.key !== 'low_stock')
+                      .filter((option) => option.key === 'available' || option.key === 'out_of_stock')
                       .map((option) => (
                         <SelectItem key={option.key} value={option.key}>
                           {option.label}
@@ -609,6 +636,80 @@ const JewelryPage = () => {
               className="gold-gradient text-accent-foreground hover:opacity-90"
             >
               {updateJewelry.isPending ? 'Enregistrement...' : uploadingPhoto ? 'Import image...' : 'Sauvegarder'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!stockAdjustment} onOpenChange={(open) => !open && setStockAdjustment(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {stockAdjustment?.direction === 'add' ? 'Enregistrer une entrée' : 'Enregistrer une sortie'}
+            </DialogTitle>
+            <DialogDescription>
+              {stockAdjustment?.item.name} · stock actuel {stockAdjustment?.item.quantity ?? 0}
+            </DialogDescription>
+          </DialogHeader>
+
+          {stockAdjustment ? (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="stock-adjustment-quantity">Quantité</Label>
+                <Input
+                  id="stock-adjustment-quantity"
+                  type="number"
+                  min="1"
+                  max={stockAdjustment.direction === 'remove' ? stockAdjustment.item.quantity : undefined}
+                  value={stockAdjustment.quantity}
+                  onChange={(event) =>
+                    setStockAdjustment({ ...stockAdjustment, quantity: event.target.value })
+                  }
+                  autoFocus
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="stock-adjustment-reason">Motif</Label>
+                <Textarea
+                  id="stock-adjustment-reason"
+                  value={stockAdjustment.reason}
+                  onChange={(event) => setStockAdjustment({ ...stockAdjustment, reason: event.target.value })}
+                  placeholder={
+                    stockAdjustment.direction === 'add'
+                      ? 'Réception fournisseur, correction inventaire...'
+                      : 'Casse, perte, correction inventaire...'
+                  }
+                  rows={3}
+                />
+              </div>
+              <div className="flex justify-between rounded-lg bg-muted p-3 text-sm">
+                <span className="text-muted-foreground">Stock après mouvement</span>
+                <span className="font-bold">
+                  {Math.max(
+                    0,
+                    stockAdjustment.item.quantity +
+                      (stockAdjustment.direction === 'add' ? 1 : -1) *
+                        Math.max(0, Number(stockAdjustment.quantity || 0)),
+                  )}
+                </span>
+              </div>
+            </div>
+          ) : null}
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setStockAdjustment(null)}>
+              Annuler
+            </Button>
+            <Button
+              onClick={() => void handleStockAdjustment()}
+              disabled={
+                adjustJewelryStock.isPending ||
+                !stockAdjustment?.reason.trim() ||
+                Number(stockAdjustment?.quantity || 0) <= 0
+              }
+              className="gold-gradient text-accent-foreground hover:opacity-90"
+            >
+              {adjustJewelryStock.isPending ? 'Enregistrement...' : 'Enregistrer le mouvement'}
             </Button>
           </DialogFooter>
         </DialogContent>

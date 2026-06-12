@@ -3,18 +3,17 @@ export {
   useAddJewelry,
   useUpdateJewelry,
   useUpdateJewelryStatus,
+  useAdjustJewelryStock,
   type Jewelry,
 } from '@/hooks/useDatabase';
 export type { JewelryCategory, JewelryMaterial, JewelryStatus } from '@/types/api';
 
-export type JewelryStatusFilter = 'all' | 'available' | 'reserved' | 'sold' | 'out_of_stock' | 'low_stock';
+export type JewelryStatusFilter = 'all' | 'available' | 'out_of_stock' | 'low_stock';
 export type JewelrySortKey = 'recent' | 'name' | 'code' | 'sale_price_desc' | 'sale_price_asc' | 'quantity_desc' | 'quantity_asc';
 
 export const jewelryStatusOptions: { key: JewelryStatusFilter; label: string }[] = [
   { key: 'all', label: 'Tous' },
   { key: 'available', label: 'Disponible' },
-  { key: 'reserved', label: 'Reserve' },
-  { key: 'sold', label: 'Vendu' },
   { key: 'out_of_stock', label: 'Rupture' },
   { key: 'low_stock', label: 'Stock faible' },
 ];
@@ -30,15 +29,18 @@ export const jewelrySortOptions: { key: JewelrySortKey; label: string }[] = [
 ];
 
 export const jewelryMaterialOptions = [
-  { key: 'gold', label: 'Or' },
+  { key: 'gold_18k', label: 'Or 18K' },
+  { key: 'gold_21k', label: 'Or 21K' },
   { key: 'silver', label: 'Argent' },
   { key: 'diamond', label: 'Diamant' },
 ] as const;
 
 export function formatJewelryMaterial(material: string) {
+  if (material === 'gold_18k') return 'Or 18K';
+  if (material === 'gold_21k') return 'Or 21K';
   if (material === 'silver') return 'Argent';
   if (material === 'diamond') return 'Diamant';
-  return 'Or';
+  return 'Or 18K';
 }
 
 export function calculateSalePrice(weight: string, pricePerGram: string) {
@@ -124,9 +126,9 @@ export function sortJewelry<
 }
 
 export function getReservableJewelry<T extends { status: string; quantity: number }>(items: T[]) {
-  return items.filter((item) => item.status === 'available' && item.quantity > 0);
+  return items.filter((item) => item.quantity > 0);
 }
 
 export function getSellableJewelry<T extends { status: string; quantity: number }>(items: T[]) {
-  return items.filter((item) => item.status === 'available' && item.quantity > 0);
+  return items.filter((item) => item.quantity > 0);
 }

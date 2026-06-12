@@ -3,6 +3,7 @@ drop table if exists public.sale_items cascade;
 drop table if exists public.sales cascade;
 drop table if exists public.reservations cascade;
 drop table if exists public.deposits cascade;
+drop table if exists public.stock_movements cascade;
 drop table if exists public.jewelry cascade;
 drop table if exists public.clients cascade;
 drop table if exists public.profiles cascade;
@@ -124,7 +125,7 @@ create table if not exists public.jewelry (
   code text not null,
   name text not null,
   category text not null default 'other',
-  material_type text not null default 'gold',
+  material_type text not null default 'gold_18k' check (material_type in ('gold_18k', 'gold_21k', 'silver', 'diamond')),
   weight numeric(10,2) not null default 0 check (weight >= 0),
   price_per_gram numeric(12,2) not null default 0 check (price_per_gram >= 0),
   purchase_price numeric(12,2) not null default 0 check (purchase_price >= 0),
@@ -136,6 +137,19 @@ create table if not exists public.jewelry (
   created_at timestamptz not null default timezone('utc', now()),
   updated_at timestamptz not null default timezone('utc', now()),
   constraint jewelry_company_code_key unique (company_id, code)
+);
+
+create table if not exists public.stock_movements (
+  id uuid primary key default gen_random_uuid(),
+  company_id uuid not null references public.companies(id) on delete cascade,
+  jewelry_id uuid not null references public.jewelry(id) on delete restrict,
+  movement_type text not null check (movement_type in ('entry', 'exit', 'adjustment')),
+  quantity_delta integer not null check (quantity_delta <> 0),
+  quantity_before integer not null check (quantity_before >= 0),
+  quantity_after integer not null check (quantity_after >= 0),
+  reason text not null,
+  created_by uuid not null references public.profiles(id) on delete restrict,
+  created_at timestamptz not null default timezone('utc', now())
 );
 
 create table if not exists public.sales (
@@ -162,6 +176,7 @@ create table if not exists public.sale_items (
   jewelry_id uuid not null references public.jewelry(id) on delete restrict,
   jewelry_code text not null,
   jewelry_name text not null,
+  material_type text not null default 'gold_18k',
   quantity integer not null check (quantity > 0),
   unit_price numeric(12,2) not null check (unit_price >= 0),
   weight numeric(10,2) not null default 0 check (weight >= 0),
@@ -233,6 +248,9 @@ on public.clients (
 )
 where nullif(regexp_replace(phone, '\D', '', 'g'), '') is not null;
 create index if not exists idx_jewelry_company_status on public.jewelry(company_id, status);
+create index if not exists idx_stock_movements_company_created on public.stock_movements(company_id, created_at desc);
+create index if not exists idx_stock_movements_jewelry on public.stock_movements(jewelry_id);
+create index if not exists idx_stock_movements_created_by on public.stock_movements(created_by);
 create index if not exists idx_sales_company_created on public.sales(company_id, created_at desc);
 create index if not exists idx_sale_items_sale on public.sale_items(sale_id);
 create index if not exists idx_payments_sale on public.payments(sale_id);
@@ -428,14 +446,13 @@ execute function private.handle_new_user();
 create or replace function public.sync_jewelry_status()
 returns trigger
 language plpgsql
+set search_path = public
 as $$
 begin
   if new.quantity <= 0 then
     new.quantity = 0;
-    if new.status <> 'sold' then
-      new.status = 'out_of_stock';
-    end if;
-  elsif new.status = 'out_of_stock' then
+    new.status = 'out_of_stock';
+  else
     new.status = 'available';
   end if;
   return new;
@@ -611,8 +628,16 @@ begin
     raise exception 'Jewelry not found';
   end if;
 
-  if v_jewelry.status <> 'available' or v_jewelry.quantity <= 0 then
+  if v_jewelry.quantity <= 0 then
     raise exception 'Jewelry not available';
+  end if;
+
+  if coalesce(p_deposit_amount, 0) <= 0 then
+    raise exception 'Reservation deposit must be greater than zero';
+  end if;
+
+  if p_deposit_amount > v_jewelry.sale_price then
+    raise exception 'Reservation deposit cannot exceed jewelry price';
   end if;
 
   v_remaining := greatest(v_jewelry.sale_price - coalesce(p_deposit_amount, 0), 0);
@@ -643,10 +668,133 @@ begin
   returning id into v_reservation_id;
 
   update public.jewelry
-  set status = 'reserved'
+  set
+    quantity = quantity - 1,
+    status = case
+      when quantity - 1 <= 0 then 'out_of_stock'::public.jewelry_status
+      else 'available'::public.jewelry_status
+    end
   where id = p_jewelry_id;
 
   return v_reservation_id;
+end;
+$$;
+
+create or replace function public.cancel_reservation(p_reservation_id uuid)
+returns void
+language plpgsql
+set search_path = public
+as $$
+declare
+  v_company_id uuid;
+  v_reservation record;
+begin
+  select company_id into v_company_id
+  from public.profiles
+  where id = auth.uid() and is_active = true;
+
+  if v_company_id is null then
+    raise exception 'No company linked to profile';
+  end if;
+
+  select *
+  into v_reservation
+  from public.reservations
+  where id = p_reservation_id and company_id = v_company_id
+  for update;
+
+  if not found then
+    raise exception 'Reservation not found';
+  end if;
+
+  if v_reservation.status <> 'active' then
+    raise exception 'Only active reservations can be cancelled';
+  end if;
+
+  update public.reservations
+  set status = 'cancelled'
+  where id = p_reservation_id;
+
+  update public.jewelry
+  set quantity = quantity + 1
+  where id = v_reservation.jewelry_id and company_id = v_company_id;
+end;
+$$;
+
+create or replace function public.adjust_jewelry_stock(
+  p_jewelry_id uuid,
+  p_delta integer,
+  p_reason text
+)
+returns integer
+language plpgsql
+set search_path = public
+as $$
+declare
+  v_company_id uuid;
+  v_profile_id uuid;
+  v_jewelry record;
+  v_next_quantity integer;
+begin
+  v_profile_id := auth.uid();
+
+  select company_id into v_company_id
+  from public.profiles
+  where id = v_profile_id and is_active = true;
+
+  if v_company_id is null then
+    raise exception 'No company linked to profile';
+  end if;
+
+  if p_delta = 0 then
+    raise exception 'Stock movement cannot be zero';
+  end if;
+
+  if nullif(trim(p_reason), '') is null then
+    raise exception 'Stock movement reason is required';
+  end if;
+
+  select *
+  into v_jewelry
+  from public.jewelry
+  where id = p_jewelry_id and company_id = v_company_id
+  for update;
+
+  if not found then
+    raise exception 'Jewelry not found';
+  end if;
+
+  v_next_quantity := v_jewelry.quantity + p_delta;
+  if v_next_quantity < 0 then
+    raise exception 'Insufficient stock';
+  end if;
+
+  update public.jewelry
+  set quantity = v_next_quantity
+  where id = p_jewelry_id;
+
+  insert into public.stock_movements (
+    company_id,
+    jewelry_id,
+    movement_type,
+    quantity_delta,
+    quantity_before,
+    quantity_after,
+    reason,
+    created_by
+  )
+  values (
+    v_company_id,
+    p_jewelry_id,
+    case when p_delta > 0 then 'entry' else 'exit' end,
+    p_delta,
+    v_jewelry.quantity,
+    v_next_quantity,
+    trim(p_reason),
+    v_profile_id
+  );
+
+  return v_next_quantity;
 end;
 $$;
 
@@ -867,6 +1015,7 @@ begin
       jewelry_id,
       jewelry_code,
       jewelry_name,
+      material_type,
       quantity,
       unit_price,
       weight,
@@ -878,6 +1027,7 @@ begin
       v_jewelry.id,
       v_jewelry.code,
       v_jewelry.name,
+      v_jewelry.material_type,
       v_quantity,
       v_jewelry.sale_price,
       v_jewelry.weight,
@@ -888,8 +1038,8 @@ begin
     set
       quantity = quantity - v_quantity,
       status = case
-        when quantity - v_quantity <= 0 then 'out_of_stock'
-        else 'available'
+        when quantity - v_quantity <= 0 then 'out_of_stock'::public.jewelry_status
+        else 'available'::public.jewelry_status
       end
     where id = v_jewelry.id;
   end loop;
@@ -960,6 +1110,7 @@ grant select, insert, update, delete on public.companies to authenticated;
 grant select, insert, update, delete on public.profiles to authenticated;
 grant select, insert, update, delete on public.clients to authenticated;
 grant select, insert, update, delete on public.jewelry to authenticated;
+grant select, insert on public.stock_movements to authenticated;
 grant select, insert, update, delete on public.sales to authenticated;
 grant select, insert, update, delete on public.sale_items to authenticated;
 grant select, insert, update, delete on public.payments to authenticated;
@@ -969,6 +1120,8 @@ grant select, insert, update, delete on public.wallet_transactions to authentica
 grant execute on function public.create_sale(uuid, jsonb, jsonb, numeric, numeric, text) to authenticated;
 grant execute on function public.create_deposit(uuid, numeric, public.payment_method, text, text) to authenticated;
 grant execute on function public.create_reservation(uuid, uuid, numeric, timestamptz) to authenticated;
+grant execute on function public.cancel_reservation(uuid) to authenticated;
+grant execute on function public.adjust_jewelry_stock(uuid, integer, text) to authenticated;
 grant execute on function public.adjust_client_balance(uuid, numeric, text) to authenticated;
 grant execute on all functions in schema public to authenticated;
 grant usage on schema private to authenticated;
@@ -979,6 +1132,7 @@ alter table public.companies enable row level security;
 alter table public.profiles enable row level security;
 alter table public.clients enable row level security;
 alter table public.jewelry enable row level security;
+alter table public.stock_movements enable row level security;
 alter table public.sales enable row level security;
 alter table public.sale_items enable row level security;
 alter table public.payments enable row level security;
@@ -1089,6 +1243,20 @@ create policy jewelry_update on public.jewelry
 for update
 to authenticated
 using (company_id = private.current_company_id() or private.is_super_admin())
+with check (
+  company_id = private.current_company_id()
+);
+
+drop policy if exists stock_movements_select on public.stock_movements;
+create policy stock_movements_select on public.stock_movements
+for select
+to authenticated
+using (company_id = private.current_company_id() or private.is_super_admin());
+
+drop policy if exists stock_movements_insert on public.stock_movements;
+create policy stock_movements_insert on public.stock_movements
+for insert
+to authenticated
 with check (
   company_id = private.current_company_id()
 );

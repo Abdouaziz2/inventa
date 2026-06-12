@@ -2,7 +2,7 @@ import { useLocation, Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProfileSettings } from '@/hooks/useProfileSettings';
 import {
-  LayoutDashboard, Users, Gem, PlusCircle, Wallet,
+  LayoutDashboard, Users, Gem, Wallet,
   BookmarkCheck, ShoppingBag, Receipt, LogOut, Diamond, UserCog, X
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -21,15 +21,14 @@ const AppSidebar = ({ open, onOpenChange }: AppSidebarProps) => {
   const businessLogo = profile?.logo ?? '';
 
   const navItems = [
-    { label: 'Tableau de bord', path: '/', icon: LayoutDashboard },
+    { label: 'Accueil', path: '/', icon: LayoutDashboard },
     { label: 'Clients', path: '/clients', icon: Users },
-    { label: 'Bijoux', path: '/jewelry', icon: Gem },
-    { label: 'Ajouter Bijou', path: '/jewelry/add', icon: PlusCircle },
-    { label: 'Dépôt Libre', path: '/deposits', icon: Wallet },
-    { label: 'Réservation', path: '/reservations', icon: BookmarkCheck },
-    { label: 'Vente', path: '/sales', icon: ShoppingBag },
-    { label: 'Reçus', path: '/receipts', icon: Receipt },
-    { label: 'Profil', path: '/profile', icon: UserCog },
+    { label: 'Stock', path: '/jewelry', icon: Gem },
+    { label: 'Dépôt client', path: '/deposits', icon: Wallet },
+    { label: 'Réservations', path: '/reservations', icon: BookmarkCheck },
+    { label: 'Ventes', path: '/sales', icon: ShoppingBag },
+    { label: 'Documents', path: '/receipts', icon: Receipt },
+    { label: 'Paramètres', path: '/profile', icon: UserCog },
   ];
   const userLabel = user?.role === 'super_admin' ? 'Super Admin' : 'Administrateur';
 
