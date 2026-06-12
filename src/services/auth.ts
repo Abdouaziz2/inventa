@@ -1,5 +1,5 @@
 import { supabase } from '@/lib/supabase';
-import type { AppUser } from '@/types/api';
+import type { AppUser, SubscriptionStatus } from '@/types/api';
 
 type ProfileRow = {
   id: string;
@@ -9,11 +9,26 @@ type ProfileRow = {
   company_id: string | null;
 };
 
+type SubscriptionRow = {
+  plan_code: string;
+  status: SubscriptionStatus;
+  starts_at: string;
+  expires_at: string | null;
+};
+
 function normalizeRole(role: ProfileRow['role']): AppUser['role'] {
   return role === 'super_admin' ? 'super_admin' : 'admin';
 }
 
-function mapProfileToUser(profile: ProfileRow): AppUser {
+function subscriptionIsActive(subscription: SubscriptionRow | null) {
+  if (!subscription || !['trialing', 'active'].includes(subscription.status)) {
+    return false;
+  }
+
+  return !subscription.expires_at || new Date(subscription.expires_at).getTime() > Date.now();
+}
+
+function mapProfileToUser(profile: ProfileRow, subscription: SubscriptionRow | null): AppUser {
   return {
     id: profile.id,
     email: profile.email,
@@ -21,6 +36,16 @@ function mapProfileToUser(profile: ProfileRow): AppUser {
     fullName: profile.full_name,
     role: normalizeRole(profile.role),
     companyId: profile.company_id,
+    subscription: subscription
+      ? {
+          planCode: subscription.plan_code,
+          status: subscription.status,
+          startsAt: subscription.starts_at,
+          expiresAt: subscription.expires_at,
+        }
+      : null,
+    hasActiveSubscription:
+      profile.role === 'super_admin' || subscriptionIsActive(subscription),
   };
 }
 
@@ -66,7 +91,15 @@ export async function getCurrentProfile() {
   if (!user) return null;
 
   const profile = await ensureCurrentProfileRow(user);
-  return mapProfileToUser(profile);
+  const { data: subscription, error: subscriptionError } = await supabase
+    .from('subscriptions')
+    .select('plan_code, status, starts_at, expires_at')
+    .eq('user_id', user.id)
+    .maybeSingle();
+
+  if (subscriptionError) throw subscriptionError;
+
+  return mapProfileToUser(profile, subscription as SubscriptionRow | null);
 }
 
 export async function signInWithPassword(email: string, password: string) {

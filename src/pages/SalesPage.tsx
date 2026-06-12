@@ -161,7 +161,12 @@ const SalesPage = () => {
         payment_method: paymentMethod,
       });
 
-      setReceiptData(buildSaleReceipt(saleClient, cart[0].jewelry, sale));
+      setReceiptData(
+        buildSaleReceipt(saleClient, cart[0].jewelry, {
+          ...sale,
+          change_amount: changeAmount,
+        }),
+      );
       setShowReceipt(true);
       toast.success('Vente enregistrée avec succès');
       resetForm();

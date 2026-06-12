@@ -18,6 +18,7 @@ interface AuthContextType {
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
   isAuthenticated: boolean;
+  hasAccess: boolean;
   isSuperAdmin: boolean;
 }
 
@@ -86,6 +87,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         logout,
         refreshUser,
         isAuthenticated: !!user,
+        hasAccess: !!user?.hasActiveSubscription,
         isSuperAdmin: user?.role === 'super_admin',
       }}
     >

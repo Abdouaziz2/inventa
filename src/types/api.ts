@@ -1,5 +1,6 @@
 export type AppRole = 'super_admin' | 'admin';
 export type UserStatus = 'active' | 'inactive' | 'suspended';
+export type SubscriptionStatus = 'trialing' | 'active' | 'past_due' | 'suspended' | 'canceled';
 export type JewelryStatus = 'available' | 'reserved' | 'sold' | 'out_of_stock';
 export type ReservationStatus = 'active' | 'cancelled' | 'completed' | 'expired';
 export type JewelryCategory = 'rings' | 'necklaces' | 'bracelets' | 'earrings' | 'watches' | 'other';
@@ -26,6 +27,13 @@ export type AppUser = {
   fullName: string;
   role: AppRole;
   companyId: string | null;
+  subscription: {
+    planCode: string;
+    status: SubscriptionStatus;
+    startsAt: string;
+    expiresAt: string | null;
+  } | null;
+  hasActiveSubscription: boolean;
 };
 
 export type Client = {

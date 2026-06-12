@@ -96,6 +96,22 @@ const summaryPrimaryLabels: Record<ReceiptData['type'], string> = {
 const getDetailValue = (data: ReceiptData, label: string) =>
   data.details?.find((detail) => detail.label === label)?.value;
 
+const getVisibleDetails = (data: ReceiptData) => {
+  const duplicatedSaleLabels = new Set([
+    'Mode de paiement',
+    'Total facture',
+    'Paye via solde',
+    'Montant encaisse',
+    'Montant total paye',
+    'Reste a payer',
+    'Monnaie rendue',
+  ]);
+
+  return (data.details ?? []).filter(
+    (detail) => data.type !== 'sale' || !duplicatedSaleLabels.has(detail.label),
+  );
+};
+
 const getSummaryRows = (data: ReceiptData, subtotal: number, taxAmount: number, totalWithTax: number) => {
   if (data.type === 'deposit') {
     return [
@@ -130,9 +146,15 @@ const getSummaryRows = (data: ReceiptData, subtotal: number, taxAmount: number, 
   const balanceUsed = getDetailValue(data, 'Paye via solde');
   const paidAmount = getDetailValue(data, 'Montant encaisse');
   const remainingAmount = getDetailValue(data, 'Reste a payer');
+  const changeAmount = getDetailValue(data, 'Monnaie rendue');
 
-  if (balanceUsed) rows.splice(rows.length - 1, 0, { label: 'Paye via solde', value: balanceUsed });
+  if (balanceUsed && balanceUsed !== formatCFA(0)) {
+    rows.splice(rows.length - 1, 0, { label: 'Paye via solde', value: balanceUsed });
+  }
   if (paidAmount) rows.splice(rows.length - 1, 0, { label: 'Montant encaisse', value: paidAmount });
+  if (changeAmount && changeAmount !== formatCFA(0)) {
+    rows.splice(rows.length - 1, 0, { label: 'Monnaie rendue', value: changeAmount });
+  }
   if (remainingAmount && remainingAmount !== formatCFA(0)) {
     rows.push({ label: 'Reste a payer', value: remainingAmount });
   }
@@ -173,48 +195,51 @@ const buildPrintStyles = () => `
   * { box-sizing: border-box; }
   html, body { margin: 0; padding: 0; background: #eef2f7; color: var(--ink); }
   body {
-    font-family: "Georgia", "Times New Roman", serif;
-    padding: 24px;
+    font-family: Arial, Helvetica, sans-serif;
+    padding: 16px;
   }
   .sheet {
     width: 210mm;
     min-height: 297mm;
     margin: 0 auto;
     background: white;
-    padding: 18mm 16mm;
+    padding: 12mm;
     box-shadow: 0 16px 40px rgba(15, 23, 42, 0.12);
   }
   .invoice {
     display: flex;
     flex-direction: column;
-    gap: 18px;
+    gap: 12px;
   }
   .topbar {
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
-    gap: 24px;
+    gap: 14px;
     border-bottom: 2px solid var(--accent);
-    padding-bottom: 16px;
+    padding-bottom: 10px;
   }
   .brand {
     display: flex;
-    gap: 14px;
+    gap: 10px;
     align-items: flex-start;
+    min-width: 0;
+    flex: 1 1 48%;
   }
   .brand-logo {
-    width: 68px;
-    height: 68px;
+    width: 54px;
+    height: 54px;
     border: 1px solid var(--line);
     border-radius: 14px;
     object-fit: cover;
     background: white;
   }
   .brand-name {
-    font-size: 29px;
-    line-height: 1.1;
+    font-family: "Georgia", "Times New Roman", serif;
+    font-size: 23px;
+    line-height: 1.15;
     font-weight: 700;
-    letter-spacing: 0.2px;
+    overflow-wrap: anywhere;
   }
   .brand-meta,
   .meta-card,
@@ -226,11 +251,13 @@ const buildPrintStyles = () => `
   .brand-meta {
     color: var(--muted);
     font-size: 12px;
-    line-height: 1.7;
-    margin-top: 6px;
+    line-height: 1.45;
+    margin-top: 4px;
   }
   .doc-badge {
     text-align: right;
+    min-width: 0;
+    flex: 1 1 52%;
   }
   .doc-badge-title {
     font-family: Arial, Helvetica, sans-serif;
@@ -241,11 +268,11 @@ const buildPrintStyles = () => `
     color: var(--accent);
   }
   .doc-badge-number {
-    margin-top: 8px;
-    font-size: 28px;
+    margin-top: 5px;
+    font-family: "Georgia", "Times New Roman", serif;
+    font-size: 20px;
     font-weight: 700;
-    letter-spacing: 0.6px;
-    white-space: nowrap;
+    overflow-wrap: anywhere;
   }
   .doc-badge-date {
     margin-top: 6px;
@@ -256,14 +283,15 @@ const buildPrintStyles = () => `
   .grid {
     display: grid;
     grid-template-columns: 1.15fr 0.85fr;
-    gap: 14px;
+    gap: 10px;
+    align-items: start;
   }
   .client-card,
   .meta-card,
   .summary-card {
     border: 1px solid var(--line);
-    border-radius: 14px;
-    padding: 14px 16px;
+    border-radius: 10px;
+    padding: 10px 12px;
     background: white;
   }
   .card-title {
@@ -272,20 +300,22 @@ const buildPrintStyles = () => `
     letter-spacing: 1.8px;
     text-transform: uppercase;
     color: var(--muted);
-    margin-bottom: 10px;
+    margin-bottom: 6px;
   }
   .client-name {
     font-size: 18px;
     font-weight: 700;
-    margin-bottom: 8px;
+    margin-bottom: 4px;
+    overflow-wrap: anywhere;
   }
   .kv,
   .summary-line {
     display: flex;
     justify-content: space-between;
     gap: 12px;
-    padding: 6px 0;
-    font-size: 13px;
+    padding: 4px 0;
+    font-size: 12px;
+    align-items: flex-start;
   }
   .kv-label,
   .summary-label {
@@ -295,13 +325,16 @@ const buildPrintStyles = () => `
   .summary-value {
     font-weight: 600;
     text-align: right;
+    overflow-wrap: anywhere;
+    min-width: 0;
   }
   table {
     width: 100%;
     border-collapse: collapse;
     overflow: hidden;
-    border-radius: 16px;
+    border-radius: 10px;
     border: 1px solid var(--line);
+    table-layout: fixed;
   }
   thead th {
     background: var(--soft);
@@ -311,29 +344,30 @@ const buildPrintStyles = () => `
     letter-spacing: 0.8px;
     text-transform: uppercase;
     text-align: left;
-    padding: 12px 14px;
+    padding: 8px 7px;
     border-bottom: 1px solid var(--line);
   }
   tbody td {
-    padding: 14px;
+    padding: 9px 7px;
     border-bottom: 1px solid #e5e7eb;
     font-family: Arial, Helvetica, sans-serif;
     font-size: 13px;
     vertical-align: top;
+    overflow-wrap: anywhere;
   }
   tbody tr:last-child td {
     border-bottom: none;
   }
   .td-right {
     text-align: right;
-    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
   }
   .summary-wrap {
     display: flex;
     justify-content: flex-end;
   }
   .summary-card {
-    width: 92mm;
+    width: 88mm;
     background: linear-gradient(180deg, #fffdf7 0%, #ffffff 100%);
   }
   .summary-total {
@@ -345,14 +379,14 @@ const buildPrintStyles = () => `
   }
   .footer-grid {
     display: grid;
-    grid-template-columns: 1fr 120px;
-    gap: 14px;
+    grid-template-columns: minmax(0, 1fr) 94px;
+    gap: 10px;
     align-items: end;
   }
   .thank-you {
     border: 1px solid var(--line);
-    border-radius: 14px;
-    padding: 14px 16px;
+    border-radius: 10px;
+    padding: 10px 12px;
     background: var(--accent-soft);
     color: #4b5563;
     font-size: 13px;
@@ -366,8 +400,8 @@ const buildPrintStyles = () => `
     background: white;
   }
   .qr-wrap img {
-    width: 92px;
-    height: 92px;
+    width: 70px;
+    height: 70px;
     object-fit: contain;
     display: block;
     margin: 0 auto 6px;
@@ -385,10 +419,28 @@ const buildPrintStyles = () => `
     font-size: 12px;
     color: var(--muted);
   }
-  @page { size: A4; margin: 10mm; }
+  thead { display: table-header-group; }
+  tr,
+  .topbar,
+  .grid,
+  .summary-wrap,
+  .summary-card,
+  .footer-grid,
+  .thank-you,
+  .qr-wrap {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  @page { size: A4 portrait; margin: 0; }
   @media print {
     body { background: white; padding: 0; }
-    .sheet { box-shadow: none; margin: 0; width: auto; min-height: auto; padding: 0; }
+    .sheet {
+      box-shadow: none;
+      margin: 0;
+      width: 210mm;
+      min-height: 297mm;
+      padding: 12mm;
+    }
   }
   @media screen and (max-width: 760px) {
     body { padding: 10px; }
@@ -473,8 +525,9 @@ const buildInvoiceHtml = ({
   const footerMessage = footerMessages[data.type];
   const qrLabel = qrLabels[data.type];
   const summaryRows = getSummaryRows(data, subtotal, taxAmount, grandTotal);
+  const visibleDetails = getVisibleDetails(data);
   const brandMetaHtml = brandMeta.map((line) => `<div>${sanitizeHtml(line)}</div>`).join('');
-  const detailsHtml = (data.details ?? [])
+  const detailsHtml = visibleDetails
     .map(
       (detail) => `
         <div class="kv">
@@ -548,10 +601,14 @@ const buildInvoiceHtml = ({
                   <span class="kv-label">Mode de reglement</span>
                   <span class="kv-value">${sanitizeHtml(data.paymentMethod)}</span>
                 </div>
-                <div class="kv">
-                  <span class="kv-label">${sanitizeHtml(amountLabels[data.type])}</span>
-                  <span class="kv-value">${formatCFA(data.amount)}</span>
-                </div>
+                ${
+                  data.type === 'sale'
+                    ? ''
+                    : `<div class="kv">
+                        <span class="kv-label">${sanitizeHtml(amountLabels[data.type])}</span>
+                        <span class="kv-value">${formatCFA(data.amount)}</span>
+                      </div>`
+                }
                 ${detailsHtml}
               </div>
             </div>
@@ -559,12 +616,12 @@ const buildInvoiceHtml = ({
             <table>
               <thead>
                 <tr>
-                  <th style="width: 52px;">#</th>
+                  <th style="width: 7%;">#</th>
                   <th>Article</th>
-                  <th style="width: 90px; text-align: right;">Poids</th>
-                  <th style="width: 80px; text-align: right;">Qté</th>
-                  <th style="width: 120px; text-align: right;">${priceColumnLabel}</th>
-                  <th style="width: 130px; text-align: right;">Prix total</th>
+                  <th style="width: 12%; text-align: right;">Poids</th>
+                  <th style="width: 8%; text-align: right;">Qté</th>
+                  <th style="width: 20%; text-align: right;">${priceColumnLabel}</th>
+                  <th style="width: 20%; text-align: right;">Prix total</th>
                 </tr>
               </thead>
               <tbody>${itemsHtml}</tbody>
@@ -668,10 +725,28 @@ const ReceiptModal = ({ open, onClose, data }: ReceiptModalProps) => {
   const footerMessage = footerMessages[data.type];
   const qrLabel = qrLabels[data.type];
   const summaryRows = getSummaryRows(data, subtotal, taxAmount, totalWithTax);
+  const visibleDetails = getVisibleDetails(data);
 
   const openReceiptWindow = (autoPrint: boolean) => {
     const popup = window.open('', '_blank', 'width=1200,height=900');
     if (!popup) return;
+
+    if (autoPrint) {
+      popup.addEventListener('load', async () => {
+        await Promise.all(
+          Array.from(popup.document.images).map(
+            (image) =>
+              image.complete
+                ? Promise.resolve()
+                : new Promise<void>((resolve) => {
+                    image.addEventListener('load', () => resolve(), { once: true });
+                    image.addEventListener('error', () => resolve(), { once: true });
+                  }),
+          ),
+        );
+        popup.print();
+      });
+    }
 
     popup.document.write(
       buildInvoiceHtml({
@@ -685,9 +760,6 @@ const ReceiptModal = ({ open, onClose, data }: ReceiptModalProps) => {
     );
     popup.document.close();
     popup.focus();
-    if (autoPrint) {
-      popup.print();
-    }
   };
 
   const previewScaleClass =
@@ -704,7 +776,7 @@ const ReceiptModal = ({ open, onClose, data }: ReceiptModalProps) => {
             <div>
               <DialogTitle className="text-lg">{documentLabel}</DialogTitle>
               <DialogDescription className="text-sm text-muted-foreground">
-                Mise en page optimisee pour impression PDF et papier
+                Format A4. Dans les options d'impression, désactivez « En-têtes et pieds de page ».
               </DialogDescription>
             </div>
           </div>
@@ -742,10 +814,12 @@ const ReceiptModal = ({ open, onClose, data }: ReceiptModalProps) => {
                   <span className="text-slate-500">Reglement</span>
                   <span className="text-right font-medium">{data.paymentMethod}</span>
                 </div>
-                <div className="mt-2 flex justify-between gap-3">
-                  <span className="text-slate-500">{amountLabels[data.type]}</span>
-                  <span className="text-right font-semibold">{formatCFA(data.amount)}</span>
-                </div>
+                {data.type !== 'sale' ? (
+                  <div className="mt-2 flex justify-between gap-3">
+                    <span className="text-slate-500">{amountLabels[data.type]}</span>
+                    <span className="text-right font-semibold">{formatCFA(data.amount)}</span>
+                  </div>
+                ) : null}
               </div>
             </div>
 
@@ -851,11 +925,13 @@ const ReceiptModal = ({ open, onClose, data }: ReceiptModalProps) => {
                         <span className="text-slate-500">Mode de reglement</span>
                         <span className="font-semibold">{data.paymentMethod}</span>
                       </div>
-                      <div className="flex justify-between gap-3">
-                        <span className="text-slate-500">{amountLabels[data.type]}</span>
-                        <span className="font-semibold">{formatCFA(data.amount)}</span>
-                      </div>
-                      {(data.details ?? []).map((detail) => (
+                      {data.type !== 'sale' ? (
+                        <div className="flex justify-between gap-3">
+                          <span className="text-slate-500">{amountLabels[data.type]}</span>
+                          <span className="font-semibold">{formatCFA(data.amount)}</span>
+                        </div>
+                      ) : null}
+                      {visibleDetails.map((detail) => (
                         <div key={`${detail.label}-${detail.value}`} className="flex justify-between gap-3">
                           <span className="text-slate-500">{detail.label}</span>
                           <span className="font-semibold text-right">{detail.value}</span>

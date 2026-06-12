@@ -30,8 +30,44 @@ L'ancien compte local `admin` / `admin123` n'est pas autorise dans le mode produ
 - `npm run dev:api` : API Express locale
 - `npm run dev:full` : API + frontend
 - `npm run build` : build frontend
+- `npm run desktop:dev` : application desktop en mode developpement
+- `npm run desktop:dir` : version Windows non installee dans `release/win-unpacked`
+- `npm run desktop:build` : installateur Windows `.exe` dans `release`
 - `npm run test` : tests
 - `npm run lint` : lint
+
+## Application Windows
+
+L'application peut etre installee comme un logiciel Windows classique. La
+connexion et les donnees restent synchronisees avec Supabase, une connexion
+Internet est donc necessaire pour les operations metier.
+
+Pour generer l'installateur :
+
+`npm run desktop:build`
+
+## Abonnements
+
+Chaque compte Supabase Auth possede un abonnement associe a son adresse e-mail.
+Les nouveaux comptes recoivent 14 jours d'essai. Quand l'abonnement expire ou
+est suspendu, l'interface et les donnees metier sont bloquees.
+
+Le super administrateur dispose du menu `Abonnements` pour :
+
+- rechercher un compte par e-mail ;
+- activer, suspendre ou resilier son acces ;
+- prolonger l'abonnement de 30 jours ou d'un an.
+
+Pour designer une seule fois le compte proprietaire :
+
+```sql
+update public.profiles
+set role = 'super_admin'
+where email = 'proprietaire@exemple.com';
+```
+
+La migration correspondante se trouve dans
+[`supabase/sql/v1_subscription_access.sql`](supabase/sql/v1_subscription_access.sql).
 
 ## Production
 
