@@ -52,10 +52,12 @@ npm run sb:db:push
 npm run sb:types
 ```
 
-## 7. Deploy the admin edge function
+## 7. Deploy the admin edge functions
 
 ```powershell
 npm run sb:functions:deploy
+npx supabase functions deploy admin-delete-user --no-verify-jwt
+npx supabase functions deploy admin-update-subscription --no-verify-jwt
 ```
 
 ## 8. Set edge function secrets

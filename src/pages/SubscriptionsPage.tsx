@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { CalendarPlus, Search, ShieldCheck } from 'lucide-react';
+import { CalendarPlus, Search, ShieldCheck, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -11,10 +11,20 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { useSubscriptions, useUpdateSubscription } from '@/hooks/useSubscriptions';
+import { useDeleteUser, useSubscriptions, useUpdateSubscription } from '@/hooks/useSubscriptions';
 import { getErrorMessage } from '@/lib/errors';
 import type { SubscriptionStatus } from '@/types/api';
 import { useAuth } from '@/contexts/AuthContext';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 const statusLabels: Record<SubscriptionStatus, string> = {
   trialing: 'Essai',
@@ -31,6 +41,8 @@ const SubscriptionsPage = () => {
   const { isSuperAdmin, user } = useAuth();
   const { data: subscriptions = [], isLoading } = useSubscriptions();
   const updateSubscription = useUpdateSubscription();
+  const deleteUser = useDeleteUser();
+  const [userToDelete, setUserToDelete] = useState<{ id: string; email: string } | null>(null);
 
   const filteredSubscriptions = useMemo(() => {
     const normalizedSearch = search.trim().toLowerCase();
@@ -44,20 +56,35 @@ const SubscriptionsPage = () => {
     userId: string,
     status: SubscriptionStatus,
     expiresAt: string | null,
+    renewFromCurrent = false,
   ) => {
     try {
-      await updateSubscription.mutateAsync({ userId, status, expiresAt });
+      await updateSubscription.mutateAsync({ userId, status, expiresAt, renewFromCurrent });
       toast.success('Abonnement mis à jour');
     } catch (error: unknown) {
       toast.error(getErrorMessage(error, 'Mise à jour impossible'));
     }
   };
 
+  const monthlyExpiry = () => new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+
   const extend = (userId: string, currentExpiry: string | null, days: number) => {
     const currentDate = currentExpiry ? new Date(currentExpiry) : new Date();
     const baseDate = currentDate.getTime() > Date.now() ? currentDate : new Date();
     baseDate.setDate(baseDate.getDate() + days);
-    void update(userId, 'active', baseDate.toISOString());
+    void update(userId, 'active', baseDate.toISOString(), true);
+  };
+
+  const confirmDelete = async () => {
+    if (!userToDelete) return;
+
+    try {
+      await deleteUser.mutateAsync(userToDelete.id);
+      toast.success('Utilisateur supprimé');
+      setUserToDelete(null);
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, 'Suppression impossible'));
+    }
   };
 
   return (
@@ -127,7 +154,7 @@ const SubscriptionsPage = () => {
                         void update(
                           subscription.user_id,
                           value,
-                          subscription.expires_at,
+                          value === 'active' ? monthlyExpiry() : subscription.expires_at,
                         )
                       }
                     >
@@ -161,6 +188,16 @@ const SubscriptionsPage = () => {
                         <ShieldCheck />
                         +1 an
                       </Button>
+                      {subscription.user_id !== user?.id && (
+                        <Button
+                          variant="destructive"
+                          aria-label={`Supprimer ${subscription.email}`}
+                          onClick={() => setUserToDelete({ id: subscription.user_id, email: subscription.email })}
+                        >
+                          <Trash2 />
+                          Supprimer
+                        </Button>
+                      )}
                     </div>
                   </div>
                   )}
@@ -170,6 +207,31 @@ const SubscriptionsPage = () => {
           </div>
         )}
       </div>
+
+      <AlertDialog open={!!userToDelete} onOpenChange={(open) => !open && setUserToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Supprimer cet utilisateur ?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Le compte {userToDelete?.email} et son accès à Inventa seront supprimés définitivement.
+              Cette action est irréversible.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteUser.isPending}>Annuler</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              disabled={deleteUser.isPending}
+              onClick={(event) => {
+                event.preventDefault();
+                void confirmDelete();
+              }}
+            >
+              {deleteUser.isPending ? 'Suppression...' : 'Supprimer définitivement'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
