@@ -8,7 +8,7 @@ interface FinalCTAProps {
 
 export default function FinalCTASection({ onGetStarted, onScheduleDemo }: FinalCTAProps) {
   return (
-    <section className="py-20 border-t border-border/50">
+    <section id="pricing" className="py-20 border-t border-border/50 scroll-mt-24">
       <div className="mx-auto max-w-4xl px-6">
         <div className="rounded-2xl bg-gradient-to-r from-primary via-primary/80 to-primary/60 p-12 text-center">
           <h2 className="text-4xl font-display font-bold text-primary-foreground mb-4">

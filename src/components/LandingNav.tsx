@@ -17,7 +17,7 @@ export default function LandingNav({ onGetStarted }: LandingNavProps) {
         aria-label="Main navigation"
       >
         {/* Backdrop blur effect */}
-        <div className="absolute inset-0 bg-background/40 backdrop-blur-xl border-b border-white/10 -z-10" />
+        <div className="absolute inset-0 bg-background/90 backdrop-blur-xl border-b border-border -z-10" />
 
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16 sm:h-20">
@@ -34,21 +34,21 @@ export default function LandingNav({ onGetStarted }: LandingNavProps) {
             <div className="hidden lg:flex items-center justify-center gap-12">
               <a
                 href="#features"
-                className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors duration-300 relative group"
+                className="text-sm font-semibold text-foreground/80 hover:text-foreground transition-colors duration-300 relative group"
               >
                 Fonctionnalités
                 <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-gold group-hover:w-full transition-all duration-300" />
               </a>
               <a
                 href="#pricing"
-                className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors duration-300 relative group"
+                className="text-sm font-semibold text-foreground/80 hover:text-foreground transition-colors duration-300 relative group"
               >
                 Tarification
                 <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-gold group-hover:w-full transition-all duration-300" />
               </a>
               <a
                 href="#testimonials"
-                className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors duration-300 relative group"
+                className="text-sm font-semibold text-foreground/80 hover:text-foreground transition-colors duration-300 relative group"
               >
                 Témoignages
                 <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-gold group-hover:w-full transition-all duration-300" />
@@ -59,13 +59,13 @@ export default function LandingNav({ onGetStarted }: LandingNavProps) {
             <div className="hidden lg:block">
               <Button
                 onClick={onGetStarted}
-                className="group relative h-11 px-6 bg-gradient-to-r from-gold to-gold/90 hover:from-gold hover:to-gold text-gold-dark font-bold rounded-lg shadow-lg hover:shadow-gold/50 transition-all duration-300 overflow-hidden"
+                className="group relative h-11 px-6 bg-gradient-to-r from-gold to-gold/90 hover:from-gold hover:to-gold !text-gold-dark font-bold rounded-lg shadow-lg hover:shadow-gold/50 transition-all duration-300 overflow-hidden"
               >
                 <span className="relative z-10 flex items-center gap-2">
                   Commencer
                   <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform duration-300" />
                 </span>
-                <span className="absolute inset-0 bg-gradient-to-r from-gold/0 via-white/20 to-gold/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                <span className="pointer-events-none absolute inset-0 bg-gradient-to-r from-gold/0 via-white/20 to-gold/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
               </Button>
             </div>
 
@@ -88,19 +88,22 @@ export default function LandingNav({ onGetStarted }: LandingNavProps) {
             <div className="lg:hidden pb-6 space-y-4 animate-fade-in">
               <a
                 href="#features"
-                className="block text-sm font-medium text-muted-foreground hover:text-gold transition-colors duration-300"
+                className="block text-sm font-semibold text-foreground/80 hover:text-gold transition-colors duration-300"
+                onClick={() => setIsMenuOpen(false)}
               >
                 Fonctionnalités
               </a>
               <a
                 href="#pricing"
-                className="block text-sm font-medium text-muted-foreground hover:text-gold transition-colors duration-300"
+                className="block text-sm font-semibold text-foreground/80 hover:text-gold transition-colors duration-300"
+                onClick={() => setIsMenuOpen(false)}
               >
                 Tarification
               </a>
               <a
                 href="#testimonials"
-                className="block text-sm font-medium text-muted-foreground hover:text-gold transition-colors duration-300"
+                className="block text-sm font-semibold text-foreground/80 hover:text-gold transition-colors duration-300"
+                onClick={() => setIsMenuOpen(false)}
               >
                 Témoignages
               </a>
@@ -109,7 +112,7 @@ export default function LandingNav({ onGetStarted }: LandingNavProps) {
                   onGetStarted?.();
                   setIsMenuOpen(false);
                 }}
-                className="w-full group relative h-10 bg-gradient-to-r from-gold to-gold/90 hover:from-gold hover:to-gold text-gold-dark font-bold rounded-lg shadow-lg hover:shadow-gold/50 transition-all duration-300 overflow-hidden"
+                className="w-full group relative h-10 bg-gradient-to-r from-gold to-gold/90 hover:from-gold hover:to-gold !text-gold-dark font-bold rounded-lg shadow-lg hover:shadow-gold/50 transition-all duration-300 overflow-hidden"
               >
                 <span className="relative z-10 flex items-center justify-center gap-2">
                   Commencer

@@ -47,7 +47,7 @@ const metrics: Metric[] = [
 
 export const SocialProofSection = () => {
   return (
-    <section className="py-20 bg-primary/5 border-t border-border/50">
+    <section id="testimonials" className="py-20 bg-primary/5 border-t border-border/50 scroll-mt-24">
       <div className="mx-auto max-w-7xl px-6">
         <div className="text-center mb-16">
           <h2 className="text-4xl font-display font-bold mb-4">

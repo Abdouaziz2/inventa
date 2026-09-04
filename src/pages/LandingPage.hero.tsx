@@ -17,7 +17,7 @@ export default function HeroSection({ onGetStarted, onViewDemo }: HeroSectionPro
   return (
     <>
       {/* Ultra-premium gradient background with animated elements */}
-      <section className="relative min-h-screen overflow-hidden bg-background">
+      <section className="relative min-h-screen overflow-hidden bg-background scroll-mt-24">
         {/* Animated gradient orbs */}
         <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-gradient-to-br from-gold/30 via-gold/10 to-transparent rounded-full blur-3xl opacity-0 animate-fade-in" style={{ animationDelay: '0s' }} />
         <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-gradient-to-tr from-primary/20 via-primary/5 to-transparent rounded-full blur-3xl opacity-0 animate-fade-in" style={{ animationDelay: '0.2s' }} />
@@ -62,20 +62,20 @@ export default function HeroSection({ onGetStarted, onViewDemo }: HeroSectionPro
                 <Button
                   size="lg"
                   onClick={onGetStarted}
-                  className="group relative h-14 px-8 bg-gradient-to-r from-gold to-gold/90 hover:from-gold hover:to-gold text-gold-dark font-bold rounded-lg shadow-lg hover:shadow-gold/50 transition-all duration-300 overflow-hidden"
+                  className="group relative h-14 px-8 bg-gradient-to-r from-gold to-gold/90 hover:from-gold hover:to-gold !text-gold-dark font-bold rounded-lg shadow-lg hover:shadow-gold/50 transition-all duration-300 overflow-hidden"
                 >
                   <span className="relative z-10 flex items-center gap-2">
                     Essayer gratuitement
                     <ArrowRight className="h-5 w-5 group-hover:translate-x-1 transition-transform duration-300" />
                   </span>
-                  <span className="absolute inset-0 bg-gradient-to-r from-gold/0 via-white/20 to-gold/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                  <span className="pointer-events-none absolute inset-0 bg-gradient-to-r from-gold/0 via-white/20 to-gold/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                 </Button>
 
                 <Button
                   size="lg"
                   variant="outline"
                   onClick={onViewDemo}
-                  className="h-14 px-8 border-2 border-gold/30 hover:border-gold/60 text-foreground hover:bg-gold/5 font-semibold rounded-lg transition-all duration-300"
+                  className="h-14 px-8 bg-background/90 border-2 border-gold/50 hover:border-gold text-foreground hover:bg-gold/10 font-semibold rounded-lg transition-all duration-300"
                 >
                   Voir la démo
                 </Button>
