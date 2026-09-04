@@ -23,7 +23,7 @@ Ce projet ne doit pas contenir de secrets dans le code. Les vraies valeurs vont 
 | Variable | Environnement | Secret | Ou la trouver |
 | --- | --- | --- | --- |
 | `VITE_API_URL` | Production, Preview, Local | Non | Mettre `/api` si le frontend et l'API sont sur le meme domaine Vercel. |
-| `CORS_ORIGIN` | Production, Preview, Local | Non | Domaine autorise a appeler l'API. Exemple production: `https://gems-flow-suite.vercel.app`. |
+| `CORS_ORIGIN` | Production, Preview, Local | Non | Domaine autorise a appeler l'API. Production: `https://inventa.bayecode.com`. |
 | `JWT_SECRET` | Production, Preview, Local | Oui | Generer une chaine aleatoire longue, au moins 32 caracteres. |
 | `JWT_EXPIRES_IN` | Production, Preview, Local | Non | Duree des sessions JWT. Exemple: `7d`. |
 | `DATABASE_URL` | Production, Preview, Local | Oui | Supabase `Connect` > `Transaction pooler`. Remplacer `[YOUR-PASSWORD]`. |
@@ -41,7 +41,7 @@ Si Vercel contient seulement `JWT_SECRET`, `DATABASE_URL` et `DIRECT_URL`, ajout
 
 ```env
 VITE_API_URL=/api
-CORS_ORIGIN=https://gems-flow-suite.vercel.app
+CORS_ORIGIN=https://inventa.bayecode.com
 JWT_EXPIRES_IN=7d
 SUPABASE_URL=https://bsingvkmtntkhvkdsypa.supabase.co
 SUPABASE_ANON_KEY=<anon-or-publishable-key>
@@ -57,7 +57,7 @@ Sans `SUPABASE_URL`, `SUPABASE_ANON_KEY` et `SUPABASE_SERVICE_ROLE_KEY`, les uti
 
 ```env
 VITE_API_URL=/api
-CORS_ORIGIN=https://gems-flow-suite.vercel.app
+CORS_ORIGIN=https://inventa.bayecode.com
 JWT_EXPIRES_IN=7d
 SUPABASE_URL=https://bsingvkmtntkhvkdsypa.supabase.co
 SUPABASE_STORAGE_BUCKET=gems-flow-uploads
