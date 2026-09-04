@@ -6,6 +6,7 @@ import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import AppLayout from "@/components/AppLayout";
 import AppErrorBoundary from "@/components/AppErrorBoundary";
 import AppSpinner from "@/components/AppSpinner";
+import LandingPage from "@/pages/LandingPage";
 import LoginPage from "@/pages/LoginPage";
 import Dashboard from "@/pages/Dashboard";
 import ClientsPage from "@/pages/ClientsPage";
@@ -22,10 +23,12 @@ import SubscriptionRequiredPage from "@/pages/SubscriptionRequiredPage";
 import SubscriptionsPage from "@/pages/SubscriptionsPage";
 
 const queryClient = new QueryClient();
-const AppRouter = window.location.protocol === "file:" ? HashRouter : BrowserRouter;
+// Use BrowserRouter for standard SPA routing. HashRouter can be enabled via VITE_USE_HASH_ROUTER env var if needed for file:// protocol support
+const useHashRouter = import.meta.env.VITE_USE_HASH_ROUTER === 'true';
+const AppRouter = useHashRouter ? HashRouter : BrowserRouter;
 
 const appRoutes = [
-  { path: "/", element: <Dashboard /> },
+  { path: "/dashboard", element: <Dashboard /> },
   { path: "/clients", element: <ClientsPage /> },
   { path: "/clients/:id", element: <ClientDetailPage /> },
   { path: "/jewelry", element: <JewelryPage /> },
@@ -44,7 +47,7 @@ const ProtectedRoutes = () => {
 
   if (loading) return <AppSpinner fullScreen />;
 
-  if (!isAuthenticated) return <Navigate to="/login" replace />;
+  if (!isAuthenticated) return <Navigate to="/" replace />;
   if (!hasAccess) return <SubscriptionRequiredPage />;
 
   return <AppLayout />;
@@ -57,7 +60,8 @@ const AppRoutes = () => {
 
   return (
     <Routes>
-      <Route path="/login" element={isAuthenticated ? <Navigate to="/" replace /> : <LoginPage />} />
+      <Route path="/" element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <LandingPage />} />
+      <Route path="/login" element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <LoginPage />} />
       <Route element={<ProtectedRoutes />}>
         {appRoutes.map((route) => (
           <Route key={route.path} path={route.path} element={route.element} />
