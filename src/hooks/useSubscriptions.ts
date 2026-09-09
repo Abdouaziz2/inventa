@@ -37,20 +37,35 @@ export function useUpdateSubscription() {
       userId,
       status,
       expiresAt,
+      renewFromCurrent = false,
     }: {
       userId: string;
       status: SubscriptionStatus;
       expiresAt: string | null;
+      renewFromCurrent?: boolean;
     }) => {
-      const { error } = await supabase
-        .from('subscriptions')
-        .update({
-          status,
-          expires_at: expiresAt,
-        })
-        .eq('user_id', userId);
+      const { data, error } = await supabase.functions.invoke('admin-update-subscription', {
+        body: { userId, status, expiresAt, renewFromCurrent },
+      });
 
       if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: subscriptionsKey }),
+  });
+}
+
+export function useDeleteUser() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (userId: string) => {
+      const { data, error } = await supabase.functions.invoke('admin-delete-user', {
+        body: { userId },
+      });
+
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: subscriptionsKey }),
   });

@@ -142,7 +142,7 @@ select
   'standard',
   'trialing',
   timezone('utc', now()),
-  timezone('utc', now()) + interval '30 days'
+  timezone('utc', now()) + interval '14 days'
 from auth.users user_account
 where user_account.email is not null
 on conflict (user_id) do update
