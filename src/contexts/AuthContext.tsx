@@ -20,6 +20,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   hasAccess: boolean;
   isSuperAdmin: boolean;
+  isAdmin: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -89,6 +90,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         isAuthenticated: !!user,
         hasAccess: !!user?.hasActiveSubscription,
         isSuperAdmin: user?.role === 'super_admin',
+        isAdmin: user?.role === 'admin' || user?.role === 'super_admin',
       }}
     >
       {children}

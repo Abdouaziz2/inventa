@@ -1,0 +1,1 @@
+ALTER TABLE public.jewelry ALTER COLUMN weight DROP NOT NULL, ALTER COLUMN price_per_gram DROP NOT NULL, ALTER COLUMN purchase_price DROP NOT NULL, ALTER COLUMN sale_price DROP NOT NULL;

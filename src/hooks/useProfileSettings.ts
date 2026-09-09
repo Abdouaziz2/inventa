@@ -3,6 +3,8 @@ import { supabase } from '@/lib/supabase';
 import { queryKeys } from '@/lib/queryKeys';
 import { getJewelryImageUrl } from '@/services/storage';
 import type { ProfileSettings } from '@/types/api';
+import { getDemoSession } from '@/lib/demo';
+import { normalizeBusinessType } from '@/lib/business';
 
 type CompanyRow = {
   name: string;
@@ -35,8 +37,25 @@ export type { ProfileSettings };
 
 export const useProfileSettings = () =>
   useQuery({
-    queryKey: queryKeys.profileSettings,
+    queryKey: [...queryKeys.profileSettings, getDemoSession()?.businessType ?? 'live'],
     queryFn: async () => {
+      const demo = getDemoSession();
+      if (demo) {
+        return {
+          id: demo.id,
+          company_id: demo.companyId,
+          full_name: demo.fullName,
+          phone: '',
+          status: 'active',
+          business_name: demo.businessName ?? 'Boutique démo',
+          address: 'Données locales de démonstration',
+          logo: '',
+          logo_path: '',
+          secondary_phone: '',
+          business_type: demo.businessType,
+          created_at: new Date().toISOString(),
+        } as ProfileSettings;
+      }
       const {
         data: { user },
         error: authError,
@@ -54,6 +73,16 @@ export const useProfileSettings = () =>
 
       const profile = data as unknown as ProfileRow;
       const company = Array.isArray(profile.companies) ? profile.companies[0] : profile.companies;
+      let businessType = 'jewelry';
+      if (profile.company_id) {
+        const { data: companyType } = await supabase
+          .from('companies')
+          .select('business_type')
+          .eq('id', profile.company_id)
+          .maybeSingle();
+        businessType = normalizeBusinessType(companyType?.business_type);
+      }
+
       return {
         id: String(profile.id),
         company_id: profile.company_id ? String(profile.company_id) : null,
@@ -65,6 +94,7 @@ export const useProfileSettings = () =>
         logo: company?.logo ? await getJewelryImageUrl(company.logo) : '',
         logo_path: String(company?.logo ?? ''),
         secondary_phone: String(company?.secondary_phone ?? ''),
+        business_type: businessType,
         created_at: String(profile.created_at),
       } as ProfileSettings;
     },

@@ -1,11 +1,13 @@
 import { supabase } from '@/lib/supabase';
 import type { AppUser, SubscriptionStatus } from '@/types/api';
+import { clearDemoSession, getDemoSession, signInDemo } from '@/lib/demo';
+import { normalizeBusinessType, type BusinessType } from '@/lib/business';
 
 type ProfileRow = {
   id: string;
   email: string;
   full_name: string;
-  role: AppUser['role'] | 'vendeur';
+  role: AppUser['role'];
   company_id: string | null;
 };
 
@@ -17,7 +19,7 @@ type SubscriptionRow = {
 };
 
 function normalizeRole(role: ProfileRow['role']): AppUser['role'] {
-  return role === 'super_admin' ? 'super_admin' : 'admin';
+  return role;
 }
 
 function subscriptionIsActive(subscription: SubscriptionRow | null) {
@@ -36,6 +38,7 @@ function mapProfileToUser(profile: ProfileRow, subscription: SubscriptionRow | n
     fullName: profile.full_name,
     role: normalizeRole(profile.role),
     companyId: profile.company_id,
+    businessType: 'jewelry',
     subscription: subscription
       ? {
           planCode: subscription.plan_code,
@@ -46,6 +49,23 @@ function mapProfileToUser(profile: ProfileRow, subscription: SubscriptionRow | n
       : null,
     hasActiveSubscription:
       profile.role === 'super_admin' || subscriptionIsActive(subscription),
+  };
+}
+
+async function addCompanyContext(user: AppUser): Promise<AppUser> {
+  if (!user.companyId) return user;
+  const { data, error } = await supabase
+    .from('companies')
+    .select('name, business_type')
+    .eq('id', user.companyId)
+    .maybeSingle();
+
+  // The fallback keeps existing installations usable until the local migration is applied.
+  if (error || !data) return user;
+  return {
+    ...user,
+    businessName: String(data.name ?? ''),
+    businessType: normalizeBusinessType((data as { business_type?: BusinessType }).business_type),
   };
 }
 
@@ -82,6 +102,8 @@ async function ensureCurrentProfileRow(user: {
 }
 
 export async function getCurrentProfile() {
+  const demo = getDemoSession();
+  if (demo) return demo;
   const {
     data: { user },
     error: authError,
@@ -99,10 +121,12 @@ export async function getCurrentProfile() {
 
   if (subscriptionError) throw subscriptionError;
 
-  return mapProfileToUser(profile, subscription as SubscriptionRow | null);
+  return addCompanyContext(mapProfileToUser(profile, subscription as SubscriptionRow | null));
 }
 
 export async function signInWithPassword(email: string, password: string) {
+  const demo = signInDemo(email, password);
+  if (demo) return demo;
   const { error } = await supabase.auth.signInWithPassword({
     email,
     password,
@@ -114,6 +138,27 @@ export async function signInWithPassword(email: string, password: string) {
 }
 
 export async function signOutCurrentUser() {
+  const wasDemo = !!getDemoSession();
+  clearDemoSession();
+  if (wasDemo) return;
   const { error } = await supabase.auth.signOut();
+  if (error) throw error;
+}
+
+export async function requestPasswordReset(email: string) {
+  const redirectTo =
+    typeof window !== 'undefined' && /^https?:$/u.test(window.location.protocol)
+      ? `${window.location.origin}/reset-password`
+      : 'https://inventa.bayecode.com/reset-password';
+
+  const { error } = await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(), {
+    redirectTo,
+  });
+
+  if (error) throw error;
+}
+
+export async function updateCurrentPassword(password: string) {
+  const { error } = await supabase.auth.updateUser({ password });
   if (error) throw error;
 }

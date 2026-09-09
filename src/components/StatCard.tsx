@@ -6,7 +6,7 @@ interface StatCardProps {
   value: string;
   subtitle?: string;
   icon: LucideIcon;
-  trend?: { value: string; positive: boolean };
+  trend?: { value: string; positive: boolean | null };
   variant?: 'default' | 'gold' | 'dark';
 }
 
@@ -38,9 +38,11 @@ const StatCard = ({ title, value, subtitle, icon: Icon, trend, variant = 'defaul
           {trend && (
             <p className={cn(
               "text-xs font-medium",
-              trend.positive ? "text-success" : "text-destructive"
+              trend.positive === true && "text-success",
+              trend.positive === false && "text-destructive",
+              trend.positive === null && "text-muted-foreground",
             )}>
-              {trend.positive ? '↑' : '↓'} {trend.value}
+              {trend.positive === true ? '↑' : trend.positive === false ? '↓' : '→'} {trend.value}
             </p>
           )}
         </div>

@@ -1,16 +1,17 @@
 import { useState, useRef, useEffect } from 'react';
-import { Search, CheckCircle, ClipboardCheck, ChevronDown, X } from 'lucide-react';
+import { Search, CheckCircle, ClipboardCheck, ChevronDown, X, RotateCcw } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
+import { Badge } from '@/components/ui/badge';
 import { useClients, filterClients, type Client } from '@/features/clients';
-import { useAddDeposit, buildDepositReceipt } from '@/features/transactions';
+import { useAddDeposit, useCancelDeposit, useDeposits, buildDepositReceipt, type DepositWithClient } from '@/features/transactions';
+import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { formatCFA } from '@/lib/format';
 import ReceiptModal, { ReceiptData } from '@/components/ReceiptModal';
 import { getErrorMessage } from '@/lib/errors';
-import { useProfileSettings } from '@/hooks/useProfileSettings';
 import { validatePositiveAmount } from '@/lib/validation';
 import {
   AlertDialog,
@@ -35,11 +36,14 @@ const DepositsPage = () => {
   const [receiptData, setReceiptData] = useState<ReceiptData | null>(null);
   const [showReceipt, setShowReceipt] = useState(false);
   const [showHighAmountConfirmation, setShowHighAmountConfirmation] = useState(false);
+  const [depositToCancel, setDepositToCancel] = useState<DepositWithClient | null>(null);
+  const [cancelReason, setCancelReason] = useState('');
   const searchRef = useRef<HTMLInputElement>(null);
   const { data: clients = [] } = useClients();
-  const { data: profile } = useProfileSettings();
+  const { data: deposits = [] } = useDeposits();
+  const { isAdmin } = useAuth();
   const addDeposit = useAddDeposit();
-  const businessName = profile?.business_name || profile?.full_name || 'Ma boutique';
+  const cancelDeposit = useCancelDeposit();
   const amountError = amount ? validatePositiveAmount(amount, 'Le montant') : '';
   const amountNumber = Number(amount || 0);
   const newBalance = selectedClient ? selectedClient.balance + amountNumber : 0;
@@ -84,6 +88,23 @@ const DepositsPage = () => {
     void saveDeposit();
   };
 
+  const handleCancelDeposit = async () => {
+    if (!depositToCancel) return;
+
+    try {
+      await cancelDeposit.mutateAsync({
+        id: depositToCancel.id,
+        client_id: depositToCancel.client_id,
+        reason: cancelReason.trim() || null,
+      });
+      toast.success('Dépôt annulé et solde client corrigé');
+      setDepositToCancel(null);
+      setCancelReason('');
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error));
+    }
+  };
+
   const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const raw = e.target.value.replace(/\D/g, '');
     setAmount(raw);
@@ -93,9 +114,6 @@ const DepositsPage = () => {
     <div className="mx-auto w-full max-w-5xl space-y-6 animate-fade-in">
       <div>
         <h1 className="page-title">Dépôt client</h1>
-        <p className="text-sm text-muted-foreground">
-          Ajoutez de l'argent au compte d'un client en trois étapes simples.
-        </p>
       </div>
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-5">
@@ -108,7 +126,7 @@ const DepositsPage = () => {
                 id="deposit-client-search"
                 ref={searchRef}
                 placeholder="Nom, code ou numéro de téléphone..."
-                value={selectedClient ? `${selectedClient.code} - ${selectedClient.name}` : clientSearch}
+                value={selectedClient ? selectedClient.name : clientSearch}
                 onChange={e => { setClientSearch(e.target.value); setSelectedClient(null); setShowResults(true); }}
                 onFocus={() => setShowResults(true)}
                 className="pl-9 h-12 text-base"
@@ -133,14 +151,11 @@ const DepositsPage = () => {
                 {searchResults.map(c => (
                   <button key={c.id} onClick={() => { setSelectedClient(c); setShowResults(false); }}
                     className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left text-sm transition-colors hover:bg-muted">
-                    <div className="flex min-w-0 items-center gap-3">
+                    <div className="flex min-w-0 flex-1 items-center gap-3">
                       <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center text-xs font-bold">{c.name.charAt(0)}</div>
-                      <div className="min-w-0">
-                        <span className="block truncate font-medium">{c.name}</span>
-                        <p className="truncate text-xs text-muted-foreground">{c.code} · {c.phone}</p>
-                      </div>
+                      <span className="min-w-0 flex-1 truncate font-medium">{c.name}</span>
                     </div>
-                    <span className="shrink-0 text-xs font-semibold text-success">{formatCFA(c.balance)}</span>
+                    <span className="shrink-0 text-xs text-muted-foreground">{c.phone}</span>
                   </button>
                 ))}
               </div>
@@ -184,9 +199,7 @@ const DepositsPage = () => {
               <p id="deposit-amount-error" className="text-sm font-medium text-destructive">
                 {amountError}
               </p>
-            ) : (
-              <p className="text-xs text-muted-foreground">Saisissez un montant strictement supérieur à zéro.</p>
-            )}
+            ) : null}
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
               {QUICK_AMOUNTS.map((quickAmount) => (
                 <Button
@@ -232,7 +245,6 @@ const DepositsPage = () => {
         <div className="rounded-xl border bg-card p-4 card-shadow sm:p-6 xl:col-span-2">
           <div className="mb-5">
             <h2 className="font-semibold">Récapitulatif</h2>
-            <p className="text-sm text-muted-foreground">Le solde est calculé avant l'enregistrement.</p>
           </div>
           {selectedClient && amount ? (
             <div className="space-y-5 text-sm">
@@ -255,21 +267,62 @@ const DepositsPage = () => {
                   <span className="text-lg font-bold">{formatCFA(newBalance)}</span>
                 </div>
               </div>
-              <div className="rounded-lg border border-dashed p-3 text-xs text-muted-foreground">
-                Un reçu de {businessName} sera proposé après la confirmation.
-              </div>
               {note ? <p className="text-xs text-muted-foreground italic">Note : {note}</p> : null}
             </div>
           ) : (
             <div className="rounded-xl border border-dashed px-4 py-10 text-center">
               <ClipboardCheck className="mx-auto mb-3 h-8 w-8 text-muted-foreground" />
-              <p className="text-sm font-medium">Le récapitulatif apparaîtra ici</p>
-              <p className="mt-1 text-xs text-muted-foreground">
-                Choisissez un client puis saisissez le montant.
-              </p>
+              <p className="text-sm font-medium">Aucun dépôt préparé</p>
             </div>
           )}
         </div>
+      </div>
+
+      <div className="rounded-xl border bg-card p-4 card-shadow sm:p-6">
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <h2 className="font-semibold">Dépôts récents</h2>
+          <span className="text-sm text-muted-foreground">{deposits.length} dépôt(s)</span>
+        </div>
+        {deposits.length > 0 ? (
+          <div className="divide-y rounded-xl border">
+            {deposits.slice(0, 12).map((deposit) => (
+              <div key={deposit.id} className="flex flex-col gap-3 p-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="truncate font-semibold">{deposit.clients?.name ?? 'Client'}</p>
+                    <Badge variant={deposit.status === 'cancelled' ? 'secondary' : 'outline'}>
+                      {deposit.status === 'cancelled' ? 'Annulé' : 'Actif'}
+                    </Badge>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {deposit.document_number} · {new Date(deposit.created_at).toLocaleDateString('fr-FR')}
+                  </p>
+                  {deposit.cancellation_reason ? (
+                    <p className="mt-1 text-xs text-muted-foreground">Motif : {deposit.cancellation_reason}</p>
+                  ) : null}
+                </div>
+                <div className="flex items-center justify-between gap-3 sm:justify-end">
+                  <span className="font-bold">{formatCFA(deposit.amount)}</span>
+                  {isAdmin && deposit.status !== 'cancelled' ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setDepositToCancel(deposit)}
+                    >
+                      <RotateCcw className="mr-1 h-4 w-4" />
+                      Annuler
+                    </Button>
+                  ) : null}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="rounded-xl border border-dashed px-4 py-8 text-center text-sm text-muted-foreground">
+            Aucun dépôt enregistré.
+          </div>
+        )}
       </div>
 
       <ReceiptModal open={showReceipt} onClose={() => setShowReceipt(false)} data={receiptData} />
@@ -287,6 +340,43 @@ const DepositsPage = () => {
             <AlertDialogCancel>Vérifier le montant</AlertDialogCancel>
             <AlertDialogAction onClick={() => void saveDeposit()}>
               Confirmer {formatCFA(amountNumber)}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={!!depositToCancel} onOpenChange={(open) => {
+        if (!open) {
+          setDepositToCancel(null);
+          setCancelReason('');
+        }
+      }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Annuler ce dépôt ?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Le solde du client sera diminué de {formatCFA(depositToCancel?.amount ?? 0)} et une trace sera ajoutée
+              dans l’historique.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="cancel-deposit-reason">Motif facultatif</Label>
+            <Textarea
+              id="cancel-deposit-reason"
+              value={cancelReason}
+              onChange={(event) => setCancelReason(event.target.value)}
+              placeholder="Exemple : dépôt test ou erreur de saisie"
+              rows={2}
+            />
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Garder</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => void handleCancelDeposit()}
+              disabled={cancelDeposit.isPending}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {cancelDeposit.isPending ? 'Annulation...' : 'Annuler le dépôt'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

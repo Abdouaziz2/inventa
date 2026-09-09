@@ -1,9 +1,12 @@
 import { useState } from 'react';
-import { Diamond, Loader2, ShieldAlert } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Loader2, ShieldAlert } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/contexts/AuthContext';
+import { publicAsset } from '@/lib/assets';
+import { demoCredentials } from '@/lib/demo';
 
 const LoginPage = () => {
   const [identifier, setIdentifier] = useState('');
@@ -30,12 +33,9 @@ const LoginPage = () => {
       <div className="relative hidden items-center justify-center overflow-hidden bg-primary lg:flex lg:w-1/2">
         <div className="absolute inset-x-0 top-0 h-1 gold-gradient" />
         <div className="relative space-y-6 px-12 text-center">
-          <Diamond className="h-16 w-16 text-gold mx-auto" />
-          <h1 className="text-4xl font-display font-bold text-primary-foreground">
-            Gestion <span className="text-gold">Bijouterie</span>
-          </h1>
+          <img src={publicAsset('inventa-logo.svg')} alt="Inventa" className="mx-auto w-full max-w-md" />
           <p className="text-primary-foreground/60 text-lg max-w-md">
-            Plateforme professionnelle de gestion de bijouterie. Sécurisée, rapide et multi-entreprises.
+            La plateforme professionnelle pour piloter vos stocks, clients et ventes.
           </p>
         </div>
       </div>
@@ -44,13 +44,12 @@ const LoginPage = () => {
       <div className="flex flex-1 items-center justify-center bg-background p-4 sm:p-8">
         <div className="w-full max-w-sm space-y-8">
           <div className="lg:hidden flex items-center gap-2.5 justify-center mb-4">
-            <Diamond className="h-8 w-8 text-gold" />
-            <span className="text-2xl font-bold">Gestion <span className="gold-text">Bijouterie</span></span>
+            <img src={publicAsset('inventa-icon.svg')} alt="" className="h-10 w-10 rounded-lg" />
+            <span className="text-2xl font-semibold text-[#0A1628] dark:text-white">Inventa</span>
           </div>
 
           <div className="space-y-2 text-center">
             <h2 className="text-2xl font-bold tracking-tight">Connexion</h2>
-            <p className="text-muted-foreground text-sm">Connectez-vous pour gerer votre boutique</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -70,7 +69,12 @@ const LoginPage = () => {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password">Mot de passe</Label>
+              <div className="flex items-center justify-between gap-3">
+                <Label htmlFor="password">Mot de passe</Label>
+                <Link to="/forgot-password" className="text-xs font-semibold text-muted-foreground hover:text-foreground">
+                  Mot de passe oublié ?
+                </Link>
+              </div>
               <Input
                 id="password"
                 type="password"
@@ -102,8 +106,33 @@ const LoginPage = () => {
             </Button>
           </form>
 
+          {import.meta.env.DEV ? (
+            <div className="rounded-xl border bg-muted/30 p-3">
+              <p className="mb-2 text-xs font-bold uppercase tracking-wide text-muted-foreground">Comptes démo locaux</p>
+              <div className="space-y-2">
+                {demoCredentials.map((demo) => (
+                  <button
+                    key={demo.email}
+                    type="button"
+                    onClick={() => {
+                      setIdentifier(demo.email);
+                      setPassword(demo.password);
+                    }}
+                    className="flex w-full items-center justify-between rounded-lg border bg-background px-3 py-2 text-left text-xs hover:border-[#C9972A]"
+                  >
+                    <span className="font-semibold">{demo.company}</span>
+                    <span className="text-muted-foreground">{demo.email}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
           <p className="text-xs text-center text-muted-foreground">
-            Les comptes sont crees par le super admin dans Supabase.
+            Besoin d&apos;un accès ?{' '}
+            <a href={window.location.protocol === 'file:' ? '#' : '/#demande-acces'} className="font-semibold text-foreground underline-offset-4 hover:underline">
+              Envoyer une demande
+            </a>
           </p>
         </div>
       </div>

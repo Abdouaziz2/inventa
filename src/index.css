@@ -107,11 +107,15 @@
   button {
     font: inherit;
   }
+  :focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
+  }
 }
 
 @layer utilities {
   .page-shell {
-    @apply mx-auto w-full max-w-[1600px] space-y-5 sm:space-y-6;
+    @apply mx-auto min-w-0 w-full max-w-[1600px] space-y-5 sm:space-y-6;
   }
   .page-title {
     @apply text-xl font-bold tracking-tight sm:text-2xl;

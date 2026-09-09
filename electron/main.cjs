@@ -2,11 +2,13 @@ const { app, BrowserWindow, Menu, shell } = require("electron");
 const path = require("node:path");
 
 const isDevelopment = !app.isPackaged;
+const developmentUrl = process.env.INVENTA_DESKTOP_DEV_URL || "http://127.0.0.1:5173/login";
+const developmentOrigin = new URL(developmentUrl).origin;
 
 function createMainWindow() {
   const iconPath = isDevelopment
-    ? path.join(__dirname, "..", "public", "favicon.ico")
-    : path.join(__dirname, "..", "dist", "favicon.ico");
+    ? path.join(__dirname, "..", "build", "inventa.ico")
+    : path.join(process.resourcesPath, "inventa.ico");
 
   const window = new BrowserWindow({
     width: 1440,
@@ -35,7 +37,7 @@ function createMainWindow() {
 
   window.webContents.on("will-navigate", (event, url) => {
     const currentUrl = window.webContents.getURL();
-    if (url !== currentUrl && !url.startsWith("file://") && !url.startsWith("http://127.0.0.1:5173")) {
+    if (url !== currentUrl && !url.startsWith("file://") && !url.startsWith(developmentOrigin)) {
       event.preventDefault();
       if (url.startsWith("https://")) {
         void shell.openExternal(url);
@@ -44,14 +46,15 @@ function createMainWindow() {
   });
 
   if (isDevelopment) {
-    void window.loadURL("http://127.0.0.1:5173");
+    void window.loadURL(developmentUrl);
   } else {
-    void window.loadFile(path.join(__dirname, "..", "dist", "index.html"));
+    void window.loadFile(path.join(__dirname, "..", "dist", "index.html"), { hash: "/login" });
   }
 }
 
 app.whenReady().then(() => {
-  app.setAppUserModelId("com.gemsflow.suite");
+  app.setAppUserModelId("com.inventa.app");
+  app.setName("Inventa");
   Menu.setApplicationMenu(null);
   createMainWindow();
 

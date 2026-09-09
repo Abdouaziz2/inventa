@@ -6,19 +6,32 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Loader2, Save, Upload, X, UserCog } from 'lucide-react';
+import { Loader2, Save, Upload, X, UserCog, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 import { getErrorMessage } from '@/lib/errors';
 import { uploadCompanyAsset } from '@/services/storage';
 import { getCurrentProfile } from '@/services/auth';
+import AdaptiveLogo from '@/components/AdaptiveLogo';
+import { usePurgeTestData } from '@/features/transactions';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 const ALLOWED_LOGO_TYPES = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
 const ALLOWED_LOGO_EXTENSIONS = '.png,.jpg,.jpeg,.webp';
 
 const CompanySettingsPage = () => {
   const { data: settings, isLoading } = useProfileSettings();
-  const { user, refreshUser } = useAuth();
+  const { user, refreshUser, isAdmin } = useAuth();
   const updateMutation = useUpdateProfileSettings();
+  const purgeTestData = usePurgeTestData();
 
   const [fullName, setFullName] = useState('');
   const [name, setName] = useState('');
@@ -28,6 +41,8 @@ const CompanySettingsPage = () => {
   const [logoUrl, setLogoUrl] = useState('');
   const [logoValue, setLogoValue] = useState('');
   const [uploading, setUploading] = useState(false);
+  const [showPurgeDialog, setShowPurgeDialog] = useState(false);
+  const [purgeConfirmation, setPurgeConfirmation] = useState('');
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -121,6 +136,18 @@ const CompanySettingsPage = () => {
     }
   };
 
+  const handlePurgeTestData = async () => {
+    try {
+      const counts = await purgeTestData.mutateAsync(purgeConfirmation);
+      const total = Object.values(counts ?? {}).reduce((sum, count) => sum + Number(count ?? 0), 0);
+      toast.success(`${total} élément(s) test supprimé(s)`);
+      setShowPurgeDialog(false);
+      setPurgeConfirmation('');
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error));
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -136,9 +163,6 @@ const CompanySettingsPage = () => {
           <UserCog className="h-6 w-6 text-muted-foreground" />
           Profil de la boutique
         </h1>
-        <p className="text-muted-foreground text-sm mt-1">
-          Ces informations seront affichées dans l'application et sur les factures et reçus
-        </p>
       </div>
 
       <Card>
@@ -150,7 +174,7 @@ const CompanySettingsPage = () => {
             <div className="relative">
               {logoUrl ? (
                 <div className="relative">
-                  <img src={logoUrl} alt="Logo" className="h-20 w-20 rounded-xl object-cover border border-border" />
+                  <AdaptiveLogo src={logoUrl} alt="Logo de la bijouterie" className="h-24 w-24 rounded-xl border border-border shadow-sm" />
                   <button
                     type="button"
                     onClick={() => {
@@ -175,7 +199,6 @@ const CompanySettingsPage = () => {
               <Button type="button" variant="outline" size="sm" onClick={() => fileRef.current?.click()} disabled={uploading} className="w-full sm:w-auto">
                 {uploading ? 'Upload...' : 'Changer le logo'}
               </Button>
-              <p className="text-xs text-muted-foreground mt-1">PNG, JPG, JPEG, WEBP. Max 2MB</p>
             </div>
             <input
               ref={fileRef}
@@ -221,6 +244,64 @@ const CompanySettingsPage = () => {
           </form>
         </CardContent>
       </Card>
+
+      {isAdmin ? (
+        <Card className="border-destructive/25">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base text-destructive">
+              <AlertTriangle className="h-4 w-4" />
+              Nettoyage données test
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Supprime les clients, bijoux, ventes, dépôts, réservations, commandes et mouvements de test de cette
+              boutique. Les utilisateurs, la boutique et l’abonnement restent conservés.
+            </p>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={() => setShowPurgeDialog(true)}
+              disabled={purgeTestData.isPending}
+            >
+              Réinitialiser les données test
+            </Button>
+          </CardContent>
+        </Card>
+      ) : null}
+
+      <AlertDialog open={showPurgeDialog} onOpenChange={(open) => {
+        setShowPurgeDialog(open);
+        if (!open) setPurgeConfirmation('');
+      }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Supprimer les données test ?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Cette action efface les opérations métier de la boutique actuelle. Pour confirmer, tapez SUPPRIMER TEST.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="purge-confirmation">Confirmation</Label>
+            <Input
+              id="purge-confirmation"
+              value={purgeConfirmation}
+              onChange={(event) => setPurgeConfirmation(event.target.value)}
+              placeholder="SUPPRIMER TEST"
+            />
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={purgeConfirmation !== 'SUPPRIMER TEST' || purgeTestData.isPending}
+              onClick={() => void handlePurgeTestData()}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {purgeTestData.isPending ? 'Suppression...' : 'Supprimer'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

@@ -1,47 +1,41 @@
-import { useState, useRef, useEffect } from 'react';
-import { Search, Bell, Menu } from 'lucide-react';
-import { Input } from '@/components/ui/input';
-import { useAuth } from '@/contexts/AuthContext';
-import { useClients } from '@/hooks/useDatabase';
+import { ChevronDown, LogOut, Menu, UserCog } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { formatCFA } from '@/lib/format';
+import { useAuth } from '@/contexts/AuthContext';
+import UniversalSearch from '@/components/UniversalSearch';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 interface AppHeaderProps {
   onMenuClick: () => void;
 }
 
 const AppHeader = ({ onMenuClick }: AppHeaderProps) => {
-  const { user } = useAuth();
+  const { isAdmin, user, logout } = useAuth();
   const navigate = useNavigate();
-  const [query, setQuery] = useState('');
-  const [showResults, setShowResults] = useState(false);
-  const wrapperRef = useRef<HTMLDivElement>(null);
-  const { data: clients = [] } = useClients();
-
-  const results = query.length >= 1 ? clients.filter(c =>
-    c.name.toLowerCase().includes(query.toLowerCase()) ||
-    c.code.includes(query) ||
-    c.phone.replace(/\s/g, '').includes(query.replace(/\s/g, ''))
-  ).slice(0, 6) : [];
-
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
-        setShowResults(false);
-      }
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, []);
-
-  const selectClient = (clientId: string) => {
-    setQuery('');
-    setShowResults(false);
-    navigate(`/clients/${clientId}`);
-  };
+  const initials = user?.fullName
+    ?.split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join('') || '?';
+  const userLabel =
+    user?.role === 'super_admin'
+      ? 'Super Admin'
+      : user?.role === 'vendeur'
+        ? 'Vendeur'
+        : 'Administrateur';
 
   return (
-    <header className="sticky top-0 z-30 flex min-h-16 flex-wrap items-center gap-3 border-b border-border bg-card/95 px-3 py-3 shadow-sm backdrop-blur sm:px-5 lg:flex-nowrap lg:px-6">
+    <header
+      data-testid="app-header"
+      className="relative z-30 flex h-16 min-w-0 shrink-0 items-center gap-3 border-b border-border bg-card/95 px-3 shadow-sm backdrop-blur sm:px-5 lg:px-6"
+    >
       <button
         type="button"
         aria-label="Ouvrir le menu"
@@ -50,52 +44,50 @@ const AppHeader = ({ onMenuClick }: AppHeaderProps) => {
       >
         <Menu className="h-5 w-5" />
       </button>
-      <div ref={wrapperRef} className="relative order-3 min-w-0 flex-[1_0_100%] sm:order-none sm:flex-1 lg:max-w-lg">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground z-10" />
-        <Input
-          placeholder="Rechercher client..."
-          className="pl-9 bg-muted border-0 h-10"
-          value={query}
-          onChange={e => { setQuery(e.target.value); setShowResults(true); }}
-          onFocus={() => query.length >= 1 && setShowResults(true)}
-        />
-        {showResults && results.length > 0 && (
-          <div className="absolute top-full left-0 right-0 mt-1 bg-card border border-border rounded-xl shadow-lg overflow-hidden z-50">
-            {results.map(c => (
-              <button
-                key={c.id}
-                onClick={() => selectClient(c.id)}
-              className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left text-sm transition-colors hover:bg-muted"
-              >
-                <div className="flex min-w-0 items-center gap-3">
-                  <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center text-xs font-bold">{c.name.charAt(0)}</div>
-                  <div className="min-w-0">
-                    <p className="truncate font-medium">{c.name}</p>
-                    <p className="truncate text-xs text-muted-foreground">{c.code} · {c.phone}</p>
-                  </div>
-                </div>
-                <span className="shrink-0 text-xs font-semibold text-success">{formatCFA(c.balance)}</span>
-              </button>
-            ))}
-          </div>
-        )}
-        {showResults && query.length >= 1 && results.length === 0 && (
-          <div className="absolute top-full left-0 right-0 mt-1 bg-card border border-border rounded-xl shadow-lg z-50 p-4 text-center text-sm text-muted-foreground">
-            Aucun client trouvé
-          </div>
-        )}
-      </div>
-      <div className="flex shrink-0 items-center gap-2 sm:gap-3">
-        <button className="relative rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted">
-          <Bell className="h-5 w-5" />
-          <span className="absolute top-1 right-1 h-2 w-2 bg-accent rounded-full" />
-        </button>
-        <div className="hidden h-6 w-px bg-border sm:block" />
-        <div className="hidden text-right leading-tight sm:block">
-          <p className="text-sm font-medium">{user?.fullName}</p>
-          <p className="text-xs text-muted-foreground">{user?.username ?? user?.email}</p>
-        </div>
-      </div>
+      <UniversalSearch />
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button
+            type="button"
+            className="flex shrink-0 items-center gap-2 rounded-xl p-1.5 text-left transition-colors hover:bg-muted"
+            aria-label="Ouvrir le menu utilisateur"
+          >
+            <span className="gold-gradient flex h-9 w-9 items-center justify-center rounded-full text-xs font-bold text-primary">
+              {initials}
+            </span>
+            <span className="hidden max-w-40 leading-tight md:block">
+              <span className="block truncate text-sm font-semibold">{user?.fullName}</span>
+              <span className="block truncate text-xs text-muted-foreground">{userLabel}</span>
+            </span>
+            <ChevronDown className="hidden h-4 w-4 text-muted-foreground sm:block" />
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-64 p-2">
+          <DropdownMenuLabel className="px-2 py-2">
+            <span className="block truncate text-sm">{user?.fullName}</span>
+            <span className="mt-0.5 block truncate text-xs font-normal text-muted-foreground">
+              {user?.username ?? user?.email}
+            </span>
+          </DropdownMenuLabel>
+          <DropdownMenuSeparator />
+          {isAdmin ? (
+            <>
+              <DropdownMenuItem className="min-h-10 cursor-pointer" onSelect={() => navigate('/profile')}>
+                <UserCog className="mr-2 h-4 w-4" />
+                Profil de la boutique
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+            </>
+          ) : null}
+          <DropdownMenuItem
+            className="min-h-10 cursor-pointer text-destructive focus:text-destructive"
+            onSelect={() => void logout()}
+          >
+            <LogOut className="mr-2 h-4 w-4" />
+            Se déconnecter
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
     </header>
   );
 };

@@ -7,14 +7,12 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 import {
-  calculateSalePrice,
   jewelryMaterialOptions,
   useAddJewelry,
   type JewelryCategory,
   type JewelryMaterial,
 } from '@/features/jewelry';
 import { useAuth } from '@/contexts/AuthContext';
-import { formatCFA } from '@/lib/format';
 import { getErrorMessage } from '@/lib/errors';
 import { uploadJewelryImage } from '@/services/storage';
 import { getCurrentProfile } from '@/services/auth';
@@ -31,9 +29,6 @@ const AddJewelryPage = () => {
     materialType: 'gold_18k',
     category: 'other',
     quantity: '1',
-    weight: '',
-    pricePerGram: '',
-    purchasePrice: '',
     photo: '',
   });
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
@@ -71,24 +66,24 @@ const AddJewelryPage = () => {
     e.preventDefault();
 
     try {
-      const quantity = Math.max(0, Number(form.quantity || 0));
+      const quantity = Math.max(0, Math.floor(Number(form.quantity || 0)));
 
       await addJewelry.mutateAsync({
         code: createJewelryCode(),
         material_type: form.materialType as JewelryMaterial,
         name: form.name.trim(),
         quantity,
-        weight: Number(form.weight || 0),
-        price_per_gram: Number(form.pricePerGram || 0),
-        purchase_price: Number(form.purchasePrice || 0),
-        sale_price: calculateSalePrice(form.weight, form.pricePerGram),
+        weight: 0,
+        price_per_gram: 0,
+        purchase_price: 0,
+        sale_price: 0,
         category: form.category as JewelryCategory,
         status: quantity > 0 ? 'available' : 'out_of_stock',
         photo: form.photo || null,
       });
 
       toast.success('Bijou ajoute avec succes');
-      navigate('/jewelry');
+      navigate('/products');
     } catch (error: unknown) {
       toast.error(getErrorMessage(error));
     }
@@ -97,7 +92,7 @@ const AddJewelryPage = () => {
   return (
     <div className="mx-auto max-w-3xl space-y-6 animate-fade-in">
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="sm" onClick={() => navigate('/jewelry')}>
+        <Button variant="ghost" size="sm" onClick={() => navigate('/products')}>
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <div className="min-w-0">
@@ -151,70 +146,15 @@ const AddJewelryPage = () => {
           </div>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-2">
-          <div className="space-y-2">
-            <Label>Stock</Label>
-            <Input
-              type="number"
-              min="0"
-              value={form.quantity}
-              onChange={(e) => setForm({ ...form, quantity: e.target.value })}
-              required
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label>{form.materialType === 'diamond' ? 'Poids (ct)' : 'Poids (g)'}</Label>
-            <Input
-              type="number"
-              step="0.01"
-              value={form.weight}
-              onChange={(e) => setForm({ ...form, weight: e.target.value })}
-              placeholder={form.materialType === 'diamond' ? '1.25' : '3.50'}
-              required
-            />
-          </div>
-        </div>
-
-        <div className="grid gap-4 md:grid-cols-2">
-          <div className="space-y-2">
-            <Label>Prix d'achat</Label>
-            <Input
-              type="number"
-              min="0"
-              value={form.purchasePrice}
-              onChange={(e) => setForm({ ...form, purchasePrice: e.target.value })}
-              placeholder="600000"
-              required
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label>Prix unitaire / gramme</Label>
-            <Input
-              type="number"
-              min="0"
-              value={form.pricePerGram}
-              onChange={(e) => setForm({ ...form, pricePerGram: e.target.value })}
-              placeholder="75000"
-              required
-            />
-          </div>
-        </div>
-
-        <div className="rounded-xl border bg-muted/20 p-4">
-          <div className="flex items-center justify-between gap-3 text-sm">
-            <span className="text-muted-foreground">Prix total de vente</span>
-            <span className="text-right font-semibold">
-              {formatCFA(calculateSalePrice(form.weight, form.pricePerGram))}
-            </span>
-          </div>
-          <div className="mt-2 flex items-center justify-between gap-3 text-sm">
-            <span className="text-muted-foreground">Marge estimee</span>
-            <span className="font-semibold">
-              {formatCFA(calculateSalePrice(form.weight, form.pricePerGram) - Number(form.purchasePrice || 0))}
-            </span>
-          </div>
+        <div className="space-y-2">
+          <Label>Stock</Label>
+          <Input
+            type="number"
+            min="0"
+            value={form.quantity}
+            onChange={(e) => setForm({ ...form, quantity: e.target.value })}
+            required
+          />
         </div>
 
         <div className="space-y-3">
@@ -243,7 +183,7 @@ const AddJewelryPage = () => {
         </div>
 
         <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-          <Button type="button" variant="outline" onClick={() => navigate('/jewelry')}>
+          <Button type="button" variant="outline" onClick={() => navigate('/products')}>
             Annuler
           </Button>
           <Button

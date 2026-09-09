@@ -1,4 +1,4 @@
-# Gems Flow Suite
+# Inventa
 
 Application de gestion de bijouterie avec :
 - frontend `React + Vite`

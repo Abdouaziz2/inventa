@@ -2,10 +2,17 @@ import { useEffect, useMemo, useState } from 'react';
 import QRCode from 'qrcode';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { CheckCircle2, Download, Printer, X } from 'lucide-react';
+import { CheckCircle2, Download, MessageCircle, Printer, X } from 'lucide-react';
 import { formatCFA } from '@/lib/format';
 import { useProfileSettings } from '@/hooks/useProfileSettings';
 import { getErrorMessage } from '@/lib/errors';
+import AdaptiveLogo from '@/components/AdaptiveLogo';
+import { buildWhatsAppDocumentMessage, buildWhatsAppUrl, normalizeWhatsAppPhone } from '@/lib/whatsapp';
+import { toast } from 'sonner';
+import {
+  buildReceiptVerificationUrl,
+  registerReceiptVerification,
+} from '@/lib/receiptQr';
 
 export type ReceiptLineItem = {
   description: string;
@@ -16,7 +23,7 @@ export type ReceiptLineItem = {
 };
 
 export interface ReceiptData {
-  type: 'deposit' | 'sale' | 'reservation';
+  type: 'deposit' | 'sale' | 'reservation' | 'order' | 'buyback' | 'return';
   invoiceNumber: string;
   clientName: string;
   clientCode: string;
@@ -37,60 +44,90 @@ interface ReceiptModalProps {
 }
 
 const documentLabels: Record<ReceiptData['type'], string> = {
-  deposit: 'Recu de depot',
+  deposit: 'Reçu de dépôt',
   sale: 'Facture de vente',
-  reservation: 'Bon de reservation',
+  reservation: 'Bon de réservation',
+  order: 'Bon de commande',
+  buyback: "Bon d'achat retour",
+  return: 'Bon de remboursement',
 };
 
 const partyLabels: Record<ReceiptData['type'], string> = {
-  deposit: 'Client deposant',
+  deposit: 'Client déposant',
   sale: 'Client acheteur',
-  reservation: 'Client reservataire',
+  reservation: 'Client réservataire',
+  order: 'Client',
+  buyback: 'Client vendeur',
+  return: 'Client remboursé',
 };
 
 const infoPanelTitle: Record<ReceiptData['type'], string> = {
-  deposit: 'Details du depot',
-  sale: 'Details du paiement',
-  reservation: 'Details de la reservation',
+  deposit: 'Détails du dépôt',
+  sale: 'Détails du paiement',
+  reservation: 'Détails de la réservation',
+  order: 'Détails de la commande',
+  buyback: "Détails de l'achat retour",
+  return: 'Détails du remboursement',
 };
 
 const totalPanelTitle: Record<ReceiptData['type'], string> = {
-  deposit: 'Solde et depot',
+  deposit: 'Solde et dépôt',
   sale: 'Totaux de vente',
   reservation: 'Acompte et reste',
+  order: 'Acompte et solde',
+  buyback: 'Montant du retour',
+  return: 'Remboursement',
 };
 
 const footerMessages: Record<ReceiptData['type'], string> = {
   deposit:
-    'Merci. Ce recu confirme le depot effectue sur le compte client et le nouveau solde disponible.',
+    'Merci. Ce reçu confirme le dépôt effectué sur le compte client et le nouveau solde disponible.',
   sale:
-    'Merci pour votre confiance. Cette facture confirme la vente enregistree et peut servir de justificatif client.',
+    'Merci pour votre confiance. Cette facture confirme la vente enregistrée et peut servir de justificatif client.',
   reservation:
-    'Merci. Ce bon confirme la reservation du bijou avec acompte et le montant restant a regler.',
+    'Merci. Ce bon confirme la réservation du bijou avec acompte et le montant restant à régler.',
+  order:
+    'Merci. Ce bon confirme la commande demandée, le prix estimé, la date prévue et le montant restant à régler.',
+  buyback:
+    "Ce bon confirme l'achat retour et la sortie d'argent correspondante.",
+  return:
+    'Ce bon confirme le retour de la vente, le remboursement convenu et la remise des articles en stock.',
 };
 
 const qrLabels: Record<ReceiptData['type'], string> = {
-  deposit: 'Verification depot',
-  sale: 'Verification facture',
-  reservation: 'Verification reservation',
+  deposit: 'Consulter le dépôt',
+  sale: 'Consulter la facture',
+  reservation: 'Consulter la réservation',
+  order: 'Consulter la commande',
+  buyback: "Consulter l'achat retour",
+  return: 'Consulter le remboursement',
 };
 
 const priceColumnLabels: Record<ReceiptData['type'], string> = {
   deposit: 'Prix unitaire',
   sale: 'Prix unitaire',
   reservation: 'Prix / g',
+  order: 'Prix unitaire',
+  buyback: 'Montant du retour',
+  return: 'Prix unitaire',
 };
 
 const amountLabels: Record<ReceiptData['type'], string> = {
-  deposit: 'Montant du depot',
+  deposit: 'Montant du dépôt',
   sale: 'Total facture',
-  reservation: 'Acompte verse',
+  reservation: 'Acompte versé',
+  order: 'Acompte versé',
+  buyback: 'Montant payé',
+  return: 'Montant remboursé',
 };
 
 const summaryPrimaryLabels: Record<ReceiptData['type'], string> = {
-  deposit: 'Montant credite',
-  sale: 'Total a payer',
+  deposit: 'Montant crédité',
+  sale: 'Total à payer',
   reservation: 'Montant du bijou',
+  order: 'Montant estimé',
+  buyback: 'Montant du retour',
+  return: 'Montant du retour',
 };
 
 const getDetailValue = (data: ReceiptData, label: string) =>
@@ -100,10 +137,11 @@ const getVisibleDetails = (data: ReceiptData) => {
   const duplicatedSaleLabels = new Set([
     'Mode de paiement',
     'Total facture',
-    'Paye via solde',
-    'Montant encaisse',
-    'Montant total paye',
-    'Reste a payer',
+    'Payé via solde',
+    'Montant remis',
+    'Montant encaissé',
+    'Montant total payé',
+    'Reste à payer',
     'Monnaie rendue',
   ]);
 
@@ -116,7 +154,7 @@ const getSummaryRows = (data: ReceiptData, subtotal: number, taxAmount: number, 
   if (data.type === 'deposit') {
     return [
       { label: 'Ancien solde', value: getDetailValue(data, 'Ancien solde') ?? formatCFA(0) },
-      { label: 'Depot effectue', value: getDetailValue(data, 'Montant depose') ?? formatCFA(data.amount) },
+      { label: 'Dépôt effectué', value: getDetailValue(data, 'Montant déposé') ?? formatCFA(data.amount) },
       {
         label: summaryPrimaryLabels.deposit,
         value: getDetailValue(data, 'Nouveau solde') ?? formatCFA(totalWithTax),
@@ -127,13 +165,32 @@ const getSummaryRows = (data: ReceiptData, subtotal: number, taxAmount: number, 
 
   if (data.type === 'reservation') {
     return [
-      { label: summaryPrimaryLabels.reservation, value: getDetailValue(data, 'Prix total bijou') ?? formatCFA(subtotal) },
-      { label: 'Acompte verse', value: getDetailValue(data, 'Acompte verse') ?? formatCFA(data.amount) },
+      { label: summaryPrimaryLabels.reservation, value: 'À définir lors de la vente' },
+      { label: 'Acompte versé', value: getDetailValue(data, 'Acompte versé') ?? formatCFA(data.amount) },
       {
-        label: 'Reste a payer',
-        value: getDetailValue(data, 'Reste a payer') ?? formatCFA(Math.max(subtotal - data.amount, 0)),
+        label: 'Reste à payer',
+        value: getDetailValue(data, 'Reste à payer') ?? formatCFA(Math.max(subtotal - data.amount, 0)),
         accent: true,
       },
+    ];
+  }
+
+  if (data.type === 'order') {
+    return [
+      { label: summaryPrimaryLabels.order, value: getDetailValue(data, 'Montant estimé') ?? formatCFA(subtotal) },
+      { label: 'Acompte versé', value: getDetailValue(data, 'Acompte versé') ?? formatCFA(data.amount) },
+      {
+        label: 'Reste à payer',
+        value: getDetailValue(data, 'Reste à payer') ?? formatCFA(Math.max(subtotal - data.amount, 0)),
+        accent: true,
+      },
+    ];
+  }
+
+  if (data.type === 'buyback' || data.type === 'return') {
+    return [
+      { label: summaryPrimaryLabels[data.type], value: formatCFA(totalWithTax) },
+      { label: amountLabels[data.type], value: formatCFA(data.amount), accent: true },
     ];
   }
 
@@ -143,20 +200,22 @@ const getSummaryRows = (data: ReceiptData, subtotal: number, taxAmount: number, 
     { label: summaryPrimaryLabels.sale, value: formatCFA(totalWithTax), accent: true },
   ];
 
-  const balanceUsed = getDetailValue(data, 'Paye via solde');
-  const paidAmount = getDetailValue(data, 'Montant encaisse');
-  const remainingAmount = getDetailValue(data, 'Reste a payer');
+  const balanceUsed = getDetailValue(data, 'Payé via solde');
+  const amountReceived = getDetailValue(data, 'Montant remis');
+  const paidAmount = getDetailValue(data, 'Montant encaissé');
+  const remainingAmount = getDetailValue(data, 'Reste à payer');
   const changeAmount = getDetailValue(data, 'Monnaie rendue');
 
   if (balanceUsed && balanceUsed !== formatCFA(0)) {
-    rows.splice(rows.length - 1, 0, { label: 'Paye via solde', value: balanceUsed });
+    rows.splice(rows.length - 1, 0, { label: 'Payé via solde', value: balanceUsed });
   }
-  if (paidAmount) rows.splice(rows.length - 1, 0, { label: 'Montant encaisse', value: paidAmount });
+  if (amountReceived) rows.splice(rows.length - 1, 0, { label: 'Montant remis', value: amountReceived });
+  if (paidAmount) rows.splice(rows.length - 1, 0, { label: 'Montant encaissé', value: paidAmount });
   if (changeAmount && changeAmount !== formatCFA(0)) {
     rows.splice(rows.length - 1, 0, { label: 'Monnaie rendue', value: changeAmount });
   }
   if (remainingAmount && remainingAmount !== formatCFA(0)) {
-    rows.push({ label: 'Reste a payer', value: remainingAmount });
+    rows.push({ label: 'Reste à payer', value: remainingAmount });
   }
 
   return rows;
@@ -227,16 +286,17 @@ const buildPrintStyles = () => `
     flex: 1 1 48%;
   }
   .brand-logo {
-    width: 54px;
-    height: 54px;
+    width: 46px;
+    height: 46px;
     border: 1px solid var(--line);
-    border-radius: 14px;
-    object-fit: cover;
+    border-radius: 10px;
+    object-fit: contain;
+    padding: 2px;
     background: white;
   }
   .brand-name {
     font-family: "Georgia", "Times New Roman", serif;
-    font-size: 23px;
+    font-size: 20px;
     line-height: 1.15;
     font-weight: 700;
     overflow-wrap: anywhere;
@@ -269,9 +329,10 @@ const buildPrintStyles = () => `
   }
   .doc-badge-number {
     margin-top: 5px;
-    font-family: "Georgia", "Times New Roman", serif;
-    font-size: 20px;
-    font-weight: 700;
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    color: #374151;
     overflow-wrap: anywhere;
   }
   .doc-badge-date {
@@ -337,8 +398,8 @@ const buildPrintStyles = () => `
     table-layout: fixed;
   }
   thead th {
-    background: var(--soft);
-    color: #374151;
+    background: linear-gradient(135deg, #a9780c, #d6aa37);
+    color: white;
     font-family: Arial, Helvetica, sans-serif;
     font-size: 11px;
     letter-spacing: 0.8px;
@@ -363,12 +424,39 @@ const buildPrintStyles = () => `
     font-variant-numeric: tabular-nums;
   }
   .summary-wrap {
-    display: flex;
-    justify-content: flex-end;
+    display: block;
   }
   .summary-card {
-    width: 88mm;
-    background: linear-gradient(180deg, #fffdf7 0%, #ffffff 100%);
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0;
+    padding: 0;
+    overflow: hidden;
+    border-color: #e5d9bf;
+    background: white;
+  }
+  .summary-heading {
+    display: flex;
+    min-height: 92px;
+    flex-direction: column;
+    justify-content: center;
+    padding: 16px 18px;
+    background: linear-gradient(135deg, #a9780c, #e0b84f);
+    color: white;
+  }
+  .summary-heading-label {
+    font-size: 14px;
+    font-weight: 700;
+    text-transform: uppercase;
+  }
+  .summary-heading-value {
+    margin-top: 8px;
+    font-size: 25px;
+    font-weight: 800;
+  }
+  .summary-lines {
+    padding: 12px 16px;
   }
   .summary-total {
     margin-top: 6px;
@@ -379,7 +467,7 @@ const buildPrintStyles = () => `
   }
   .footer-grid {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 94px;
+    grid-template-columns: minmax(0, 1fr) 94px 108px;
     gap: 10px;
     align-items: end;
   }
@@ -413,6 +501,24 @@ const buildPrintStyles = () => `
     letter-spacing: 0.6px;
     text-transform: uppercase;
   }
+  .signature-wrap {
+    min-height: 112px;
+    border: 1px solid #e5d9bf;
+    border-radius: 14px;
+    padding: 10px 8px;
+    text-align: center;
+    background: white;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+  }
+  .signature-mark {
+    margin: auto 0;
+    color: var(--accent);
+    font-family: "Georgia", "Times New Roman", serif;
+    font-size: 24px;
+    font-style: italic;
+  }
   .note {
     margin-top: 10px;
     font-family: Arial, Helvetica, sans-serif;
@@ -431,6 +537,10 @@ const buildPrintStyles = () => `
     break-inside: avoid;
     page-break-inside: avoid;
   }
+  .signature-wrap {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
   @page { size: A4 portrait; margin: 0; }
   @media print {
     body { background: white; padding: 0; }
@@ -442,7 +552,7 @@ const buildPrintStyles = () => `
       padding: 12mm;
     }
   }
-  @media screen and (max-width: 760px) {
+  @media screen and (max-width: 48rem) {
     body { padding: 10px; }
     .sheet { width: 100%; min-height: auto; padding: 18px; }
     .topbar,
@@ -464,10 +574,12 @@ const buildPrintStyles = () => `
     }
     .meta-card,
     .summary-card,
-    .qr-wrap {
+    .qr-wrap,
+    .signature-wrap {
       margin-top: 12px;
       width: 100%;
     }
+    .summary-card { display: block; }
     table,
     thead,
     tbody,
@@ -586,7 +698,7 @@ const buildInvoiceHtml = ({
                   <span class="kv-value">${sanitizeHtml(data.clientCode)}</span>
                 </div>
                 <div class="kv">
-                  <span class="kv-label">Telephone</span>
+                  <span class="kv-label">Téléphone</span>
                   <span class="kv-value">${sanitizeHtml(data.clientPhone || 'Non renseigne')}</span>
                 </div>
               </div>
@@ -629,17 +741,22 @@ const buildInvoiceHtml = ({
 
             <div class="summary-wrap">
               <div class="summary-card">
-                <div class="card-title">${sanitizeHtml(totalTitle)}</div>
-                ${summaryRows
-                  .map(
-                    (row) => `
-                      <div class="summary-line ${row.accent ? 'summary-total' : ''}">
-                        <span class="summary-label">${sanitizeHtml(row.label)}</span>
-                        <span class="summary-value">${sanitizeHtml(row.value)}</span>
-                      </div>
-                    `,
-                  )
-                  .join('')}
+                <div class="summary-heading">
+                  <span class="summary-heading-label">${sanitizeHtml(summaryPrimaryLabels[data.type])}</span>
+                  <span class="summary-heading-value">${formatCFA(grandTotal)}</span>
+                </div>
+                <div class="summary-lines">
+                  ${summaryRows
+                    .map(
+                      (row) => `
+                        <div class="summary-line ${row.accent ? 'summary-total' : ''}">
+                          <span class="summary-label">${sanitizeHtml(row.label)}</span>
+                          <span class="summary-value">${sanitizeHtml(row.value)}</span>
+                        </div>
+                      `,
+                    )
+                    .join('')}
+                </div>
               </div>
             </div>
 
@@ -653,6 +770,10 @@ const buildInvoiceHtml = ({
               <div class="qr-wrap">
                 <img src="${qrCodeUrl}" alt="${sanitizeHtml(qrLabel)}" />
                 <div class="qr-label">${sanitizeHtml(qrLabel)}</div>
+              </div>
+              <div class="signature-wrap">
+                <div class="signature-mark">Signature</div>
+                <div class="qr-label">Signature</div>
               </div>
             </div>
           </div>
@@ -675,28 +796,22 @@ const ReceiptModal = ({ open, onClose, data }: ReceiptModalProps) => {
 
   useEffect(() => {
     let active = true;
-    const payload = data
-      ? JSON.stringify({
-          invoiceNumber: data.invoiceNumber,
-          type: data.type,
-          client: data.clientName,
-          amount: data.amount,
-          date: data.date,
-        })
-      : '';
-
-    if (!payload) {
+    if (!data) {
       setQrCodeUrl('');
       return () => {
         active = false;
       };
     }
 
-    QRCode.toDataURL(payload, {
-      margin: 1,
-      width: 144,
-      color: { dark: '#111827', light: '#ffffff' },
-    })
+    registerReceiptVerification(data.type, data.invoiceNumber)
+      .then((token) =>
+        QRCode.toDataURL(buildReceiptVerificationUrl(token), {
+          margin: 1,
+          width: 180,
+          errorCorrectionLevel: 'M',
+          color: { dark: '#111827', light: '#ffffff' },
+        }),
+      )
       .then((url) => {
         if (active) setQrCodeUrl(url);
       })
@@ -726,6 +841,7 @@ const ReceiptModal = ({ open, onClose, data }: ReceiptModalProps) => {
   const qrLabel = qrLabels[data.type];
   const summaryRows = getSummaryRows(data, subtotal, taxAmount, totalWithTax);
   const visibleDetails = getVisibleDetails(data);
+  const whatsappPhone = normalizeWhatsAppPhone(data.clientPhone ?? '');
 
   const openReceiptWindow = (autoPrint: boolean) => {
     const popup = window.open('', '_blank', 'width=1200,height=900');
@@ -762,12 +878,36 @@ const ReceiptModal = ({ open, onClose, data }: ReceiptModalProps) => {
     popup.focus();
   };
 
+  const shareOnWhatsApp = () => {
+    const message = buildWhatsAppDocumentMessage({
+      businessName,
+      clientName: data.clientName,
+      documentLabel,
+      documentNumber: data.invoiceNumber,
+      date: formatDateTime(data.date),
+      amountLabel: amountLabels[data.type],
+      amount: formatCFA(data.amount),
+      paymentMethod: data.paymentMethod,
+      items: data.items,
+    });
+    const whatsappUrl = buildWhatsAppUrl(data.clientPhone ?? '', message);
+
+    if (!whatsappUrl) {
+      toast.error("Le numéro WhatsApp du client n'est pas renseigné ou n'est pas valide.");
+      return;
+    }
+
+    window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
+  };
+
   const previewScaleClass =
-    data.items.length > 2 ? 'scale-[0.64] md:scale-[0.72]' : 'scale-[0.7] md:scale-[0.78]';
+    data.items.length > 2
+      ? 'scale-[0.58] lg:scale-[0.68] xl:scale-[0.78] 2xl:scale-100'
+      : 'scale-[0.62] lg:scale-[0.72] xl:scale-[0.82] 2xl:scale-100';
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-6xl">
+      <DialogContent className="max-w-[calc(100vw-1rem)] xl:max-w-6xl">
         <DialogHeader>
           <div className="flex items-center gap-3">
             <div className="rounded-full bg-emerald-500/10 p-2">
@@ -782,15 +922,15 @@ const ReceiptModal = ({ open, onClose, data }: ReceiptModalProps) => {
           </div>
         </DialogHeader>
 
-        <div className="max-h-[72vh] overflow-auto rounded-2xl border bg-slate-100 p-3 sm:p-4">
+        <div className="max-h-[72dvh] overflow-auto rounded-2xl border bg-slate-100 p-3 sm:p-4">
           <div className="rounded-2xl bg-white p-4 shadow-sm md:hidden">
             <div className="border-b-2 border-[#b88917] pb-4">
               <div className="flex items-start gap-3">
                 {businessLogo ? (
-                  <img src={businessLogo} alt={businessName} className="h-12 w-12 rounded-xl border object-cover" />
+                  <AdaptiveLogo src={businessLogo} alt={businessName} className="h-12 w-12 shrink-0 rounded-lg border" />
                 ) : null}
                 <div className="min-w-0">
-                  <p className="truncate text-xl font-bold text-slate-900">{businessName}</p>
+                  <p className="truncate text-lg font-bold text-slate-900">{businessName}</p>
                 <p className="mt-1 text-xs uppercase tracking-[0.16em] text-[#b88917]">{documentLabel}</p>
                   <p className="mt-1 overflow-x-auto whitespace-nowrap font-mono text-sm font-semibold text-slate-700">
                     {data.invoiceNumber}
@@ -859,20 +999,20 @@ const ReceiptModal = ({ open, onClose, data }: ReceiptModalProps) => {
             ) : null}
           </div>
 
-          <div className={`mx-auto hidden origin-top md:block ${previewScaleClass}`} style={{ width: '210mm' }}>
+          <div className={`mx-auto hidden w-[210mm] max-w-none origin-top md:block ${previewScaleClass}`}>
             <div className="min-h-[297mm] bg-white p-[18mm_16mm] shadow-[0_16px_40px_rgba(15,23,42,0.12)]">
               <div className="flex flex-col gap-[18px] text-slate-800">
                 <div className="flex items-start justify-between gap-6 border-b-2 border-[#b88917] pb-4">
                   <div className="flex items-start gap-4">
                     {businessLogo ? (
-                      <img
+                      <AdaptiveLogo
                         src={businessLogo}
                         alt={businessName}
-                        className="h-[68px] w-[68px] rounded-[14px] border object-cover"
+                        className="h-[58px] w-[58px] shrink-0 rounded-[10px] border"
                       />
                     ) : null}
                     <div>
-                      <p className="text-[29px] font-bold leading-none">{businessName}</p>
+                      <p className="max-w-[330px] text-[22px] font-bold leading-tight">{businessName}</p>
                       <div className="mt-2 space-y-1 text-xs leading-relaxed text-slate-500">
                         {brandMeta.map((line) => (
                           <p key={line}>{line}</p>
@@ -885,7 +1025,7 @@ const ReceiptModal = ({ open, onClose, data }: ReceiptModalProps) => {
                     <p className="font-sans text-[13px] font-bold uppercase tracking-[0.24em] text-[#b88917]">
                       {documentLabel}
                     </p>
-                    <p className="mt-2 overflow-hidden whitespace-nowrap text-[28px] font-bold text-ellipsis">
+                    <p className="mt-2 overflow-hidden whitespace-nowrap font-sans text-[13px] font-semibold text-slate-700 text-ellipsis">
                       {data.invoiceNumber}
                     </p>
                     <p className="mt-1 font-sans text-xs text-slate-500">
@@ -906,7 +1046,7 @@ const ReceiptModal = ({ open, onClose, data }: ReceiptModalProps) => {
                         <span className="font-semibold">{data.clientCode}</span>
                       </div>
                       <div className="flex justify-between gap-3">
-                        <span className="text-slate-500">Telephone</span>
+                        <span className="text-slate-500">Téléphone</span>
                         <span className="font-semibold">{data.clientPhone || 'Non renseigne'}</span>
                       </div>
                     </div>
@@ -941,10 +1081,10 @@ const ReceiptModal = ({ open, onClose, data }: ReceiptModalProps) => {
                   </div>
                 </div>
 
-                <div className="overflow-hidden rounded-2xl border">
+                <div className="overflow-hidden rounded-2xl border border-[#e5d9bf]">
                   <table className="w-full border-collapse">
-                    <thead className="bg-slate-50">
-                      <tr className="font-sans text-[11px] uppercase tracking-[0.08em] text-slate-700">
+                    <thead className="bg-[linear-gradient(135deg,#a9780c,#d6aa37)]">
+                      <tr className="font-sans text-[11px] uppercase tracking-[0.08em] text-white">
                         <th className="px-4 py-3 text-left">#</th>
                         <th className="px-4 py-3 text-left">Article</th>
                         <th className="px-4 py-3 text-right">Poids</th>
@@ -970,9 +1110,13 @@ const ReceiptModal = ({ open, onClose, data }: ReceiptModalProps) => {
                   </table>
                 </div>
 
-                <div className="flex justify-end">
-                  <div className="w-[92mm] rounded-[14px] border bg-[linear-gradient(180deg,#fffdf7_0%,#ffffff_100%)] p-4">
-                    <p className="font-sans text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+                <div className="grid grid-cols-2 overflow-hidden rounded-[14px] border border-[#e5d9bf]">
+                  <div className="flex min-h-[112px] flex-col justify-center bg-[linear-gradient(135deg,#a9780c,#e0b84f)] p-5 text-white">
+                    <p className="font-sans text-sm font-bold uppercase">{summaryPrimaryLabels[data.type]}</p>
+                    <p className="mt-2 font-sans text-[28px] font-extrabold">{formatCFA(totalWithTax)}</p>
+                  </div>
+                  <div className="p-4">
+                    <p className="font-sans text-[11px] font-bold uppercase tracking-[0.18em] text-[#8d6814]">
                       {totalTitle}
                     </p>
                     <div className="mt-2 space-y-2 font-sans text-[13px]">
@@ -989,7 +1133,7 @@ const ReceiptModal = ({ open, onClose, data }: ReceiptModalProps) => {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-[1fr_120px] items-end gap-4">
+                <div className="grid grid-cols-[1fr_120px_135px] items-stretch gap-4">
                   <div>
                     <div className="rounded-[14px] border bg-[rgba(184,137,23,0.12)] p-4 font-sans text-[13px] leading-relaxed text-slate-600">
                       {footerMessage}
@@ -1013,13 +1157,26 @@ const ReceiptModal = ({ open, onClose, data }: ReceiptModalProps) => {
                       {qrLabel}
                     </p>
                   </div>
+                  <div className="flex min-h-[132px] flex-col justify-end rounded-[14px] border border-[#e5d9bf] bg-white p-3 text-center">
+                    <p className="my-auto font-display text-2xl italic text-[#b88917]">Signature</p>
+                    <p className="font-sans text-[10px] uppercase tracking-[0.06em] text-slate-500">Signature</p>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
         </div>
 
-        <DialogFooter className="gap-2 sm:gap-2">
+        <DialogFooter className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:flex lg:gap-2">
+          <Button
+            type="button"
+            onClick={shareOnWhatsApp}
+            disabled={!whatsappPhone}
+            className="flex-1 bg-[#25D366] text-white hover:bg-[#20bd5a] disabled:bg-muted disabled:text-muted-foreground"
+            title={whatsappPhone ? `Envoyer au ${data.clientPhone}` : 'Numéro client non renseigné'}
+          >
+            <MessageCircle className="mr-2 h-4 w-4" /> WhatsApp
+          </Button>
           <Button variant="outline" onClick={() => openReceiptWindow(false)} className="flex-1">
             <Download className="mr-2 h-4 w-4" /> Ouvrir version PDF
           </Button>

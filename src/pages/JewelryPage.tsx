@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import {
   ArrowUpDown,
   CirclePlus,
@@ -9,7 +9,6 @@ import {
   Package2,
   PencilLine,
   Search,
-  TriangleAlert,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -43,15 +42,11 @@ import {
 } from '@/components/ui/pagination';
 import StatusBadge from '@/components/StatusBadge';
 import { useAuth } from '@/contexts/AuthContext';
-import { formatCFA } from '@/lib/format';
+import { EmptyState, ListSkeleton, QueryErrorState } from '@/components/DataState';
 import { getErrorMessage } from '@/lib/errors';
 import { uploadJewelryImage } from '@/services/storage';
 import {
   filterJewelry,
-  calculateSalePrice,
-  formatJewelryMaterial,
-  getJewelryTotalPrice,
-  jewelryMaterialOptions,
   jewelrySortOptions,
   jewelryStatusOptions,
   sortJewelry,
@@ -64,6 +59,9 @@ import {
   type JewelryStatus,
   type JewelryStatusFilter,
 } from '@/features/jewelry';
+import { useBusiness } from '@/hooks/useBusiness';
+import { formatBusinessAttribute } from '@/lib/business';
+import { formatCFA } from '@/lib/format';
 
 const PAGE_SIZE = 10;
 
@@ -73,18 +71,16 @@ const emptyEditor = {
   material_type: 'gold_18k',
   name: '',
   quantity: '0',
-  weight: '0',
   category: 'other',
-  purchase_price: '0',
-  sale_price: '0',
-  price_per_gram: '0',
   status: 'available',
   photo: '',
 };
 
 const JewelryPage = () => {
-  const { user } = useAuth();
-  const [search, setSearch] = useState('');
+  const [searchParams] = useSearchParams();
+  const { isAdmin, user } = useAuth();
+  const { type: businessType, config } = useBusiness();
+  const [search, setSearch] = useState(() => searchParams.get('search') ?? '');
   const [statusFilter, setStatusFilter] = useState<JewelryStatusFilter>('all');
   const [sortKey, setSortKey] = useState<JewelrySortKey>('recent');
   const [page, setPage] = useState(1);
@@ -97,7 +93,7 @@ const JewelryPage = () => {
     reason: string;
   } | null>(null);
 
-  const { data: jewelry = [], isLoading } = useJewelry();
+  const { data: jewelry = [], isLoading, isError, refetch } = useJewelry();
   const updateJewelry = useUpdateJewelry();
   const updateJewelryStatus = useUpdateJewelryStatus();
   const adjustJewelryStock = useAdjustJewelryStock();
@@ -117,6 +113,11 @@ const JewelryPage = () => {
   }, [search, sortKey, statusFilter]);
 
   useEffect(() => {
+    const requestedSearch = searchParams.get('search');
+    if (requestedSearch !== null) setSearch(requestedSearch);
+  }, [searchParams]);
+
+  useEffect(() => {
     if (page > totalPages) setPage(totalPages);
   }, [page, totalPages]);
 
@@ -131,11 +132,7 @@ const JewelryPage = () => {
       material_type: item.material_type,
       name: item.name,
       quantity: String(item.quantity),
-      weight: String(item.weight),
       category: item.category,
-      purchase_price: String(item.purchase_price),
-      sale_price: String(item.sale_price),
-      price_per_gram: String(item.price_per_gram),
       status: item.status,
       photo: item.photo || '',
     });
@@ -144,7 +141,7 @@ const JewelryPage = () => {
   const handleQuickStatus = async (item: Jewelry, status: JewelryStatus, quantity = item.quantity) => {
     try {
       await updateJewelryStatus.mutateAsync({ id: item.id, status, quantity });
-      toast.success('Inventaire mis a jour');
+      toast.success('Inventaire mis à jour');
     } catch (error: unknown) {
       toast.error(getErrorMessage(error));
     }
@@ -186,8 +183,6 @@ const JewelryPage = () => {
   const handleSaveEdit = async () => {
     if (!editing) return;
 
-    const salePrice = calculateSalePrice(editing.weight, editing.price_per_gram);
-
     try {
       await updateJewelry.mutateAsync({
         id: editing.id,
@@ -195,15 +190,15 @@ const JewelryPage = () => {
         material_type: editing.material_type as Jewelry['material_type'],
         name: editing.name.trim(),
         quantity: Math.max(0, Number(editing.quantity || 0)),
-        weight: Number(editing.weight || 0),
+        weight: 0,
         category: editing.category as Jewelry['category'],
-        purchase_price: Number(editing.purchase_price || 0),
-        sale_price: salePrice,
-        price_per_gram: Number(editing.price_per_gram || 0),
+        purchase_price: 0,
+        sale_price: 0,
+        price_per_gram: 0,
         status: editing.status as JewelryStatus,
         photo: editing.photo || null,
       });
-      toast.success('Reference mise a jour');
+      toast.success('Référence mise à jour');
       setEditing(null);
     } catch (error: unknown) {
       toast.error(getErrorMessage(error));
@@ -221,10 +216,15 @@ const JewelryPage = () => {
     setUploadingPhoto(true);
 
     try {
+      if (user?.isDemo) {
+        setEditing((current) => current ? { ...current, photo: URL.createObjectURL(file) } : current);
+        toast.success('Image ajoutée à la démonstration locale');
+        return;
+      }
       if (!user?.companyId) throw new Error('Entreprise introuvable');
       const upload = await uploadJewelryImage(user.companyId, user.id, file);
       setEditing((current) => (current ? { ...current, photo: upload.url } : current));
-      toast.success('Image importee');
+      toast.success('Image importée');
     } catch (error: unknown) {
       toast.error(getErrorMessage(error, "Impossible d'importer l'image."));
     } finally {
@@ -236,24 +236,23 @@ const JewelryPage = () => {
     <div className="page-shell animate-fade-in">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div className="min-w-0">
-          <h1 className="page-title">Inventaire bijoux</h1>
-          <p className="text-sm text-muted-foreground">
-            Vue compacte pour le stock, les ventes et les actions rapides de boutique.
-          </p>
+          <h1 className="page-title">{config.inventoryTitle}</h1>
         </div>
 
         <div className="grid w-full grid-cols-2 gap-3 sm:flex sm:w-auto sm:flex-wrap sm:items-center">
           <div className="rounded-xl border bg-card px-4 py-2 text-sm shadow-sm sm:rounded-2xl">
             <span className="text-muted-foreground">Stock faible</span>
-            <p className="font-semibold">{lowStockCount} references</p>
+            <p className="font-semibold">{lowStockCount} références</p>
           </div>
           <div className="rounded-xl border bg-card px-4 py-2 text-sm shadow-sm sm:rounded-2xl">
-            <span className="text-muted-foreground">Rupture</span>
-            <p className="font-semibold">{outOfStockCount} references</p>
+            <span className="text-muted-foreground">Stock épuisé</span>
+            <p className="font-semibold">{outOfStockCount} références</p>
           </div>
-          <Button asChild className="col-span-2 justify-center gold-gradient text-accent-foreground hover:opacity-90 sm:col-span-1">
-            <Link to="/jewelry/add">+ Ajouter un bijou</Link>
-          </Button>
+          {isAdmin ? (
+            <Button asChild className="col-span-2 justify-center gold-gradient text-accent-foreground hover:opacity-90 sm:col-span-1">
+              <Link to="/products/add">+ Ajouter un {config.itemSingular}</Link>
+            </Button>
+          ) : null}
         </div>
       </div>
 
@@ -298,43 +297,36 @@ const JewelryPage = () => {
       </div>
 
       <div className="overflow-hidden rounded-2xl border bg-card shadow-sm">
-        <div className="hidden items-center gap-4 border-b bg-muted/20 px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground xl:grid xl:grid-cols-[minmax(240px,1.6fr)_110px_90px_110px_130px_120px_60px]">
+        <div className="hidden items-center gap-4 border-b bg-muted/20 px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground xl:grid xl:grid-cols-[minmax(240px,1.6fr)_110px_90px_60px]">
           <div className="flex items-center gap-2">
             <Package2 className="h-4 w-4" />
-            Reference
+            Référence
           </div>
           <div>Statut</div>
           <div className="text-right">Stock</div>
-          <div className="text-right">Poids</div>
-          <div className="text-right">Prix vente</div>
-          <div className="text-right">Prix achat</div>
           <div className="text-right">
             <ArrowUpDown className="ml-auto h-4 w-4" />
           </div>
         </div>
 
         {isLoading ? (
-          <div className="py-10 text-center text-sm text-muted-foreground">Chargement de l'inventaire...</div>
+          <ListSkeleton rows={5} />
+        ) : isError ? (
+          <QueryErrorState onRetry={() => void refetch()} title="Impossible de charger l’inventaire" />
         ) : paginatedJewelry.length === 0 ? (
-          <div className="py-12 text-center">
-            <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-muted">
-              <TriangleAlert className="h-5 w-5 text-muted-foreground" />
-            </div>
-            <p className="font-medium">Aucune reference trouvee</p>
-            <p className="text-sm text-muted-foreground">Essayez un autre filtre ou ajoutez un nouveau bijou.</p>
-          </div>
+          <EmptyState title="Aucune référence trouvée" description={`Essayez un autre filtre ou ajoutez un nouveau ${config.itemSingular}.`} />
         ) : (
           <div className="divide-y">
             {paginatedJewelry.map((item) => (
               <div
                 key={item.id}
-                className="grid gap-3 px-4 py-4 transition-colors hover:bg-muted/30 xl:grid-cols-[minmax(240px,1.6fr)_110px_90px_110px_130px_120px_60px] xl:items-center"
+                className="grid gap-3 px-4 py-4 transition-colors hover:bg-muted/30 xl:grid-cols-[minmax(240px,1.6fr)_110px_90px_60px] xl:items-center"
               >
                 <div className="flex items-center gap-3">
                   {item.photo ? (
                     <img src={item.photo} alt={item.name} className="h-11 w-11 rounded-full object-cover ring-1 ring-border" />
                   ) : (
-                    <div className="flex h-11 w-11 items-center justify-center rounded-full bg-muted text-base">💎</div>
+                    <div className="flex h-11 w-11 items-center justify-center rounded-full bg-muted text-base">{config.itemIcon}</div>
                   )}
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
@@ -343,12 +335,15 @@ const JewelryPage = () => {
                         {item.code}
                       </span>
                       <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] text-amber-700">
-                        {formatJewelryMaterial(item.material_type)}
+                        {formatBusinessAttribute(businessType, item.material_type)}
                       </span>
                     </div>
-                    <p className="truncate text-xs capitalize text-muted-foreground">
-                      {formatJewelryMaterial(item.material_type)} · {item.category} · cree le {new Date(item.created_at).toLocaleDateString('fr-FR')}
-                    </p>
+                    {businessType === 'jewelry' && item.weight > 0 ? (
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {item.weight.toFixed(2)} g · {formatCFA(item.sale_price || item.weight * item.price_per_gram)}
+                        {item.price_per_gram > 0 ? ` · ${formatCFA(item.price_per_gram)}/g` : ''}
+                      </p>
+                    ) : null}
                   </div>
                 </div>
 
@@ -361,25 +356,11 @@ const JewelryPage = () => {
                   <span className={`font-semibold ${item.quantity <= 3 ? 'text-amber-600' : ''}`}>{item.quantity}</span>
                 </div>
 
-                <div className="flex items-center justify-between text-sm xl:block xl:text-right">
-                  <span className="text-xs text-muted-foreground xl:hidden">Poids</span>
-                  <span>{item.weight.toFixed(2)} g</span>
-                </div>
-
-                <div className="flex items-center justify-between text-sm xl:block xl:text-right">
-                  <span className="text-xs text-muted-foreground xl:hidden">Prix vente</span>
-                  <span className="font-semibold">{formatCFA(getJewelryTotalPrice(item))}</span>
-                </div>
-
-                <div className="flex items-center justify-between text-sm xl:block xl:text-right">
-                  <span className="text-xs text-muted-foreground xl:hidden">Prix achat</span>
-                  <span>{formatCFA(item.purchase_price)}</span>
-                </div>
-
                 <div className="flex justify-end">
-                  <DropdownMenu>
+                  {isAdmin ? (
+                    <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon">
+                      <Button variant="ghost" size="icon" aria-label={`Actions pour ${item.name}`}>
                         <MoreHorizontal className="h-4 w-4" />
                       </Button>
                     </DropdownMenuTrigger>
@@ -406,10 +387,11 @@ const JewelryPage = () => {
                         Marquer disponible
                       </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => void handleQuickStatus(item, 'out_of_stock', 0)}>
-                        Marquer en rupture
+                        Marquer épuisé
                       </DropdownMenuItem>
                     </DropdownMenuContent>
-                  </DropdownMenu>
+                    </DropdownMenu>
+                  ) : null}
                 </div>
               </div>
             ))}
@@ -419,7 +401,7 @@ const JewelryPage = () => {
 
       <div className="flex flex-col gap-3 rounded-2xl border bg-card px-4 py-3 shadow-sm md:flex-row md:items-center md:justify-between">
         <p className="text-sm text-muted-foreground">
-          {filteredJewelry.length} references · page {page} sur {totalPages}
+          {filteredJewelry.length} références · page {page} sur {totalPages}
         </p>
 
         <Pagination className="mx-0 w-full justify-start overflow-x-auto md:w-auto md:justify-end">
@@ -477,8 +459,8 @@ const JewelryPage = () => {
       >
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Modifier la reference</DialogTitle>
-            <DialogDescription>Ajustez le stock, les prix ou le statut sans quitter l'inventaire.</DialogDescription>
+            <DialogTitle>Modifier la référence</DialogTitle>
+            <DialogDescription>Ajustez la référence, la quantité ou le statut sans quitter l'inventaire.</DialogDescription>
           </DialogHeader>
 
           {editing ? (
@@ -488,13 +470,13 @@ const JewelryPage = () => {
                 <Input value={editing.code} onChange={(e) => setEditing({ ...editing, code: e.target.value })} />
               </div>
               <div className="space-y-2">
-                <Label>Matiere</Label>
+                <Label>{config.attributeLabel}</Label>
                 <Select value={editing.material_type} onValueChange={(value) => setEditing({ ...editing, material_type: value })}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {jewelryMaterialOptions.map((material) => (
+                    {config.attributes.map((material) => (
                       <SelectItem key={material.key} value={material.key}>
                         {material.label}
                       </SelectItem>
@@ -507,7 +489,7 @@ const JewelryPage = () => {
                 <Input value={editing.name} onChange={(e) => setEditing({ ...editing, name: e.target.value })} />
               </div>
               <div className="space-y-2">
-                <Label>Quantite</Label>
+                <Label>Quantité</Label>
                 <Input
                   type="number"
                   min="0"
@@ -516,27 +498,15 @@ const JewelryPage = () => {
                 />
               </div>
               <div className="space-y-2">
-                <Label>Poids (g)</Label>
-                <Input
-                  type="number"
-                  step="0.01"
-                  value={editing.weight}
-                  onChange={(e) => setEditing({ ...editing, weight: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Categorie</Label>
+                <Label>{config.categoryLabel}</Label>
                 <Select value={editing.category} onValueChange={(value) => setEditing({ ...editing, category: value })}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="rings">Bagues</SelectItem>
-                    <SelectItem value="necklaces">Colliers</SelectItem>
-                    <SelectItem value="bracelets">Bracelets</SelectItem>
-                    <SelectItem value="earrings">Boucles d'oreilles</SelectItem>
-                    <SelectItem value="watches">Montres</SelectItem>
-                    <SelectItem value="other">Autre</SelectItem>
+                    {config.categories.map((category) => (
+                      <SelectItem key={category.key} value={category.key}>{category.label}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -556,32 +526,6 @@ const JewelryPage = () => {
                       ))}
                   </SelectContent>
                 </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Prix achat</Label>
-                <Input
-                  type="number"
-                  min="0"
-                  value={editing.purchase_price}
-                  onChange={(e) => setEditing({ ...editing, purchase_price: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Prix total vente</Label>
-                <Input
-                  value={formatCFA(calculateSalePrice(editing.weight, editing.price_per_gram))}
-                  readOnly
-                  className="bg-muted font-semibold"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Prix unitaire / gramme</Label>
-                <Input
-                  type="number"
-                  min="0"
-                  value={editing.price_per_gram}
-                  onChange={(e) => setEditing({ ...editing, price_per_gram: e.target.value })}
-                />
               </div>
               <div className="space-y-3 sm:col-span-2">
                 <Label>Image</Label>

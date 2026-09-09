@@ -87,6 +87,8 @@ create table if not exists public.companies (
   secondary_phone text default '',
   address text default '',
   logo text,
+  business_type text not null default 'jewelry'
+    check (business_type = 'jewelry'),
   currency_code text not null default 'XOF',
   created_by uuid references auth.users(id) on delete set null,
   created_at timestamptz not null default timezone('utc', now()),
@@ -411,12 +413,14 @@ as $$
 declare
   new_company_id uuid;
   incoming_company_name text;
+  incoming_business_type text;
 begin
   incoming_company_name := nullif(trim(coalesce(new.raw_user_meta_data ->> 'company_name', '')), '');
+  incoming_business_type := 'jewelry';
 
   if incoming_company_name is not null then
-    insert into public.companies (name, created_by)
-    values (incoming_company_name, new.id)
+    insert into public.companies (name, business_type, created_by)
+    values (incoming_company_name, incoming_business_type, new.id)
     returning id into new_company_id;
   end if;
 

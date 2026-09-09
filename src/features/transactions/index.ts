@@ -1,13 +1,17 @@
 export {
   useDeposits,
   useAddDeposit,
+  useCancelDeposit,
+  usePurgeTestData,
   useSales,
   useAddSale,
   useReservations,
   useAddReservation,
   useCancelReservation,
+  useCustomerOrders,
   useWalletTransactions,
   type DepositWithClient,
+  type CustomerOrderWithClient,
   type ReservationWithRelations,
   type SaleWithRelations,
   type WalletTransactionWithClient,
@@ -15,6 +19,9 @@ export {
 
 export {
   buildDepositReceipt,
+  buildCustomerOrderReceipt,
+  buildBuybackReceipt,
+  buildSaleReturnReceipt,
   buildReservationReceipt,
   buildReceiptOperations,
   buildSaleReceipt,

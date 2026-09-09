@@ -14,7 +14,7 @@ const statusLabels = {
   trialing: 'Période d’essai expirée',
   active: 'Abonnement expiré',
   past_due: 'Paiement en attente',
-  suspended: 'Compte suspendu',
+  suspended: 'Compte en attente de validation',
   canceled: 'Abonnement résilié',
 } as const;
 
@@ -33,7 +33,7 @@ const SubscriptionRequiredPage = () => {
           </div>
           <CardTitle>{title}</CardTitle>
           <CardDescription>
-            L’accès à Gems Flow Suite est associé au compte {user?.email}.
+            L’accès à Inventa est associé au compte {user?.email}.
           </CardDescription>
         </CardHeader>
 
@@ -54,7 +54,9 @@ const SubscriptionRequiredPage = () => {
           )}
 
           <p className="text-center text-sm text-muted-foreground">
-            Contactez l’administrateur pour renouveler l’abonnement, puis actualisez votre accès.
+            {status === 'suspended'
+              ? 'Votre demande a bien été reçue. L’administrateur doit encore valider votre accès.'
+              : 'Contactez l’administrateur pour renouveler l’abonnement, puis actualisez votre accès.'}
           </p>
         </CardContent>
 

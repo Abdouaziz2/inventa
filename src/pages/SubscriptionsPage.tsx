@@ -20,7 +20,7 @@ const statusLabels: Record<SubscriptionStatus, string> = {
   trialing: 'Essai',
   active: 'Actif',
   past_due: 'Impayé',
-  suspended: 'Suspendu',
+  suspended: 'En attente',
   canceled: 'Résilié',
 };
 
@@ -64,11 +64,6 @@ const SubscriptionsPage = () => {
     <div className="page-shell animate-fade-in">
       <div>
         <h1 className="page-title">Abonnements</h1>
-        <p className="text-sm text-muted-foreground">
-          {isSuperAdmin
-            ? 'Gérez l’accès à l’application pour chaque adresse e-mail.'
-            : 'Consultez l’état de votre abonnement et sa date de renouvellement.'}
-        </p>
       </div>
 
       {isSuperAdmin && (

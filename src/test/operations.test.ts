@@ -21,19 +21,20 @@ describe("server transaction helpers", () => {
     });
   });
 
-  it("rejects reservation deposits above the jewelry price", () => {
-    expect(() => computeReservationAmounts(100_000, 120_000)).toThrow(
-      "L'acompte ne peut pas dépasser le prix du bijou.",
-    );
+  it("accepts a reservation deposit without requiring a stock price", () => {
+    expect(computeReservationAmounts(0, 120_000)).toEqual({
+      depositAmount: 120_000,
+      remainingAmount: 0,
+    });
   });
 
-  it("rejects selling non-available jewelry", () => {
+  it("allows selling any jewelry while stock remains", () => {
     expect(() =>
       ensureAvailableJewelryForSale({
         quantity: 1,
         status: "reserved",
       }),
-    ).toThrow("Ce bijou ne peut pas être vendu dans son statut actuel.");
+    ).not.toThrow();
   });
 
   it("rejects reserving out of stock jewelry", () => {

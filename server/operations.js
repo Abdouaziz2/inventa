@@ -92,46 +92,30 @@ export function computeSaleAmounts(clientBalance, salePrice) {
 }
 
 export function computeReservationAmounts(salePrice, depositAmount) {
-  const totalPrice = parseAmount(salePrice, 'Prix de vente invalide.', {
-    min: 0,
-    allowZero: false,
-  });
   const normalizedDeposit = parseAmount(
     depositAmount,
     "Le montant de l'acompte doit être supérieur à 0.",
     { min: 0, allowZero: false },
   );
 
-  if (normalizedDeposit > totalPrice) {
-    throw new ValidationError("L'acompte ne peut pas dépasser le prix du bijou.");
-  }
-
   return {
     depositAmount: normalizedDeposit,
-    remainingAmount: Number((totalPrice - normalizedDeposit).toFixed(2)),
+    remainingAmount: 0,
   };
 }
 
 export function ensureAvailableJewelryForSale(jewelry) {
   const quantity = Number(jewelry?.quantity ?? 0);
 
-  if (quantity <= 0 || jewelry?.status === 'out_of_stock') {
+  if (quantity <= 0) {
     throw new ConflictError('Ce bijou est en rupture de stock.');
-  }
-
-  if (jewelry?.status !== 'available') {
-    throw new ConflictError('Ce bijou ne peut pas être vendu dans son statut actuel.');
   }
 }
 
 export function ensureAvailableJewelryForReservation(jewelry) {
   const quantity = Number(jewelry?.quantity ?? 0);
 
-  if (quantity <= 0 || jewelry?.status === 'out_of_stock') {
+  if (quantity <= 0) {
     throw new ConflictError('Ce bijou est indisponible pour une réservation.');
-  }
-
-  if (jewelry?.status !== 'available') {
-    throw new ConflictError("Ce bijou n'est pas disponible pour une réservation.");
   }
 }

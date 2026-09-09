@@ -1,0 +1,1 @@
+SELECT column_name, is_nullable, column_default FROM information_schema.columns WHERE table_name = 'jewelry' AND table_schema = 'public' AND column_name IN ('weight', 'price_per_gram', 'purchase_price', 'sale_price', 'material_type');

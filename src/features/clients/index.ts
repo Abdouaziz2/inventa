@@ -2,6 +2,7 @@ export {
   useClients,
   useClient,
   useAddClient,
+  useUpdateClient,
   useUpdateClientBalance,
   type Client,
 } from '@/hooks/useDatabase';

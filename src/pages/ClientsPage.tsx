@@ -9,13 +9,15 @@ import { useClients, useAddClient, filterClients } from '@/features/clients';
 import { formatCFA } from '@/lib/format';
 import { toast } from 'sonner';
 import { getErrorMessage } from '@/lib/errors';
+import PageHeader from '@/components/PageHeader';
+import { EmptyState, ListSkeleton, QueryErrorState } from '@/components/DataState';
 
 const ClientsPage = () => {
   const [search, setSearch] = useState('');
   const [showAdd, setShowAdd] = useState(false);
   const [newName, setNewName] = useState('');
   const [newPhone, setNewPhone] = useState('');
-  const { data: clients = [], isLoading } = useClients();
+  const { data: clients = [], isLoading, isError, refetch } = useClients();
   const addClient = useAddClient();
 
   const filteredClients = filterClients(clients, search);
@@ -35,15 +37,15 @@ const ClientsPage = () => {
 
   return (
     <div className="page-shell animate-fade-in">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="min-w-0">
-          <h1 className="page-title">Clients</h1>
-          <p className="text-muted-foreground text-sm">{clients.length} clients enregistrés</p>
-        </div>
-        <Button size="sm" className="w-full justify-center gold-gradient text-accent-foreground hover:opacity-90 sm:w-auto" onClick={() => setShowAdd(true)}>
-          <Plus className="h-4 w-4 mr-1" /> Nouveau Client
-        </Button>
-      </div>
+      <PageHeader
+        title="Clients"
+        description={`${clients.length} client(s) enregistré(s)`}
+        actions={
+          <Button className="w-full justify-center gold-gradient text-accent-foreground hover:opacity-90 sm:w-auto" onClick={() => setShowAdd(true)}>
+            <Plus className="mr-1 h-4 w-4" /> Nouveau client
+          </Button>
+        }
+      />
 
       <div className="relative w-full sm:max-w-sm">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -52,9 +54,14 @@ const ClientsPage = () => {
 
       <div className="overflow-hidden rounded-xl bg-card card-shadow">
         {isLoading ? (
-          <div className="p-8 text-center text-muted-foreground">Chargement...</div>
+          <ListSkeleton rows={5} />
+        ) : isError ? (
+          <QueryErrorState onRetry={() => void refetch()} title="Impossible de charger les clients" />
         ) : filteredClients.length === 0 ? (
-          <div className="px-5 py-8 text-center text-sm text-muted-foreground">Aucun client trouvé</div>
+          <EmptyState
+            title="Aucun client trouvé"
+            description={search ? 'Essayez un autre nom ou numéro.' : 'Ajoutez votre premier client.'}
+          />
         ) : (
           <>
           <table className="hidden w-full md:table">

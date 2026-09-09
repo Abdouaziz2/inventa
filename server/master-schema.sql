@@ -147,6 +147,7 @@ CREATE TABLE IF NOT EXISTS wallet_transactions (
   operation_type VARCHAR(60) NOT NULL CHECK (
     operation_type IN (
       'deposit_credit',
+      'deposit_cancellation',
       'sale_balance_debit',
       'balance_adjustment_credit',
       'balance_adjustment_debit'

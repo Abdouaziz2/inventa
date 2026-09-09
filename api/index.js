@@ -1,15 +1,15 @@
-import { app } from '../server/index.js';
-import { ensureMigrations } from '../server/db.js';
+export default function handler(request, response) {
+  const path = new URL(request.url, 'https://inventa.bayecode.com').pathname;
 
-export default async function handler(request, response) {
-  if (process.env.RUN_DB_MIGRATIONS_ON_REQUEST === 'true') {
-    try {
-      await ensureMigrations();
-    } catch (error) {
-      console.error('Unable to prepare database schema:', error);
-      return response.status(500).json({ error: 'Base de données non prête. Vérifiez DATABASE_URL et DIRECT_URL dans Vercel.' });
-    }
+  if (path === '/api/health' || path === '/api') {
+    return response.status(200).json({
+      status: 'ok',
+      service: 'inventa-web',
+      timestamp: new Date().toISOString(),
+    });
   }
 
-  return app(request, response);
+  return response.status(410).json({
+    error: 'Cette API historique est désactivée. L’application utilise Supabase.',
+  });
 }

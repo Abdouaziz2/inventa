@@ -3,14 +3,14 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import ClientCombobox from '@/components/ClientCombobox';
 import { useClients } from '@/features/clients';
-import { useJewelry, getReservableJewelry, getJewelryTotalPrice } from '@/features/jewelry';
+import { useJewelry, getReservableJewelry } from '@/features/jewelry';
 import {
   useAddReservation,
   useCancelReservation,
   useReservations,
   buildReservationReceipt,
-  calculateRemainingAmount,
   type ReservationWithRelations,
 } from '@/features/transactions';
 import { toast } from 'sonner';
@@ -18,7 +18,8 @@ import { BookmarkCheck, CalendarClock, XCircle } from 'lucide-react';
 import { formatCFA } from '@/lib/format';
 import ReceiptModal, { ReceiptData } from '@/components/ReceiptModal';
 import { getErrorMessage } from '@/lib/errors';
-import { formatJewelryMaterial } from '@/features/jewelry';
+import { useBusiness } from '@/hooks/useBusiness';
+import { formatBusinessAttribute } from '@/lib/business';
 import { validatePositiveAmount } from '@/lib/validation';
 import {
   AlertDialog,
@@ -30,6 +31,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { ListSkeleton, QueryErrorState } from '@/components/DataState';
 
 const getDefaultExpirationDate = () => {
   const date = new Date();
@@ -44,7 +46,19 @@ const reservationStatusConfig = {
   expired: { label: 'Expirée', className: 'bg-muted text-muted-foreground border-border' },
 } as const;
 
+const getEffectiveReservationStatus = (reservation: ReservationWithRelations) => {
+  if (
+    reservation.status === 'active' &&
+    reservation.expires_at &&
+    new Date(reservation.expires_at) < new Date()
+  ) {
+    return 'expired' as const;
+  }
+  return reservation.status;
+};
+
 const ReservationsPage = () => {
+  const { type: businessType, config } = useBusiness();
   const [clientId, setClientId] = useState('');
   const [jewelryId, setJewelryId] = useState('');
   const [deposit, setDeposit] = useState('');
@@ -55,20 +69,23 @@ const ReservationsPage = () => {
 
   const { data: clients = [] } = useClients();
   const { data: jewelryList = [] } = useJewelry();
-  const { data: reservations = [], isLoading: reservationsLoading } = useReservations();
+  const {
+    data: reservations = [],
+    isLoading: reservationsLoading,
+    isError: reservationsError,
+    refetch: refetchReservations,
+  } = useReservations();
   const addReservation = useAddReservation();
   const cancelReservation = useCancelReservation();
 
   const client = clients.find(c => c.id === clientId);
   const jewelry = jewelryList.find(j => j.id === jewelryId);
   const reservableJewelry = getReservableJewelry(jewelryList);
-  const jewelryTotalPrice = jewelry ? getJewelryTotalPrice(jewelry) : 0;
-  const remaining = jewelry ? calculateRemainingAmount(jewelryTotalPrice, Number(deposit || 0)) : 0;
   const depositError = deposit
-    ? validatePositiveAmount(deposit, "Le montant de l'acompte", jewelry ? jewelryTotalPrice : undefined)
+    ? validatePositiveAmount(deposit, "Le montant de l'acompte")
     : '';
   const activeReservations = useMemo(
-    () => reservations.filter((reservation) => reservation.status === 'active'),
+    () => reservations.filter((reservation) => getEffectiveReservationStatus(reservation) === 'active'),
     [reservations],
   );
 
@@ -110,34 +127,25 @@ const ReservationsPage = () => {
     <div className="page-shell animate-fade-in">
       <div>
         <h1 className="page-title">Réservations</h1>
-        <p className="text-sm text-muted-foreground">
-          Réservez un bijou et retrouvez immédiatement les dossiers en cours.
-        </p>
       </div>
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
       <div className="space-y-5 rounded-xl bg-card p-4 card-shadow sm:p-6">
         <div>
-          <h2 className="font-semibold">Réserver un bijou</h2>
-          <p className="text-sm text-muted-foreground">Le stock et le reste à payer sont calculés automatiquement.</p>
+          <h2 className="font-semibold">Réserver un produit</h2>
         </div>
         <div className="space-y-2">
           <Label>Client</Label>
-          <Select value={clientId} onValueChange={setClientId}>
-            <SelectTrigger className="h-12"><SelectValue placeholder="Sélectionner un client..." /></SelectTrigger>
-            <SelectContent>
-              {clients.map(c => <SelectItem key={c.id} value={c.id}>{c.code} — {c.name}</SelectItem>)}
-            </SelectContent>
-          </Select>
+          <ClientCombobox clients={clients} value={clientId} onValueChange={setClientId} />
         </div>
 
         <div className="space-y-2">
-          <Label>Bijou</Label>
+          <Label>Produit</Label>
           <Select value={jewelryId} onValueChange={setJewelryId}>
-            <SelectTrigger className="h-12"><SelectValue placeholder="Sélectionner un bijou..." /></SelectTrigger>
+            <SelectTrigger className="h-12"><SelectValue placeholder="Sélectionner un produit..." /></SelectTrigger>
             <SelectContent>
               {reservableJewelry.map(j => (
-                <SelectItem key={j.id} value={j.id}>{j.name} — {formatJewelryMaterial(j.material_type)} — stock {j.quantity} — {formatCFA(getJewelryTotalPrice(j))}</SelectItem>
+                <SelectItem key={j.id} value={j.id}>{j.name} — {formatBusinessAttribute(businessType, j.material_type)} — stock {j.quantity}</SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -149,7 +157,6 @@ const ReservationsPage = () => {
             id="reservation-deposit"
             type="number"
             min="1"
-            max={jewelryTotalPrice || undefined}
             value={deposit}
             onChange={e => setDeposit(e.target.value)}
             placeholder="500000"
@@ -174,18 +181,14 @@ const ReservationsPage = () => {
             onChange={(event) => setExpiresAt(event.target.value)}
             className="h-12"
           />
-          <p className="text-xs text-muted-foreground">La réservation devra être traitée avant cette date.</p>
         </div>
 
         {jewelry && deposit && (
           <div className="bg-muted rounded-xl p-5 space-y-2">
-            <div className="flex justify-between gap-3 text-sm"><span className="text-muted-foreground">Matiere:</span><span className="text-right font-semibold">{formatJewelryMaterial(jewelry.material_type)}</span></div>
-            <div className="flex justify-between gap-3 text-sm"><span className="text-muted-foreground">Prix total:</span><span className="text-right font-semibold">{formatCFA(jewelryTotalPrice)}</span></div>
-            <div className="flex justify-between gap-3 text-sm"><span className="text-muted-foreground">Prix unitaire:</span><span className="text-right font-semibold">{formatCFA(jewelry.price_per_gram)}</span></div>
-            <div className="flex justify-between gap-3 text-sm"><span className="text-muted-foreground">Poids:</span><span className="text-right font-semibold">{jewelry.weight.toFixed(2)} g</span></div>
-            <div className="flex justify-between gap-3 text-sm"><span className="text-muted-foreground">Stock restant avant reservation:</span><span className="text-right font-semibold">{jewelry.quantity}</span></div>
+            <div className="flex justify-between gap-3 text-sm"><span className="text-muted-foreground">{config.attributeLabel} :</span><span className="text-right font-semibold">{formatBusinessAttribute(businessType, jewelry.material_type)}</span></div>
+            <div className="flex justify-between gap-3 text-sm"><span className="text-muted-foreground">Stock avant réservation :</span><span className="text-right font-semibold">{jewelry.quantity}</span></div>
             <div className="flex justify-between gap-3 text-sm"><span className="text-muted-foreground">Acompte:</span><span className="text-right font-semibold text-success">{formatCFA(Number(deposit))}</span></div>
-            <div className="flex flex-col gap-1 border-t border-border pt-3 text-lg font-bold sm:flex-row sm:justify-between"><span>Reste à payer:</span><span>{formatCFA(remaining)}</span></div>
+            <div className="border-t border-border pt-3 text-sm font-semibold">Poids, PU et total final seront saisis pendant la vente.</div>
           </div>
         )}
 
@@ -198,27 +201,26 @@ const ReservationsPage = () => {
         <div className="flex flex-col gap-2 border-b border-border px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
           <div>
             <h2 className="font-semibold">Suivi des réservations</h2>
-            <p className="text-sm text-muted-foreground">{activeReservations.length} réservation(s) active(s)</p>
-          </div>
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <CalendarClock className="h-4 w-4" />
-            Triées de la plus récente à la plus ancienne
+            <p className="text-sm text-muted-foreground">{activeReservations.length} active(s)</p>
           </div>
         </div>
 
         {reservationsLoading ? (
-          <div className="p-8 text-center text-sm text-muted-foreground">Chargement des réservations...</div>
+          <ListSkeleton rows={4} />
+        ) : reservationsError ? (
+          <QueryErrorState onRetry={() => void refetchReservations()} title="Impossible de charger les réservations" />
         ) : reservations.length === 0 ? (
           <div className="p-8 text-center text-sm text-muted-foreground">Aucune réservation enregistrée.</div>
         ) : (
           <div className="divide-y">
             {reservations.map((reservation) => {
-              const status = reservationStatusConfig[reservation.status];
+              const effectiveStatus = getEffectiveReservationStatus(reservation);
+              const status = reservationStatusConfig[effectiveStatus];
               return (
                 <div key={reservation.id} className="grid gap-3 px-4 py-4 sm:px-6 lg:grid-cols-[minmax(0,1fr)_150px_140px_auto] lg:items-center">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
-                      <p className="truncate font-semibold">{reservation.jewelry?.name || 'Bijou'}</p>
+                      <p className="truncate font-semibold">{reservation.jewelry?.name || 'Produit'}</p>
                       <span className={`rounded-full border px-2 py-0.5 text-xs font-medium ${status.className}`}>
                         {status.label}
                       </span>
@@ -240,7 +242,7 @@ const ReservationsPage = () => {
                     </p>
                   </div>
                   <div className="flex justify-end">
-                    {reservation.status === 'active' ? (
+                    {effectiveStatus === 'active' ? (
                       <Button
                         type="button"
                         variant="outline"

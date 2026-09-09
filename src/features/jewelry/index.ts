@@ -1,6 +1,7 @@
 export {
   useJewelry,
   useAddJewelry,
+  useAddJewelryBatch,
   useUpdateJewelry,
   useUpdateJewelryStatus,
   useAdjustJewelryStock,
@@ -9,7 +10,7 @@ export {
 export type { JewelryCategory, JewelryMaterial, JewelryStatus } from '@/types/api';
 
 export type JewelryStatusFilter = 'all' | 'available' | 'out_of_stock' | 'low_stock';
-export type JewelrySortKey = 'recent' | 'name' | 'code' | 'sale_price_desc' | 'sale_price_asc' | 'quantity_desc' | 'quantity_asc';
+export type JewelrySortKey = 'recent' | 'name' | 'code' | 'quantity_desc' | 'quantity_asc';
 
 export const jewelryStatusOptions: { key: JewelryStatusFilter; label: string }[] = [
   { key: 'all', label: 'Tous' },
@@ -19,25 +20,29 @@ export const jewelryStatusOptions: { key: JewelryStatusFilter; label: string }[]
 ];
 
 export const jewelrySortOptions: { key: JewelrySortKey; label: string }[] = [
-  { key: 'recent', label: 'Plus recents' },
+  { key: 'recent', label: 'Plus récents' },
   { key: 'name', label: 'Nom A-Z' },
   { key: 'code', label: 'Code A-Z' },
-  { key: 'sale_price_desc', label: 'Prix vente decroissant' },
-  { key: 'sale_price_asc', label: 'Prix vente croissant' },
-  { key: 'quantity_desc', label: 'Stock decroissant' },
+  { key: 'quantity_desc', label: 'Stock décroissant' },
   { key: 'quantity_asc', label: 'Stock croissant' },
 ];
 
 export const jewelryMaterialOptions = [
+  { key: 'gold_14k', label: 'Or 14K' },
   { key: 'gold_18k', label: 'Or 18K' },
   { key: 'gold_21k', label: 'Or 21K' },
+  { key: 'gold_22k', label: 'Or 22K' },
+  { key: 'gold_24k', label: 'Or 24K' },
   { key: 'silver', label: 'Argent' },
   { key: 'diamond', label: 'Diamant' },
 ] as const;
 
 export function formatJewelryMaterial(material: string) {
+  if (material === 'gold_14k') return 'Or 14K';
   if (material === 'gold_18k') return 'Or 18K';
   if (material === 'gold_21k') return 'Or 21K';
+  if (material === 'gold_22k') return 'Or 22K';
+  if (material === 'gold_24k') return 'Or 24K';
   if (material === 'silver') return 'Argent';
   if (material === 'diamond') return 'Diamant';
   return 'Or 18K';
@@ -94,9 +99,6 @@ export function sortJewelry<
     created_at: string;
     name: string;
     code: string;
-    weight: number;
-    price_per_gram: number;
-    sale_price: number;
     quantity: number;
   },
 >(items: T[], sortKey: JewelrySortKey) {
@@ -108,10 +110,6 @@ export function sortJewelry<
         return left.name.localeCompare(right.name, 'fr');
       case 'code':
         return left.code.localeCompare(right.code, 'fr');
-      case 'sale_price_desc':
-        return getJewelryTotalPrice(right) - getJewelryTotalPrice(left);
-      case 'sale_price_asc':
-        return getJewelryTotalPrice(left) - getJewelryTotalPrice(right);
       case 'quantity_desc':
         return right.quantity - left.quantity;
       case 'quantity_asc':
