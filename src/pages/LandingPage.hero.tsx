@@ -1,6 +1,5 @@
-import { CheckCircle2, ArrowRight, Star, Zap } from 'lucide-react';
+import { ArrowRight, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useEffect, useState } from 'react';
 
 interface HeroSectionProps {
   onGetStarted?: () => void;
@@ -8,179 +7,120 @@ interface HeroSectionProps {
 }
 
 export default function HeroSection({ onGetStarted, onViewDemo }: HeroSectionProps) {
-  const [isVisible, setIsVisible] = useState(false);
-
-  useEffect(() => {
-    setIsVisible(true);
-  }, []);
-
   return (
-    <>
-      {/* Ultra-premium gradient background with animated elements */}
-      <section className="relative min-h-screen overflow-hidden bg-background">
-        {/* Animated gradient orbs */}
-        <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-gradient-to-br from-gold/30 via-gold/10 to-transparent rounded-full blur-3xl opacity-0 animate-fade-in" style={{ animationDelay: '0s' }} />
-        <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-gradient-to-tr from-primary/20 via-primary/5 to-transparent rounded-full blur-3xl opacity-0 animate-fade-in" style={{ animationDelay: '0.2s' }} />
-        <div className="absolute top-1/2 right-1/3 w-[300px] h-[300px] bg-gradient-to-br from-accent/20 to-transparent rounded-full blur-3xl opacity-0 animate-fade-in" style={{ animationDelay: '0.4s' }} />
+    <section className="relative overflow-hidden bg-white">
+      {/* Subtle background gradient */}
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_rgba(200,155,60,0.06)_0%,_transparent_60%)]" />
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_left,_rgba(11,31,51,0.03)_0%,_transparent_50%)]" />
 
-        <div className="relative z-10 mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-20 lg:py-32">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-16 items-center">
-            {/* Left: Content */}
-            <div className="space-y-8 opacity-0 animate-fade-in" style={{ animationDelay: '0.3s' }}>
-              {/* Badge with animation */}
-              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-gold/10 to-gold/5 border border-gold/30 backdrop-blur-sm hover:border-gold/50 transition-all duration-300 cursor-default group">
-                <div className="flex items-center gap-2">
-                  <Zap className="h-4 w-4 text-gold animate-pulse" />
-                  <span className="text-sm font-semibold text-gold">Déjà 1,200+ bijouteries</span>
-                </div>
-              </div>
-
-              {/* Main heading with sophisticated styling */}
-              <div className="space-y-6">
-                <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold leading-tight tracking-tight">
-                  <span className="text-foreground">Gérez votre</span>{' '}
-                  <span className="relative">
-                    <span className="absolute inset-0 bg-gradient-to-r from-gold via-gold to-gold/70 blur-lg opacity-50" />
-                    <span className="relative bg-gradient-to-r from-gold via-gold to-gold/70 bg-clip-text text-transparent">
-                      bijouterie
-                    </span>
-                  </span>{' '}
-                  <span className="text-foreground">en toute</span>{' '}
-                  <span className="relative inline-block">
-                    <span className="text-gold">confiance</span>
-                    <span className="absolute bottom-2 left-0 w-full h-1 bg-gradient-to-r from-gold/50 to-transparent rounded-full" />
-                  </span>
-                </h1>
-
-                <p className="text-lg sm:text-xl text-muted-foreground leading-relaxed max-w-xl">
-                  Centralisez stock, clients, ventes et dépôts en une seule plateforme intuitive. Gagnez 15 heures par semaine et concentrez-vous sur ce qui compte vraiment.
-                </p>
-              </div>
-
-              {/* CTA Buttons with premium styling */}
-              <div className="flex flex-col sm:flex-row gap-4 pt-4">
-                <Button
-                  size="lg"
-                  onClick={onGetStarted}
-                  className="group relative h-14 px-8 bg-gradient-to-r from-gold to-gold/90 hover:from-gold hover:to-gold text-gold-dark font-bold rounded-lg shadow-lg hover:shadow-gold/50 transition-all duration-300 overflow-hidden"
-                >
-                  <span className="relative z-10 flex items-center gap-2">
-                    Essayer gratuitement
-                    <ArrowRight className="h-5 w-5 group-hover:translate-x-1 transition-transform duration-300" />
-                  </span>
-                  <span className="absolute inset-0 bg-gradient-to-r from-gold/0 via-white/20 to-gold/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                </Button>
-
-                <Button
-                  size="lg"
-                  variant="outline"
-                  onClick={onViewDemo}
-                  className="h-14 px-8 border-2 border-gold/30 hover:border-gold/60 text-foreground hover:bg-gold/5 font-semibold rounded-lg transition-all duration-300"
-                >
-                  Voir la démo
-                </Button>
-              </div>
-
-              {/* Trust indicators with icons */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-8 border-t border-border/50">
-                {[
-                  { icon: '✓', label: '14 jours gratuits' },
-                  { icon: '✓', label: 'Sans carte bancaire' },
-                  { icon: '✓', label: 'Setup en 5 minutes' },
-                ].map((item, idx) => (
-                  <div key={idx} className="flex items-center gap-3 text-sm">
-                    <div className="flex h-6 w-6 items-center justify-center rounded-full bg-success/20 text-success font-bold text-xs">
-                      {item.icon}
-                    </div>
-                    <span className="text-muted-foreground font-medium">{item.label}</span>
-                  </div>
-                ))}
-              </div>
+      <div className="relative mx-auto max-w-[1200px] px-5 sm:px-8 pt-16 sm:pt-24 lg:pt-32 pb-16 lg:pb-24">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 items-center">
+          {/* Left: Content */}
+          <div className="space-y-8">
+            {/* Badge */}
+            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full border border-[#E7E7EA] bg-[#F7F7F8]">
+              <Zap className="h-3.5 w-3.5 text-[#C89B3C]" />
+              <span className="text-[13px] font-medium text-[#55555C]">Déjà 1 200+ bijouteries nous font confiance</span>
             </div>
 
-            {/* Right: Dashboard preview with macOS window styling */}
-            <div className="relative hidden lg:block opacity-0 animate-fade-in" style={{ animationDelay: '0.5s' }}>
-              {/* Glow effect behind the dashboard */}
-              <div className="absolute -inset-4 bg-gradient-to-r from-gold/40 via-gold/20 to-transparent rounded-2xl blur-2xl opacity-50 group-hover:opacity-75 transition-opacity duration-500" />
+            {/* Headline */}
+            <div>
+              <h1 className="text-[44px] sm:text-[52px] lg:text-[60px] font-extrabold leading-[1.08] tracking-[-0.02em] text-[#171717]">
+                Gérez votre{' '}
+                <span className="text-[#C89B3C]">bijouterie</span>{' '}
+                en toute{' '}
+                <span className="relative inline-block">
+                  confiance
+                  <span className="absolute bottom-1 left-0 w-full h-[3px] bg-[#C89B3C]/40 rounded-full" />
+                </span>
+              </h1>
+            </div>
 
-              {/* Browser window container */}
-              <div className="relative group">
-                {/* macOS window frame */}
-                <div className="bg-gradient-to-b from-background to-background/95 rounded-2xl border border-border/60 shadow-2xl overflow-hidden backdrop-blur-xl">
-                  {/* Window header (macOS style) */}
-                  <div className="flex items-center gap-3 px-6 py-4 bg-gradient-to-b from-border/50 to-border/20 border-b border-border/50">
-                    <div className="flex gap-2">
-                      <div className="w-3 h-3 rounded-full bg-red-500/80 hover:bg-red-500 transition-colors cursor-pointer" />
-                      <div className="w-3 h-3 rounded-full bg-yellow-500/80 hover:bg-yellow-500 transition-colors cursor-pointer" />
-                      <div className="w-3 h-3 rounded-full bg-green-500/80 hover:bg-green-500 transition-colors cursor-pointer" />
-                    </div>
-                    <div className="flex-1 text-center">
-                      <p className="text-xs text-muted-foreground font-medium">Inventa Dashboard</p>
-                    </div>
-                  </div>
+            {/* Subtitle */}
+            <p className="text-[17px] leading-[1.6] text-[#55555C] max-w-[480px]">
+              Centralisez stock, clients, ventes et dépôts en une seule plateforme intuitive. Gagnez 15 heures par semaine et concentrez-vous sur ce qui compte vraiment.
+            </p>
 
-                  {/* Dashboard content */}
-                  <div className="relative overflow-hidden bg-black/50">
-                    <img
-                      src="/assets/dashboard.png"
-                      alt="Inventa Dashboard Preview"
-                      className="w-full h-auto opacity-95 group-hover:opacity-100 transition-opacity duration-300"
-                    />
-                    {/* Overlay gradient for premium effect */}
-                    <div className="absolute inset-0 bg-gradient-to-t from-background/30 via-transparent to-transparent pointer-events-none" />
+            {/* CTA Buttons */}
+            <div className="flex flex-col sm:flex-row gap-3">
+              <Button
+                onClick={onGetStarted}
+                className="group h-12 px-7 bg-[#C89B3C] hover:bg-[#A87920] text-white font-semibold text-[15px] rounded-[11px] transition-colors duration-200 shadow-none"
+              >
+                Essayer gratuitement
+                <ArrowRight className="h-4 w-4 ml-1 group-hover:translate-x-0.5 transition-transform duration-200" />
+              </Button>
+              <Button
+                variant="outline"
+                onClick={onViewDemo}
+                className="h-12 px-7 border-[#E7E7EA] text-[#171717] hover:bg-[#F7F7F8] font-semibold text-[15px] rounded-[11px] transition-colors duration-200"
+              >
+                Voir la démo
+              </Button>
+            </div>
+
+            {/* Trust indicators */}
+            <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-6 pt-2">
+              {[
+                '14 jours gratuits',
+                'Sans carte bancaire',
+                'Setup en 5 minutes',
+              ].map((label, idx) => (
+                <div key={idx} className="flex items-center gap-2">
+                  <div className="flex h-5 w-5 items-center justify-center rounded-full bg-[#C89B3C]/10">
+                    <svg className="h-3 w-3 text-[#C89B3C]" viewBox="0 0 12 12" fill="none">
+                      <path d="M2.5 6L5 8.5L9.5 3.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
                   </div>
+                  <span className="text-[13px] font-medium text-[#55555C]">{label}</span>
                 </div>
-
-                {/* Floating shine effect */}
-                <div className="absolute -inset-2 bg-gradient-to-r from-transparent via-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700 rounded-2xl blur-xl pointer-events-none" />
-              </div>
-
-              {/* Floating cards with stats (optional enhancement) */}
-              <div className="absolute -bottom-8 -left-8 w-48 bg-card rounded-xl border border-border/50 shadow-xl p-4 backdrop-blur-sm opacity-0 group-hover:opacity-100 transform group-hover:-translate-y-2 transition-all duration-500">
-                <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Performance</p>
-                <p className="text-2xl font-bold text-gold mt-2">+42%</p>
-                <p className="text-xs text-muted-foreground mt-1">Ventes ce mois</p>
-              </div>
+              ))}
             </div>
           </div>
 
-          {/* Bottom accent line */}
-          <div className="mt-20 flex justify-center opacity-0 animate-fade-in" style={{ animationDelay: '0.7s' }}>
-            <div className="h-1 w-32 bg-gradient-to-r from-transparent via-gold to-transparent rounded-full" />
+          {/* Right: Dashboard preview */}
+          <div className="relative hidden lg:block">
+            {/* Glow behind */}
+            <div className="absolute -inset-6 bg-gradient-to-br from-[#C89B3C]/15 via-[#C89B3C]/5 to-transparent rounded-3xl blur-2xl" />
+
+            {/* Browser frame */}
+            <div className="relative">
+              <div className="bg-white rounded-2xl border border-[#E7E7EA] shadow-[0_20px_60px_-12px_rgba(0,0,0,0.12)] overflow-hidden">
+                {/* Window chrome */}
+                <div className="flex items-center gap-3 px-5 py-3.5 bg-[#F7F7F8] border-b border-[#E7E7EA]">
+                  <div className="flex gap-2">
+                    <div className="w-3 h-3 rounded-full bg-[#FF5F57]" />
+                    <div className="w-3 h-3 rounded-full bg-[#FFBD2E]" />
+                    <div className="w-3 h-3 rounded-full bg-[#28CA41]" />
+                  </div>
+                  <div className="flex-1 text-center">
+                    <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md bg-white border border-[#E7E7EA]">
+                      <span className="text-[12px] text-[#55555C] font-medium">app.inventa.fr/dashboard</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Dashboard image */}
+                <div className="relative bg-[#0A1628]">
+                  <img
+                    src="/assets/dashboard.png"
+                    alt="Aperçu du tableau de bord Inventa"
+                    className="w-full h-auto block"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-[#0A1628]/20 via-transparent to-transparent pointer-events-none" />
+                </div>
+              </div>
+
+              {/* Floating stat card */}
+              <div className="absolute -bottom-6 -left-6 bg-white rounded-xl border border-[#E7E7EA] shadow-[0_8px_30px_-4px_rgba(0,0,0,0.1)] p-4 animate-float">
+                <p className="text-[11px] font-medium text-[#55555C] uppercase tracking-wider">Performance</p>
+                <p className="text-[24px] font-bold text-[#C89B3C] leading-tight mt-0.5">+42%</p>
+                <p className="text-[12px] text-[#55555C] mt-0.5">Ventes ce mois</p>
+              </div>
+            </div>
           </div>
         </div>
-      </section>
-
-      {/* Keyframe animations */}
-      <style>{`
-        @keyframes fade-in {
-          from {
-            opacity: 0;
-            transform: translateY(20px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-
-        .animate-fade-in {
-          animation: fade-in 0.8s ease-out forwards;
-        }
-
-        @keyframes float {
-          0%, 100% {
-            transform: translateY(0px);
-          }
-          50% {
-            transform: translateY(-10px);
-          }
-        }
-
-        .animate-float {
-          animation: float 4s ease-in-out infinite;
-        }
-      `}</style>
-    </>
+      </div>
+    </section>
   );
 }

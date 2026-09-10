@@ -45,45 +45,56 @@ const metrics: Metric[] = [
   { id: 'setup', value: '7 jours', label: 'Délai de mise en place moyen' },
 ];
 
-export const SocialProofSection = () => {
+export default function SocialProofSection() {
   return (
-    <section className="py-20 bg-primary/5 border-t border-border/50">
-      <div className="mx-auto max-w-7xl px-6">
+    <section id="testimonials" className="py-[100px] lg:py-[140px] bg-white">
+      <div className="mx-auto max-w-[1200px] px-5 sm:px-8">
         <div className="text-center mb-16">
-          <h2 className="text-4xl font-display font-bold mb-4">
+          <h2 className="text-[36px] sm:text-[42px] font-bold leading-[1.12] tracking-[-0.02em] text-[#171717] mb-5">
             Ce que disent les bijouteries
           </h2>
+          <p className="text-[17px] leading-[1.6] text-[#55555C]">
+            Des professionnels comme vous font déjà confiance à Inventa au quotidien.
+          </p>
         </div>
 
-        <div className="grid md:grid-cols-3 gap-8 mb-16">
+        <div className="grid md:grid-cols-3 gap-6 mb-20">
           {testimonials.map((testimonial) => (
-            <div key={testimonial.id} className="rounded-xl border border-border bg-card p-8">
-              <div className="flex gap-1 mb-4">
+            <div
+              key={testimonial.id}
+              className="bg-[#F7F7F8] rounded-2xl p-7 sm:p-8 hover:shadow-[0_8px_30px_-8px_rgba(0,0,0,0.06)] transition-shadow duration-300"
+            >
+              <div className="flex gap-0.5 mb-5">
                 {[...Array(5)].map((_, i) => (
-                  <Star key={i} className="h-5 w-5 fill-gold text-gold" />
+                  <Star key={i} className="h-4 w-4 fill-[#C89B3C] text-[#C89B3C]" />
                 ))}
               </div>
-              <p className="text-muted-foreground mb-4">
-                "{testimonial.quote}"
+              <p className="text-[15px] leading-[1.65] text-[#171717] mb-6">
+                « {testimonial.quote} »
               </p>
-              <div>
-                <p className="font-semibold">{testimonial.author}</p>
-                <p className="text-sm text-muted-foreground">
-                  {testimonial.role}, {testimonial.company}
-                </p>
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-full bg-[#C89B3C]/10 flex items-center justify-center">
+                  <span className="text-[13px] font-semibold text-[#C89B3C]">
+                    {testimonial.author.split(' ').map(n => n[0]).join('')}
+                  </span>
+                </div>
+                <div>
+                  <p className="text-[14px] font-semibold text-[#171717]">{testimonial.author}</p>
+                  <p className="text-[13px] text-[#55555C]">{testimonial.role}, {testimonial.company}</p>
+                </div>
               </div>
             </div>
           ))}
         </div>
 
         {/* Metrics */}
-        <div className="grid md:grid-cols-4 gap-8 pt-16 border-t border-border/50">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-8 lg:gap-6">
           {metrics.map((metric) => (
             <div key={metric.id} className="text-center">
-              <p className="text-4xl font-display font-bold text-gold mb-2">
+              <p className="text-[40px] sm:text-[48px] font-bold text-[#C89B3C] leading-none tracking-tight">
                 {metric.value}
               </p>
-              <p className="text-muted-foreground">
+              <p className="text-[14px] text-[#55555C] mt-2.5 leading-snug">
                 {metric.label}
               </p>
             </div>
@@ -92,6 +103,4 @@ export const SocialProofSection = () => {
       </div>
     </section>
   );
-};
-
-export default SocialProofSection;
+}

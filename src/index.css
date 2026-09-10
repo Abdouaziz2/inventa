@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Noto+Sans:wght@300;400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -6,39 +6,39 @@
 
 @layer base {
   :root {
-    --background: 0 0% 97%;
-    --foreground: 0 0% 9%;
+    --background: 0 0% 100%;
+    --foreground: 210 12% 9%;
 
     --card: 0 0% 100%;
-    --card-foreground: 0 0% 9%;
+    --card-foreground: 210 12% 9%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 9%;
+    --popover-foreground: 210 12% 9%;
 
-    --primary: 0 0% 9%;
-    --primary-foreground: 0 0% 98%;
+    --primary: 210 60% 13%;
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 0 0% 93%;
-    --secondary-foreground: 0 0% 9%;
+    --secondary: 220 9% 96%;
+    --secondary-foreground: 210 12% 9%;
 
-    --muted: 0 0% 95%;
-    --muted-foreground: 0 0% 45%;
+    --muted: 220 9% 96%;
+    --muted-foreground: 234 8% 36%;
 
-    --accent: 43 100% 50%;
-    --accent-foreground: 0 0% 9%;
+    --accent: 43 62% 52%;
+    --accent-foreground: 210 60% 13%;
 
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 98%;
 
-    --border: 0 0% 90%;
-    --input: 0 0% 90%;
-    --ring: 43 100% 50%;
+    --border: 220 9% 91%;
+    --input: 220 9% 91%;
+    --ring: 43 62% 52%;
 
     --radius: 0.75rem;
 
-    --gold: 43 100% 50%;
-    --gold-light: 43 100% 70%;
-    --gold-dark: 43 80% 40%;
+    --gold: 43 62% 52%;
+    --gold-light: 43 62% 62%;
+    --gold-dark: 43 55% 36%;
     --success: 142 71% 45%;
     --success-foreground: 0 0% 100%;
     --warning: 38 92% 50%;
@@ -48,12 +48,12 @@
 
     --sidebar-background: 0 0% 7%;
     --sidebar-foreground: 0 0% 85%;
-    --sidebar-primary: 43 100% 50%;
+    --sidebar-primary: 43 62% 52%;
     --sidebar-primary-foreground: 0 0% 9%;
     --sidebar-accent: 0 0% 14%;
     --sidebar-accent-foreground: 0 0% 95%;
     --sidebar-border: 0 0% 18%;
-    --sidebar-ring: 43 100% 50%;
+    --sidebar-ring: 43 62% 52%;
     --sidebar-muted: 0 0% 50%;
   }
 
@@ -64,19 +64,19 @@
     --card-foreground: 0 0% 95%;
     --popover: 0 0% 11%;
     --popover-foreground: 0 0% 95%;
-    --primary: 43 100% 50%;
+    --primary: 43 62% 52%;
     --primary-foreground: 0 0% 9%;
     --secondary: 0 0% 15%;
     --secondary-foreground: 0 0% 95%;
     --muted: 0 0% 15%;
     --muted-foreground: 0 0% 60%;
-    --accent: 43 100% 50%;
+    --accent: 43 62% 52%;
     --accent-foreground: 0 0% 9%;
     --destructive: 0 62% 30%;
     --destructive-foreground: 0 0% 95%;
     --border: 0 0% 18%;
     --input: 0 0% 18%;
-    --ring: 43 100% 50%;
+    --ring: 43 62% 52%;
   }
 }
 
@@ -85,8 +85,8 @@
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground font-sans antialiased;
-    font-family: 'Noto Sans', system-ui, sans-serif;
+    @apply bg-background text-foreground antialiased;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
   }
   html,
   body,
@@ -121,20 +121,20 @@
     @apply text-xl font-bold tracking-tight sm:text-2xl;
   }
   .responsive-card {
-    @apply rounded-xl border bg-card shadow-sm;
+    @apply rounded-2xl border bg-card shadow-sm;
   }
   .touch-target {
     @apply min-h-11;
   }
   .font-display {
-    font-family: 'Noto Sans', sans-serif;
+    font-family: 'Inter', sans-serif;
     font-weight: 700;
   }
   .gold-gradient {
-    background: linear-gradient(135deg, hsl(43 100% 50%), hsl(43 80% 40%));
+    background: linear-gradient(135deg, hsl(43 62% 52%), hsl(43 55% 36%));
   }
   .gold-text {
-    background: linear-gradient(135deg, hsl(43 100% 50%), hsl(43 80% 40%));
+    background: linear-gradient(135deg, hsl(43 62% 52%), hsl(43 55% 36%));
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
@@ -143,7 +143,7 @@
     box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.04), 0 1px 2px -1px rgb(0 0 0 / 0.04);
   }
   .card-shadow-hover {
-    box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.07), 0 2px 4px -2px rgb(0 0 0 / 0.05);
+    box-shadow: 0 10px 25px -5px rgb(0 0 0 / 0.06), 0 4px 6px -4px rgb(0 0 0 / 0.04);
   }
 }
 
@@ -156,11 +156,11 @@
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: hsl(0 0% 75%);
+  background: hsl(0 0% 80%);
   border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: hsl(0 0% 60%);
+  background: hsl(0 0% 65%);
 }
 
 /* Print styles */

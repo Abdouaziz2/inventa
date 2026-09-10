@@ -37,7 +37,7 @@ const ResetPasswordPage = () => {
   return (
     <main className="flex min-h-screen items-center justify-center bg-muted/30 p-4">
       <section className="w-full max-w-md rounded-2xl border bg-card p-6 shadow-xl sm:p-8">
-        <img src={publicAsset('inventa-icon.svg')} alt="" className="mx-auto h-12 w-12 rounded-xl" />
+        <img src={publicAsset('inventa-icon.png')} alt="" className="mx-auto h-12 w-12 rounded-xl" />
         <h1 className="mt-6 text-center text-2xl font-bold">Nouveau mot de passe</h1>
         <form className="mt-6 space-y-4" onSubmit={submit}>
           <div className="space-y-2">

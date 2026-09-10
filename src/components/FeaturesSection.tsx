@@ -1,4 +1,4 @@
-import { Diamond, CheckCircle2, TrendingUp, Users, Lock, Zap } from 'lucide-react';
+import { Diamond, CheckCircle2, TrendingUp, Users, Lock } from 'lucide-react';
 
 interface Feature {
   id: string;
@@ -34,32 +34,34 @@ const features: Feature[] = [
   },
 ];
 
-export const FeaturesSection = () => {
+export default function FeaturesSection() {
   return (
-    <section id="features" className="py-20">
-      <div className="mx-auto max-w-7xl px-6">
-        <div className="text-center max-w-2xl mx-auto mb-16">
-          <h2 className="text-4xl font-display font-bold mb-4">
+    <section id="features" className="py-[100px] lg:py-[140px] bg-[#F7F7F8]">
+      <div className="mx-auto max-w-[1200px] px-5 sm:px-8">
+        <div className="text-center max-w-[560px] mx-auto mb-16">
+          <h2 className="text-[36px] sm:text-[42px] font-bold leading-[1.12] tracking-[-0.02em] text-[#171717] mb-5">
             Les 4 fonctionnalités qui changent tout
           </h2>
-          <p className="text-lg text-muted-foreground">
+          <p className="text-[17px] leading-[1.6] text-[#55555C]">
             Conçues spécifiquement pour les bijouteries. Simples à utiliser, puissantes pour grandir.
           </p>
         </div>
 
-        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
           {features.map((feature) => {
             const Icon = feature.icon;
             return (
               <div
                 key={feature.id}
-                className="rounded-xl border border-border bg-card p-8 hover:border-gold/50 transition-colors"
+                className="bg-white rounded-2xl border border-[#E7E7EA] p-7 hover:shadow-[0_10px_40px_-10px_rgba(0,0,0,0.08)] hover:border-[#C89B3C]/30 transition-all duration-300 group"
               >
-                <div className="rounded-lg bg-gold/10 w-12 h-12 flex items-center justify-center mb-4">
-                  <Icon className="h-6 w-6 text-gold" />
+                <div className="w-11 h-11 rounded-xl bg-[#C89B3C]/10 flex items-center justify-center mb-5">
+                  <Icon className="h-5 w-5 text-[#C89B3C]" />
                 </div>
-                <h3 className="text-lg font-semibold mb-3">{feature.title}</h3>
-                <p className="text-muted-foreground text-sm">
+                <h3 className="text-[17px] font-semibold text-[#171717] mb-2">
+                  {feature.title}
+                </h3>
+                <p className="text-[14px] leading-[1.6] text-[#55555C]">
                   {feature.description}
                 </p>
               </div>
@@ -69,6 +71,4 @@ export const FeaturesSection = () => {
       </div>
     </section>
   );
-};
-
-export default FeaturesSection;
+}

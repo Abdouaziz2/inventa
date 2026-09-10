@@ -1,6 +1,16 @@
 import { normalizeBusinessType, type BusinessType } from '@/lib/business';
 import type { AppUser, Jewelry } from '@/types/api';
 
+/**
+ * Configuration de la démo Inventa (landing page).
+ *
+ * DEMO_VIDEO_URL : lien officiel vers la vidéo de démonstration d'Inventa.
+ * À remplacer par l'URL réelle de la vidéo dès qu'elle est disponible.
+ * Tant que cette constante est vide, le bouton « Voir la démo » de la
+ * landing page redirige vers la section de démonstration produit (#demo).
+ */
+export const DEMO_VIDEO_URL = '';
+
 const SESSION_KEY = 'inventa-local-demo-session';
 const INVENTORY_KEY = 'inventa-local-demo-inventory';
 export const DEMO_PASSWORD = 'Demo@2026';

@@ -3,10 +3,14 @@ import LandingNav from '@/components/LandingNav';
 import ProblemSection from '@/components/ProblemSection';
 import SolutionSection from '@/components/SolutionSection';
 import FeaturesSection from '@/components/FeaturesSection';
+import ProductDemoSection from '@/components/ProductDemoSection';
 import SocialProofSection from '@/components/SocialProofSection';
+import PricingSection from '@/components/PricingSection';
+import FAQSection from '@/components/FAQSection';
 import FinalCTASection from '@/components/FinalCTASection';
 import LandingFooter from '@/components/LandingFooter';
 import HeroSection from './LandingPage.hero';
+import { DEMO_VIDEO_URL } from '@/lib/demo';
 
 const LandingPage = () => {
   const navigate = useNavigate();
@@ -16,11 +20,20 @@ const LandingPage = () => {
   };
 
   const handleViewDemo = () => {
-    const featuresElement = document.getElementById('features');
-    if (featuresElement) {
-      featuresElement.scrollIntoView({ behavior: 'smooth' });
+    if (DEMO_VIDEO_URL) {
+      window.open(DEMO_VIDEO_URL, '_blank', 'noopener,noreferrer');
+      return;
+    }
+    const demoElement = document.getElementById('demo');
+    if (demoElement) {
+      demoElement.scrollIntoView({ behavior: 'smooth' });
     } else {
-      console.warn('Features section not found');
+      const featuresElement = document.getElementById('features');
+      if (featuresElement) {
+        featuresElement.scrollIntoView({ behavior: 'smooth' });
+      } else {
+        console.warn('Demo section not found');
+      }
     }
   };
 
@@ -31,7 +44,10 @@ const LandingPage = () => {
       <ProblemSection />
       <SolutionSection />
       <FeaturesSection />
+      <ProductDemoSection />
       <SocialProofSection />
+      <PricingSection />
+      <FAQSection />
       <FinalCTASection onGetStarted={handleGetStarted} onScheduleDemo={handleViewDemo} />
       <LandingFooter />
     </div>

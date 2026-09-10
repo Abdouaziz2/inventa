@@ -31,7 +31,7 @@ const ForgotPasswordPage = () => {
   return (
     <main className="flex min-h-screen items-center justify-center bg-muted/30 p-4">
       <section className="w-full max-w-md rounded-2xl border bg-card p-6 shadow-xl sm:p-8">
-        <img src={publicAsset('inventa-icon.svg')} alt="" className="mx-auto h-12 w-12 rounded-xl" />
+        <img src={publicAsset('inventa-icon.png')} alt="" className="mx-auto h-12 w-12 rounded-xl" />
         {sent ? (
           <div className="mt-6 text-center">
             <MailCheck className="mx-auto h-10 w-10 text-emerald-600" />

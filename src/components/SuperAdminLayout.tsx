@@ -17,7 +17,7 @@ const SuperAdminLayout = () => {
     <div className="h-dvh min-h-0 overflow-hidden bg-background">
       <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 flex-col border-r border-sidebar-border bg-sidebar lg:flex">
         <div className="flex h-16 shrink-0 items-center gap-3 border-b border-sidebar-border px-5">
-          <img src={publicAsset('inventa-icon.svg')} alt="" className="h-9 w-9 rounded-lg" />
+          <img src={publicAsset('inventa-icon.png')} alt="" className="h-9 w-9 rounded-lg" />
           <div className="min-w-0">
             <p className="font-semibold text-sidebar-accent-foreground">Inventa</p>
             <p className="text-xs text-sidebar-muted">Administration</p>

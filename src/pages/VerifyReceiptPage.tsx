@@ -65,7 +65,7 @@ const VerifyReceiptPage = () => {
     <main className="flex min-h-screen items-center justify-center bg-[#f4f5f7] p-4 text-[#0A1628]">
       <section className="w-full max-w-lg overflow-hidden rounded-2xl border bg-white shadow-xl">
         <header className="flex items-center gap-3 border-b bg-[#0A1628] px-5 py-4 text-white">
-          <img src={publicAsset('inventa-icon.svg')} alt="" className="h-10 w-10 rounded-lg" />
+          <img src={publicAsset('inventa-icon.png')} alt="" className="h-10 w-10 rounded-lg" />
           <div>
             <p className="font-semibold">Inventa</p>
             <p className="text-xs text-white/60">Consultation de document</p>

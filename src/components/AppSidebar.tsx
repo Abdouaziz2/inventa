@@ -187,7 +187,7 @@ const AppSidebar = ({ open, collapsed, onOpenChange, onCollapsedToggle }: AppSid
 
       <footer className={cn("shrink-0 border-t border-sidebar-border p-3", collapsed && "lg:px-2")}>
         <div className="flex items-center justify-center gap-2">
-          <img src={publicAsset('inventa-icon.svg')} alt="" className="h-6 w-6 rounded" />
+          <img src={publicAsset('inventa-icon.png')} alt="" className="h-6 w-6 rounded" />
           <span className={cn("text-xs font-semibold tracking-wide text-sidebar-muted", collapsed && "lg:hidden")}>Inventa</span>
         </div>
       </footer>

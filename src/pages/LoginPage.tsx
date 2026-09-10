@@ -33,7 +33,7 @@ const LoginPage = () => {
       <div className="relative hidden items-center justify-center overflow-hidden bg-primary lg:flex lg:w-1/2">
         <div className="absolute inset-x-0 top-0 h-1 gold-gradient" />
         <div className="relative space-y-6 px-12 text-center">
-          <img src={publicAsset('inventa-logo.svg')} alt="Inventa" className="mx-auto w-full max-w-md" />
+          <img src={publicAsset('inventa-logo.png')} alt="Inventa" className="mx-auto w-full max-w-md" />
           <p className="text-primary-foreground/60 text-lg max-w-md">
             La plateforme professionnelle pour piloter vos stocks, clients et ventes.
           </p>
@@ -44,7 +44,7 @@ const LoginPage = () => {
       <div className="flex flex-1 items-center justify-center bg-background p-4 sm:p-8">
         <div className="w-full max-w-sm space-y-8">
           <div className="lg:hidden flex items-center gap-2.5 justify-center mb-4">
-            <img src={publicAsset('inventa-icon.svg')} alt="" className="h-10 w-10 rounded-lg" />
+            <img src={publicAsset('inventa-icon.png')} alt="" className="h-10 w-10 rounded-lg" />
             <span className="text-2xl font-semibold text-[#0A1628] dark:text-white">Inventa</span>
           </div>
 
