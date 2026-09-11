@@ -205,3 +205,75 @@ npm run build
 - `SUPABASE_SERVICE_ROLE_KEY`, `DATABASE_URL`, `DIRECT_URL` et `JWT_SECRET` doivent rester secrets.
 - Le bucket Storage doit etre public seulement pour les fichiers que l'application doit afficher dans le navigateur.
 - Pour les previews Vercel, utiliser idealement une base Supabase separee ou des variables Preview differentes de la Production.
+
+## Paiement des abonnements — Wave Business Checkout
+
+Le paiement en ligne des plans (Starter / Business / Premium) passe par l'API
+Wave (`api.wave.com/v1`). Trois Edge Functions Supabase ont ete ajoutees :
+
+- `wave-checkout` — cree la session de paiement (le prix est calcule cote serveur,
+  le frontend n'envoie que `{ plan, frequency }`).
+- `wave-webhook` — receptionne les evenements Wave, verifie la signature
+  (`WAVE_WEBHOOK_SECRET`) puis active l'abonnement de maniere idempotente.
+- `subscription-status` — reinterroge Wave cote serveur apres le retour vers
+  `/payment/success`. Le simple retour vers `success_url` ne suffit jamais :
+  l'activation n'a lieu qu'apres verification aupres de Wave.
+
+### Variables d'environnement des Edge Functions
+
+Ces secrets se configurent dans Supabase : `Edge Functions` > `wave-checkout` /
+`wave-webhook` / `subscription-status` > `Manage` > `Secrets` (ou `supabase secrets set`).
+
+| Variable | Secret | Ou la trouver | Requis |
+| --- | --- | --- | --- |
+| `WAVE_API_KEY` | Oui | Wave Business Portal `Developers` > `API Keys` (clavier `wave_api_...` ou similaire) | Oui |
+| `WAVE_SIGNING_SECRET` | Oui | Wave Business Portal, cle de signature des requetes (format `wave_sn_AKS_...`). Optionnel : signe les POST sortants. | Non |
+| `WAVE_WEBHOOK_SECRET` | Oui | Wave Business Portal, en configurant le webhook (format `wave_sn_WHS_...`) | Oui (webhook) |
+| `APP_URL` | Non | URL publique du frontend (https). En dev local non-HTTPS, mettre l'URL d'un tunnel (ngrok) car Wave exige des URLs `https` pour `success_url`/`error_url`. | Non (defaut `https://inventa.bayecode.com`) |
+
+> Note : `WAVE_API_KEY` est deja configuree dans Vercel. C'est la MEME valeur qui
+> doit alimenter le secret Edge Function `WAVE_API_KEY` cote Supabase (le frontend
+> Vercel n'utilise pas directement cette cle).
+
+### Configuration dans le Wave Business Portal
+
+1. Creer un compte sur Wave Business avec votre numero Wave.
+2. `Developers` > `New API key` : creer une cle d'API et la copier dans `WAVE_API_KEY`.
+3. `Developers` > `Webhooks` : creer un webhook avec l'URL
+   `https://<projet>.supabase.co/functions/v1/wave-webhook` et copier le secret de
+   webhook dans `WAVE_WEBHOOK_SECRET`. Activer les evenements
+   `checkout.session.completed` et `checkout.session.payment_failed`.
+4. (Optionnel) Activer la signature des requetes et copier la cle `wave_sn_AKS_...`
+   dans `WAVE_SIGNING_SECRET`.
+
+### Migration database
+
+1. Lancer `supabase/migrations/<timestamp>_wave_checkout_subscriptions.sql` dans le
+   SQL Editor Supabase (once). Il ajoute `frequency`/`amount` a `subscriptions`,
+   cree `wave_checkout_sessions` et `subscription_payments` avec les cles uniques
+   d'idempotence, et restreint l'acces (RLS select-own uniquement, ecriture via le
+   service_role des Edge Functions).
+
+### Verification JWT des Edge Functions
+
+Le gateway Supabase exige un JWT sur chaque fonction par defaut. Wave poste ses
+webhooks sans JWT (seul l'en-tete `Wave-Signature` est present), donc la fonction
+`wave-webhook` doit etre deployee avec `verify_jwt = false`, declare dans
+`supabase/config.toml` :
+
+```toml
+project_id = "bsingvkmtntkhvkdsypa"
+
+[functions.wave-webhook]
+verify_jwt = false
+```
+
+`wave-checkout` et `subscription-status` restent protegees par JWT (authentification
+de l'utilisateur). Verifier l'URL du webhook :
+`https://<projet>.supabase.co/functions/v1/wave-webhook`.
+
+### Revenir en arriere
+
+Pour desactiver le paiement en ligne, retirer les secrets `WAVE_*` des Edge
+Functions : les boutons des tarifs retombent sur `/login` et aucun webhook ne sera
+accepte (reponse 500, Wave reessaie puis finit par abandonner).

@@ -1,4 +1,4 @@
-import { CalendarClock, LogOut, RefreshCw, ShieldX } from 'lucide-react';
+import { CalendarClock, CreditCard, LogOut, RefreshCw, ShieldX } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -9,6 +9,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { useAuth } from '@/contexts/AuthContext';
+import { useNavigate } from 'react-router-dom';
 
 const statusLabels = {
   trialing: 'Période d’essai expirée',
@@ -20,6 +21,7 @@ const statusLabels = {
 
 const SubscriptionRequiredPage = () => {
   const { user, logout, refreshUser, loading } = useAuth();
+  const navigate = useNavigate();
   const status = user?.subscription?.status;
   const expiresAt = user?.subscription?.expiresAt;
   const title = status ? statusLabels[status] : 'Aucun abonnement actif';
@@ -56,16 +58,20 @@ const SubscriptionRequiredPage = () => {
           <p className="text-center text-sm text-muted-foreground">
             {status === 'suspended'
               ? 'Votre demande a bien été reçue. L’administrateur doit encore valider votre accès.'
-              : 'Contactez l’administrateur pour renouveler l’abonnement, puis actualisez votre accès.'}
+              : 'Souscrivez en ligne ou contactez l’administrateur pour renouveler l’abonnement, puis actualisez votre accès.'}
           </p>
         </CardContent>
 
         <CardFooter className="flex-col gap-2 sm:flex-row">
-          <Button className="w-full" onClick={() => void refreshUser()} disabled={loading}>
+          <Button className="w-full" onClick={() => void navigate('/#pricing')} disabled={status === 'suspended'}>
+            <CreditCard />
+            Choisir un plan et payer en ligne
+          </Button>
+          <Button className="w-full" onClick={() => void refreshUser()} disabled={loading} variant="outline">
             <RefreshCw className={loading ? 'animate-spin' : ''} />
             Vérifier mon accès
           </Button>
-          <Button className="w-full" variant="outline" onClick={() => void logout()}>
+          <Button className="w-full" variant="ghost" onClick={() => void logout()}>
             <LogOut />
             Se déconnecter
           </Button>

@@ -27,6 +27,8 @@ import SuperAdminLayout from "@/components/SuperAdminLayout";
 import AuditLogsPage from "@/pages/AuditLogsPage";
 import ForgotPasswordPage from "@/pages/ForgotPasswordPage";
 import ResetPasswordPage from "@/pages/ResetPasswordPage";
+import PaymentSuccessPage from "@/pages/PaymentSuccessPage";
+import PaymentErrorPage from "@/pages/PaymentErrorPage";
 import { DemoDashboard, DemoModulePage } from "@/pages/DemoDashboard";
 
 const queryClient = new QueryClient({
@@ -120,6 +122,8 @@ const AppRoutes = () => {
       <Route path="/verify" element={<VerifyReceiptPage />} />
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
       <Route path="/reset-password" element={<ResetPasswordPage />} />
+      <Route path="/payment/success" element={<PaymentSuccessPage />} />
+      <Route path="/payment/error" element={<PaymentErrorPage />} />
       <Route path="/login" element={isAuthenticated ? <HomeRedirect /> : <LoginPage />} />
       <Route path="/admin" element={<SuperAdminRoutes />}>
         <Route index element={<Navigate to="/admin/users" replace />} />

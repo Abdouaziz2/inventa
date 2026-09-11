@@ -1,0 +1,7 @@
+# Supabase CLI configuration.
+# The Edge Functions gate on a JWT by default; Wave posts webhooks with only a
+# signed header (no JWT), so JWT verification is disabled for wave-webhook only.
+project_id = "bsingvkmtntkhvkdsypa"
+
+[functions.wave-webhook]
+verify_jwt = false

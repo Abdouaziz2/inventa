@@ -32,11 +32,13 @@ export type AppUser = {
   companyId: string | null;
   businessType: BusinessType;
   businessName?: string | null;
-  subscription: {
+subscription: {
     planCode: string;
     status: SubscriptionStatus;
     startsAt: string;
     expiresAt: string | null;
+    frequency?: string | null;
+    amount?: number | null;
   } | null;
   hasActiveSubscription: boolean;
   isDemo?: boolean;
