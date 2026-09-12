@@ -108,7 +108,15 @@ async function readInvokeError(error: unknown): Promise<string> {
   const context = (error as { context?: unknown })?.context;
   if (context instanceof Response) {
     try {
-      const body = (await context.clone().json()) as { error?: string; message?: string };
+      const body = (await context.clone().json()) as {
+        error?: string;
+        message?: string;
+        wave_message?: string;
+        wave_status?: number;
+      };
+      if (body.wave_message) {
+        return `Wave (${body.wave_status ?? 'erreur'}) : ${body.wave_message}`;
+      }
       return body.error ?? body.message ?? 'La demande de paiement a échoué.';
     } catch {
       return 'La demande de paiement a échoué.';

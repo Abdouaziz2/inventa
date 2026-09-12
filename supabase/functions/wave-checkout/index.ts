@@ -87,7 +87,9 @@ Deno.serve(async (request: Request) => {
           : JSON.stringify(wave.data ?? {});
     return json(
       {
-        error: "Impossible de créer le paiement Wave.",
+        error: waveMessage
+          ? `Impossible de créer le paiement Wave (${wave.status}) : ${waveMessage}`
+          : "Impossible de créer le paiement Wave.",
         detail: wave.status === 503 ? "wave_api_key_missing" : `wave_api_error_${wave.status}`,
         wave_status: wave.status,
         wave_message: waveMessage,
