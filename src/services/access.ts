@@ -1,7 +1,7 @@
 import { supabase } from '@/lib/supabase';
 
 const DESKTOP_DOWNLOAD_URL =
-  'https://github.com/Abdouaziz2/gems-flow-suite/releases/download/v1.0.2/Inventa-Setup-1.0.2.exe';
+  'https://github.com/Abdouaziz2/inventa/releases/download/v1.0.2/Inventa-Setup-1.0.2.exe';
 
 export type AccessRequestInput = {
   fullName: string;
