@@ -1,7 +1,7 @@
 {
   "name": "inventa",
   "private": true,
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Inventa - Inventory Intelligence",
   "author": "Inventa",
   "main": "electron/main.cjs",

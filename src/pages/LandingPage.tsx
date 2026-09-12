@@ -8,6 +8,7 @@ import SocialProofSection from '@/components/SocialProofSection';
 import PricingSection from '@/components/PricingSection';
 import FAQSection from '@/components/FAQSection';
 import FinalCTASection from '@/components/FinalCTASection';
+import AccessRequestSection from '@/components/AccessRequestSection';
 import LandingFooter from '@/components/LandingFooter';
 import HeroSection from './LandingPage.hero';
 import { DEMO_VIDEO_URL } from '@/lib/demo';
@@ -49,6 +50,7 @@ const LandingPage = () => {
       <PricingSection />
       <FAQSection />
       <FinalCTASection onGetStarted={handleGetStarted} onScheduleDemo={handleViewDemo} />
+      <AccessRequestSection onGoToLogin={handleGetStarted} onOpenApp={() => navigate('/dashboard')} />
       <LandingFooter />
     </div>
   );
