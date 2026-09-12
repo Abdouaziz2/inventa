@@ -64,7 +64,11 @@ export function useDeleteUser() {
         body: { userId },
       });
 
-      if (error) throw error;
+      if (error) {
+        const serverMessage = (error as { context?: { data?: { error?: string } } })?.context?.data
+          ?.error;
+        throw new Error(serverMessage || error.message);
+      }
       if (data?.error) throw new Error(data.error);
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: subscriptionsKey }),

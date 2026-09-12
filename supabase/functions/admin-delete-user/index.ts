@@ -1,4 +1,4 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -10,6 +10,34 @@ const json = (body: Record<string, unknown>, status = 200) =>
     status,
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   });
+
+// Tables whose FK to profiles (created_by) is ON DELETE RESTRICT: deleting the
+// Auth user cascades to the profile, and PostgreSQL refuses when business
+// records still reference it. These are checked before attempting deletion so
+// the admin gets a clear 409 instead of a raw database error.
+const BLOCKING_TABLES: { table: string; label: string }[] = [
+  { table: 'sales', label: 'ventes' },
+  { table: 'payments', label: 'paiements' },
+  { table: 'reservations', label: 'réservations' },
+  { table: 'deposits', label: 'acomptes' },
+  { table: 'stock_movements', label: 'mouvements de stock' },
+  { table: 'customer_orders', label: 'commandes clients' },
+  { table: 'buybacks', label: 'rachats' },
+  { table: 'sale_returns', label: 'retours de vente' },
+  { table: 'document_verifications', label: 'vérifications de documents' },
+];
+
+async function findBlockingData(adminClient: SupabaseClient, userId: string) {
+  const blocked: { table: string; label: string; count: number }[] = [];
+  for (const { table, label } of BLOCKING_TABLES) {
+    const { count, error } = await adminClient
+      .from(table)
+      .select('id', { count: 'exact', head: true })
+      .eq('created_by', userId);
+    if (!error && count) blocked.push({ table, label, count });
+  }
+  return blocked;
+}
 
 Deno.serve(async (request) => {
   if (request.method === 'OPTIONS') {
@@ -73,8 +101,31 @@ Deno.serve(async (request) => {
     return json({ error: 'Un compte super administrateur ne peut pas être supprimé ici.' }, 400);
   }
 
+  const blocked = await findBlockingData(adminClient, targetUserId);
+  if (blocked.length > 0) {
+    const details = blocked.map((b) => `${b.label} (${b.count})`).join(', ');
+    return json(
+      {
+        error:
+          `Suppression impossible : ce compte possède encore des données métier protégées en base (${details}). ` +
+          "Supprimez ou réassociez ces enregistrements avant de supprimer le compte, ou désactivez l'accès de l'utilisateur à la place.",
+        code: 'USER_HAS_BUSINESS_DATA',
+        blocked,
+      },
+      409,
+    );
+  }
+
   const { error: deleteAuthError } = await adminClient.auth.admin.deleteUser(targetUserId);
-  if (deleteAuthError) return json({ error: deleteAuthError.message }, 400);
+  if (deleteAuthError) {
+    if (deleteAuthError.status === 404) {
+      return json({ error: 'Utilisateur introuvable dans Auth.', code: 'AUTH_USER_NOT_FOUND' }, 404);
+    }
+    return json(
+      { error: `Échec de la suppression du compte Auth : ${deleteAuthError.message}`, code: 'AUTH_DELETE_FAILED' },
+      502,
+    );
+  }
 
   if (targetProfile.company_id) {
     const { count } = await adminClient
