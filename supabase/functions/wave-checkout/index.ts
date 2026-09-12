@@ -79,10 +79,18 @@ Deno.serve(async (request: Request) => {
 
   if (!wave.ok) {
     console.error("Wave checkout creation failed:", wave.status, wave.data);
+    const waveMessage =
+      typeof wave.data?.message === "string"
+        ? wave.data.message
+        : typeof wave.data?.error === "string"
+          ? wave.data.error
+          : JSON.stringify(wave.data ?? {});
     return json(
       {
         error: "Impossible de créer le paiement Wave.",
-        detail: wave.status === 503 ? "wave_api_key_missing" : "wave_api_error",
+        detail: wave.status === 503 ? "wave_api_key_missing" : `wave_api_error_${wave.status}`,
+        wave_status: wave.status,
+        wave_message: waveMessage,
       },
       502,
     );
