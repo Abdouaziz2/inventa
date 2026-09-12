@@ -29,6 +29,8 @@ import ForgotPasswordPage from "@/pages/ForgotPasswordPage";
 import ResetPasswordPage from "@/pages/ResetPasswordPage";
 import PaymentSuccessPage from "@/pages/PaymentSuccessPage";
 import PaymentErrorPage from "@/pages/PaymentErrorPage";
+import MySubscriptionPage from "@/pages/MySubscriptionPage";
+import AdminPlansPage from "@/pages/AdminPlansPage";
 import { DemoDashboard, DemoModulePage } from "@/pages/DemoDashboard";
 
 const queryClient = new QueryClient({
@@ -54,6 +56,13 @@ function SuperAdminRoute({ children }: { children: React.ReactNode }) {
 
   if (loading) return <AppSpinner fullScreen />;
   return isSuperAdmin ? children : <Navigate to="/dashboard" replace />;
+}
+
+function SubscriptionRoute({ children }: { children: React.ReactNode }) {
+  const { isAuthenticated, loading } = useAuth();
+
+  if (loading) return <AppSpinner fullScreen />;
+  return isAuthenticated ? children : <Navigate to="/login" replace />;
 }
 
 function HomeRedirect() {
@@ -125,10 +134,12 @@ const AppRoutes = () => {
       <Route path="/payment/success" element={<PaymentSuccessPage />} />
       <Route path="/payment/error" element={<PaymentErrorPage />} />
       <Route path="/login" element={isAuthenticated ? <HomeRedirect /> : <LoginPage />} />
+      <Route path="/subscription" element={<SubscriptionRoute><MySubscriptionPage /></SubscriptionRoute>} />
       <Route path="/admin" element={<SuperAdminRoutes />}>
         <Route index element={<Navigate to="/admin/users" replace />} />
         <Route path="users" element={<SuperAdminRoute><UsersPage /></SuperAdminRoute>} />
         <Route path="subscriptions" element={<SuperAdminRoute><SubscriptionsPage /></SuperAdminRoute>} />
+        <Route path="plans" element={<SuperAdminRoute><AdminPlansPage /></SuperAdminRoute>} />
         <Route path="audit" element={<SuperAdminRoute><AuditLogsPage /></SuperAdminRoute>} />
       </Route>
       <Route element={<ProtectedRoutes />}>

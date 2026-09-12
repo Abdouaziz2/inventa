@@ -32,6 +32,7 @@ const statusLabels: Record<SubscriptionStatus, string> = {
   past_due: 'Impayé',
   suspended: 'En attente',
   canceled: 'Résilié',
+  expired: 'Expiré',
 };
 
 const activeStatuses: SubscriptionStatus[] = ['trialing', 'active'];

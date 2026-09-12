@@ -84,6 +84,8 @@ Deno.serve(async (request: Request) => {
   const auth = await authenticateRequest(request);
   if ("error" in auth) return auth.error;
 
+  await admin.rpc("expire_trials");
+
   let payload: { client_reference?: unknown; wave_session_id?: unknown; session?: unknown };
   try {
     payload = await request.json();

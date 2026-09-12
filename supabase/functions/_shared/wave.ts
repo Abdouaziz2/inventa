@@ -7,6 +7,12 @@ import {
   type PlanFrequency,
   type WavePlanId,
 } from "../../../src/lib/wave.ts";
+import {
+  buildCatalogue,
+  computeCatalogueAmount,
+  type PlanCatalogue,
+  type PlanInput,
+} from "../../../src/lib/plans.ts";
 
 export const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -55,6 +61,84 @@ export function fetchSubscription(admin: AdminClient, userId: string) {
     .select("user_id, email, plan_code, status, starts_at, expires_at, frequency, amount")
     .eq("user_id", userId)
     .maybeSingle();
+}
+
+/** Load the plan catalogue (plans + prices + settings) from the database. */
+export async function fetchPlanCatalogue(admin: AdminClient): Promise<PlanCatalogue> {
+  const [plansResult, pricesResult, settingsResult] = await Promise.all([
+    admin
+      .from("subscription_plans")
+      .select("id, code, name, description, active, recommended, display_order"),
+    admin
+      .from("subscription_plan_prices")
+      .select("plan_id, frequency, amount, currency, active"),
+    admin
+      .from("subscription_settings")
+      .select("trial_enabled, trial_duration_days, currency")
+      .eq("id", true)
+      .maybeSingle(),
+  ]);
+
+  if (plansResult.error) throw plansResult.error;
+  if (pricesResult.error) throw pricesResult.error;
+  if (settingsResult.error) throw settingsResult.error;
+
+  const pricesByPlan = new Map<string, Array<{ frequency: string; amount: number; currency: string | null; active: boolean }>>();
+  for (const row of (pricesResult.data ?? []) as Array<{
+    plan_id: string;
+    frequency: string;
+    amount: number;
+    currency: string | null;
+    active: boolean;
+  }>) {
+    const bucket = pricesByPlan.get(row.plan_id) ?? [];
+    bucket.push({
+      frequency: row.frequency,
+      amount: Number(row.amount),
+      currency: row.currency,
+      active: row.active,
+    });
+    pricesByPlan.set(row.plan_id, bucket);
+  }
+
+  const plans: PlanInput[] = (plansResult.data ?? []).map((plan) => ({
+    code: String(plan.code),
+    name: String(plan.name),
+    description: (plan.description as string | null) ?? null,
+    active: Boolean(plan.active),
+    recommended: Boolean(plan.recommended),
+    displayOrder: Number(plan.display_order ?? 0),
+    prices: (pricesByPlan.get(String(plan.id)) ?? []).map((price) => ({
+      frequency: price.frequency,
+      amount: price.amount,
+      currency: price.currency,
+      active: price.active,
+    })),
+  }));
+
+  const settings = settingsResult.data as {
+    trial_enabled: boolean;
+    trial_duration_days: number;
+    currency: string;
+  } | null;
+
+  return buildCatalogue({
+    plans,
+    currency: settings?.currency ?? "XOF",
+    trialEnabled: settings?.trial_enabled ?? true,
+    trialDurationDays: settings?.trial_duration_days ?? 14,
+  });
+}
+
+/** Resolve the server-side amount for a plan + frequency from the database. */
+export async function fetchPlanAmount(admin: AdminClient, plan: unknown, frequency: unknown): Promise<{
+  amount: number;
+  currency: string;
+}> {
+  const catalogue = await fetchPlanCatalogue(admin);
+  if (catalogue.plans.length === 0) throw new Error("Aucun plan disponible.");
+  const amount = computeCatalogueAmount(catalogue, plan, frequency);
+  return { amount, currency: catalogue.currency };
 }
 
 export function fetchIntentByReference(

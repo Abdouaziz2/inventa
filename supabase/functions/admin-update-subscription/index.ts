@@ -54,7 +54,7 @@ Deno.serve(async (request) => {
   }
 
   const userId = String(payload.userId ?? '').trim();
-  const allowedStatuses = ['trialing', 'active', 'past_due', 'suspended', 'canceled'];
+  const allowedStatuses = ['trialing', 'active', 'past_due', 'suspended', 'canceled', 'expired'];
   if (!userId || !allowedStatuses.includes(String(payload.status))) {
     return json({ error: 'Paramètres d’abonnement invalides.' }, 400);
   }

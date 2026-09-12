@@ -18,6 +18,8 @@ type SubscriptionRow = {
   expires_at: string | null;
   frequency?: string | null;
   amount?: number | null;
+  trial_started_at?: string | null;
+  trial_ends_at?: string | null;
 };
 
 function normalizeRole(role: ProfileRow['role']): AppUser['role'] {
@@ -49,6 +51,8 @@ function mapProfileToUser(profile: ProfileRow, subscription: SubscriptionRow | n
           expiresAt: subscription.expires_at,
           frequency: subscription.frequency ?? null,
           amount: subscription.amount ?? null,
+          trialStartedAt: subscription.trial_started_at ?? null,
+          trialEndsAt: subscription.trial_ends_at ?? null,
         }
       : null,
     hasActiveSubscription:
@@ -119,7 +123,7 @@ export async function getCurrentProfile() {
   const profile = await ensureCurrentProfileRow(user);
   const { data: subscription, error: subscriptionError } = await supabase
     .from('subscriptions')
-    .select('plan_code, status, starts_at, expires_at, frequency, amount')
+    .select('plan_code, status, starts_at, expires_at, frequency, amount, trial_started_at, trial_ends_at')
     .eq('user_id', user.id)
     .maybeSingle();
 

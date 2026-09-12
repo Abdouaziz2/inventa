@@ -14,6 +14,7 @@ import { useNavigate } from 'react-router-dom';
 const statusLabels = {
   trialing: 'Période d’essai expirée',
   active: 'Abonnement expiré',
+  expired: 'Abonnement expiré',
   past_due: 'Paiement en attente',
   suspended: 'Compte en attente de validation',
   canceled: 'Abonnement résilié',
@@ -63,7 +64,7 @@ const SubscriptionRequiredPage = () => {
         </CardContent>
 
         <CardFooter className="flex-col gap-2 sm:flex-row">
-          <Button className="w-full" onClick={() => void navigate('/#pricing')} disabled={status === 'suspended'}>
+          <Button className="w-full" onClick={() => void navigate('/subscription')} disabled={status === 'suspended'}>
             <CreditCard />
             Choisir un plan et payer en ligne
           </Button>

@@ -1,4 +1,4 @@
-import { History, KeyRound, LogOut, ShieldCheck, Users } from 'lucide-react';
+import { History, KeyRound, LogOut, Percent, ShieldCheck, Users } from 'lucide-react';
 import { NavLink, Outlet } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
@@ -7,6 +7,7 @@ import { publicAsset } from '@/lib/assets';
 const adminLinks = [
   { label: 'Utilisateurs', path: '/admin/users', icon: Users },
   { label: 'Abonnements', path: '/admin/subscriptions', icon: KeyRound },
+  { label: 'Plans', path: '/admin/plans', icon: Percent },
   { label: 'Journal', path: '/admin/audit', icon: History },
 ];
 
@@ -68,7 +69,7 @@ const SuperAdminLayout = () => {
           </div>
         </header>
 
-        <nav className="grid shrink-0 grid-cols-3 border-b bg-card p-2 lg:hidden">
+        <nav className="grid shrink-0 grid-cols-2 border-b bg-card p-2 sm:grid-cols-4 lg:hidden">
           {adminLinks.map((item) => (
             <NavLink
               key={item.path}

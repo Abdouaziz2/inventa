@@ -2,7 +2,6 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import {
   WAVE_CURRENCY,
   buildClientReference,
-  computeWaveAmount,
   isPlanFrequency,
   isWavePlanId,
   type PlanFrequency,
@@ -13,6 +12,7 @@ import {
   callWaveApi,
   corsHeaders,
   createAdminClient,
+  fetchPlanAmount,
   json,
 } from "../_shared/wave.ts";
 
@@ -48,10 +48,16 @@ Deno.serve(async (request: Request) => {
   }
 
   let amount: number;
+  let currency: string;
   try {
-    amount = computeWaveAmount(plan, frequency);
+    const priced = await fetchPlanAmount(admin, plan, frequency);
+    amount = priced.amount;
+    currency = priced.currency;
   } catch {
-    return json({ error: "Plan ou fréquence invalide." }, 400);
+    return json({ error: "Plan indisponible pour le paiement." }, 400);
+  }
+  if (currency !== WAVE_CURRENCY) {
+    return json({ error: "Devise de facturation non prise en charge." }, 503);
   }
 
   const appUrl = String(Deno.env.get("APP_URL") || DEFAULT_APP_URL).replace(/\/+$/u, "");

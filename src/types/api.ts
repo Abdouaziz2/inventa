@@ -1,7 +1,7 @@
 export type AppRole = 'super_admin' | 'admin' | 'vendeur';
 export type BusinessType = 'jewelry';
 export type UserStatus = 'active' | 'inactive' | 'suspended';
-export type SubscriptionStatus = 'trialing' | 'active' | 'past_due' | 'suspended' | 'canceled';
+export type SubscriptionStatus = 'trialing' | 'active' | 'past_due' | 'suspended' | 'canceled' | 'expired';
 export type JewelryStatus = 'available' | 'reserved' | 'sold' | 'out_of_stock';
 export type ReservationStatus = 'active' | 'cancelled' | 'completed' | 'expired';
 export type CustomerOrderStatus = 'pending' | 'in_progress' | 'ready' | 'delivered' | 'cancelled';
@@ -39,6 +39,8 @@ subscription: {
     expiresAt: string | null;
     frequency?: string | null;
     amount?: number | null;
+    trialStartedAt?: string | null;
+    trialEndsAt?: string | null;
   } | null;
   hasActiveSubscription: boolean;
   isDemo?: boolean;

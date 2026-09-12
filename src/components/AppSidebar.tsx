@@ -53,7 +53,8 @@ const AppSidebar = ({ open, collapsed, onOpenChange, onCollapsedToggle }: AppSid
       items: [
         ...(isAdmin ? [{ label: 'Paramètres', path: '/profile', icon: UserCog }] : []),
         ...(isSuperAdmin ? [{ label: 'Utilisateurs', path: '/users', icon: Users }] : []),
-        ...(isAdmin ? [{ label: 'Abonnement', path: '/subscriptions', icon: KeyRound }] : []),
+...(isAdmin ? [{ label: 'Abonnement', path: '/subscriptions', icon: KeyRound }] : []),
+        ...(!isAdmin ? [{ label: 'Mon abonnement', path: '/subscription', icon: KeyRound }] : []),
         ...(isAdmin ? [{ label: 'Journal', path: '/audit', icon: History }] : []),
       ],
     },
