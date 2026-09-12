@@ -136,6 +136,10 @@ grant select on public.subscription_plans, public.subscription_plan_prices, publ
   to anon, authenticated;
 grant insert, update, delete on public.subscription_plans, public.subscription_plan_prices, public.subscription_settings
   to authenticated, service_role;
+-- service_role must be able to SELECT (PostgREST upsert with RETURNING / DO UPDATE
+-- and every admin/checkout handler reads these tables with the service role).
+grant select on public.subscription_plans, public.subscription_plan_prices, public.subscription_settings
+  to service_role;
 
 -- 5. Trial metadata on subscriptions --------------------------------------
 alter table public.subscriptions
