@@ -151,8 +151,10 @@ export async function signUpWithPassword(input: {
   fullName: string;
   companyName: string;
 }) {
+  const normalizedEmail = input.email.trim().toLowerCase();
+
   const { data, error } = await supabase.auth.signUp({
-    email: input.email.trim().toLowerCase(),
+    email: normalizedEmail,
     password: input.password,
     options: {
       data: {
@@ -163,7 +165,37 @@ export async function signUpWithPassword(input: {
     },
   });
 
-  if (error) throw error;
+  if (error) {
+    const errorMsg = (error.message || '').toLowerCase();
+    if (
+      errorMsg.includes('already registered') ||
+      errorMsg.includes('already exists') ||
+      errorMsg.includes('user already exists') ||
+      (error as { code?: string }).code === 'user_already_exists'
+    ) {
+      throw new Error('Un compte existe déjà avec cette adresse email. Veuillez vous connecter.');
+    }
+    throw error;
+  }
+
+  // Détection anti-doublon Supabase (GoTrue renvoie identities vide quand l'email est déjà pris)
+  if (data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+    throw new Error('Un compte existe déjà avec cette adresse email. Veuillez vous connecter.');
+  }
+
+  // Notifier l'administrateur par email via l'Edge Function access-requests
+  try {
+    await supabase.functions.invoke('access-requests', {
+      body: {
+        action: 'notify',
+        email: normalizedEmail,
+        fullName: input.fullName.trim(),
+        companyName: input.companyName.trim(),
+      },
+    });
+  } catch (notifError) {
+    console.warn('Admin notification email failed:', notifError);
+  }
 
   if (data.session) {
     return getCurrentProfile();

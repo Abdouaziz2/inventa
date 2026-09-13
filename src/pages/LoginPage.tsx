@@ -303,9 +303,27 @@ const LoginPage = () => {
               </div>
 
               {error && (
-                <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20 flex items-start gap-2">
-                  <ShieldAlert className="h-4 w-4 text-destructive mt-0.5 shrink-0" />
-                  <p className="text-sm text-destructive font-medium">{error}</p>
+                <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20 space-y-2">
+                  <div className="flex items-start gap-2">
+                    <ShieldAlert className="h-4 w-4 text-destructive mt-0.5 shrink-0" />
+                    <p className="text-sm text-destructive font-medium">{error}</p>
+                  </div>
+                  {mode === 'register' && error.includes('existe déjà') && (
+                    <div className="pl-6">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setMode('login');
+                          setError('');
+                        }}
+                        className="h-8 text-xs font-semibold border-destructive/30 hover:bg-destructive/10"
+                      >
+                        Se connecter avec ce compte
+                      </Button>
+                    </div>
+                  )}
                 </div>
               )}
 

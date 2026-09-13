@@ -101,20 +101,48 @@ Deno.serve(async (request: Request) => {
     const email = String(payload.email ?? "").trim().toLowerCase();
     if (!email.includes("@")) return json({ error: "Email invalide." }, 400);
 
+    const payloadFullName = String(payload.fullName ?? payload.full_name ?? "").trim();
+    const payloadCompanyName = String(payload.companyName ?? payload.company_name ?? "").trim();
+
     const { data: accessRequest, error: accessRequestError } = await admin
       .from("access_requests")
       .select("id, email, full_name, company_name, status, notified_at")
       .eq("email", email)
-      .eq("status", "pending")
       .maybeSingle();
 
     if (accessRequestError) {
       console.error("Access request lookup failed:", accessRequestError);
-      return json({ error: "Impossible de retrouver la demande.", detail: accessRequestError.message }, 500);
     }
 
-    if (!accessRequest) return json({ received: true });
-    if (accessRequest.notified_at) return json({ received: true, already_notified: true });
+    // Éviter le spam si déjà notifié dans les 12 dernières heures
+    if (accessRequest?.notified_at) {
+      const lastNotified = new Date(accessRequest.notified_at).getTime();
+      if (Date.now() - lastNotified < 12 * 60 * 60 * 1000) {
+        return json({ received: true, already_notified: true });
+      }
+    }
+
+    let fullName = payloadFullName || accessRequest?.full_name || "";
+    let companyName = payloadCompanyName || accessRequest?.company_name || "";
+
+    if (!fullName || !companyName) {
+      const { data: profile } = await admin
+        .from("profiles")
+        .select("full_name, company_id")
+        .eq("email", email)
+        .maybeSingle();
+      if (profile) {
+        fullName = fullName || profile.full_name || "";
+        if (profile.company_id) {
+          const { data: company } = await admin
+            .from("companies")
+            .select("name")
+            .eq("id", profile.company_id)
+            .maybeSingle();
+          companyName = companyName || company?.name || "";
+        }
+      }
+    }
 
     const configuredAdmin = Deno.env.get("ADMIN_NOTIFICATION_EMAIL") || "bayecode4@gmail.com";
     const { data: admins } = await admin
@@ -131,21 +159,21 @@ Deno.serve(async (request: Request) => {
     const mail = uniqueRecipients.length
       ? await sendEmail({
           to: uniqueRecipients,
-          subject: `Nouvelle demande Inventa - ${accessRequest.company_name || accessRequest.email}`,
+          subject: `Nouvelle demande Inventa - ${companyName || email}`,
           text: [
-            "Nouvelle demande d'accès Inventa",
-            `Nom : ${accessRequest.full_name || "Non renseigné"}`,
-            `Bijouterie : ${accessRequest.company_name || "Non renseignée"}`,
-            `Email : ${accessRequest.email}`,
+            "Nouvelle demande d'accès / inscription Inventa",
+            `Nom : ${fullName || "Non renseigné"}`,
+            `Bijouterie : ${companyName || "Non renseignée"}`,
+            `Email : ${email}`,
             "Examiner la demande : https://inventa.bayecode.com/users",
           ].join("\n"),
-          idempotencyKey: `access-request-${accessRequest.id}`,
+          idempotencyKey: `access-request-${email}-${Date.now()}`,
           html: `
             <div style="font-family:Arial,sans-serif;max-width:620px;margin:auto;color:#0A1628">
               <h1 style="font-size:24px">Nouvelle demande d'accès</h1>
-              <p><strong>Nom :</strong> ${escapeHtml(accessRequest.full_name || "Non renseigné")}</p>
-              <p><strong>Bijouterie :</strong> ${escapeHtml(accessRequest.company_name || "Non renseignée")}</p>
-              <p><strong>Email :</strong> ${escapeHtml(accessRequest.email)}</p>
+              <p><strong>Nom :</strong> ${escapeHtml(fullName || "Non renseigné")}</p>
+              <p><strong>Bijouterie :</strong> ${escapeHtml(companyName || "Non renseignée")}</p>
+              <p><strong>Email :</strong> ${escapeHtml(email)}</p>
               <p style="margin-top:24px">
                 <a href="https://inventa.bayecode.com/users" style="background:#C9972A;color:#0A1628;text-decoration:none;padding:12px 18px;border-radius:8px;font-weight:bold">
                   Examiner la demande
@@ -155,7 +183,7 @@ Deno.serve(async (request: Request) => {
         })
       : { sent: false, reason: "no_admin_recipient" };
 
-    if (mail.sent) {
+    if (mail.sent && accessRequest?.id) {
       await admin
         .from("access_requests")
         .update({ notified_at: new Date().toISOString() })

@@ -48,3 +48,4 @@ describe('checkoutIntent module', () => {
     expect(getCheckoutIntent()).toBeNull();
   });
 });
+

@@ -58,3 +58,4 @@ export function clearCheckoutIntent(): void {
     // Ignore
   }
 }
+

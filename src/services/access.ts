@@ -22,8 +22,10 @@ export async function requestAccess(input: AccessRequestInput) {
     throw new Error('Veuillez patienter une minute avant de renvoyer une demande.');
   }
 
+  const normalizedEmail = input.email.trim().toLowerCase();
+
   const { data, error } = await supabase.auth.signUp({
-    email: input.email.trim().toLowerCase(),
+    email: normalizedEmail,
     password: input.password,
     options: {
       data: {
@@ -34,13 +36,32 @@ export async function requestAccess(input: AccessRequestInput) {
     },
   });
 
-  if (error) throw error;
+  if (error) {
+    const errorMsg = (error.message || '').toLowerCase();
+    if (
+      errorMsg.includes('already registered') ||
+      errorMsg.includes('already exists') ||
+      errorMsg.includes('user already exists') ||
+      (error as { code?: string }).code === 'user_already_exists'
+    ) {
+      throw new Error('Un compte existe déjà avec cette adresse email. Veuillez vous connecter.');
+    }
+    throw error;
+  }
+
+  // Détection anti-doublon Supabase
+  if (data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+    throw new Error('Un compte existe déjà avec cette adresse email. Veuillez vous connecter.');
+  }
+
   window.localStorage.setItem('inventa-access-request-at', String(Date.now()));
 
   const { error: notificationError } = await supabase.functions.invoke('access-requests', {
     body: {
       action: 'notify',
-      email: input.email.trim().toLowerCase(),
+      email: normalizedEmail,
+      fullName: input.fullName.trim(),
+      companyName: input.companyName.trim(),
     },
   });
 
