@@ -5,6 +5,7 @@ import {
   getCurrentProfile,
   signInWithPassword,
   signOutCurrentUser,
+  signUpWithPassword,
 } from '@/services/auth';
 import type { AppUser } from '@/types/api';
 
@@ -15,6 +16,12 @@ interface AuthContextType {
   user: AppUser | null;
   loading: boolean;
   login: (identifier: string, password: string) => Promise<{ error?: string }>;
+  signup: (input: {
+    email: string;
+    password: string;
+    fullName: string;
+    companyName: string;
+  }) => Promise<{ error?: string; requiresEmailConfirmation?: boolean }>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
   isAuthenticated: boolean;
@@ -74,6 +81,24 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  const signup = async (input: {
+    email: string;
+    password: string;
+    fullName: string;
+    companyName: string;
+  }) => {
+    try {
+      const profile = await signUpWithPassword(input);
+      if (profile) {
+        setUser(profile);
+        return { requiresEmailConfirmation: false };
+      }
+      return { requiresEmailConfirmation: true };
+    } catch (error: unknown) {
+      return { error: getErrorMessage(error, "Erreur lors de l'inscription") };
+    }
+  };
+
   const logout = async () => {
     await signOutCurrentUser();
     setUser(null);
@@ -85,6 +110,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         user,
         loading,
         login,
+        signup,
         logout,
         refreshUser,
         isAuthenticated: !!user,

@@ -145,6 +145,33 @@ export async function signInWithPassword(email: string, password: string) {
   return getCurrentProfile();
 }
 
+export async function signUpWithPassword(input: {
+  email: string;
+  password: string;
+  fullName: string;
+  companyName: string;
+}) {
+  const { data, error } = await supabase.auth.signUp({
+    email: input.email.trim().toLowerCase(),
+    password: input.password,
+    options: {
+      data: {
+        full_name: input.fullName.trim(),
+        company_name: input.companyName.trim(),
+        business_type: 'jewelry',
+      },
+    },
+  });
+
+  if (error) throw error;
+
+  if (data.session) {
+    return getCurrentProfile();
+  }
+
+  return null;
+}
+
 export async function signOutCurrentUser() {
   const wasDemo = !!getDemoSession();
   clearDemoSession();

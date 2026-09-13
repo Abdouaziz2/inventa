@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Check, ArrowRight, Loader2, CheckCircle2, ShieldAlert } from 'lucide-react';
+import { Check, ArrowRight, Loader2, CheckCircle2, ShieldAlert, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -8,6 +8,7 @@ import { formatMoney, type PlanConfig } from '@/lib/plans';
 import { startWaveCheckout, WAVE_PAYMENT_SUCCESS_FLAG } from '@/services/subscriptions';
 import type { PlanFrequency, WavePlanId } from '@/lib/wave';
 import { getErrorMessage } from '@/lib/errors';
+import { saveCheckoutIntent } from '@/lib/checkoutIntent';
 
 const planFeatures: Record<string, string[]> = {
   starter: ['Produits, stock, ventes', 'Gestion par poids', 'Clients', 'Alertes stock', 'Dashboard', '1 utilisateur'],
@@ -51,9 +52,28 @@ export default function PricingSection() {
   const plans = (catalogue?.plans ?? []).filter((plan) => plan.active);
   const currencyLabel = catalogue?.currency.toUpperCase() === 'XOF' ? 'FCFA' : (catalogue?.currency ?? 'FCFA');
 
+  const handleStartFreeTrial = () => {
+    if (isAuthenticated) {
+      navigate('/dashboard');
+      return;
+    }
+    saveCheckoutIntent({ isTrial: true });
+    navigate('/login?mode=register&trial=true');
+  };
+
   const handleGetStarted = async (plan: PlanConfig) => {
+    const monthly = planAmount(plan.code, 'monthly');
+    const yearly = planAmount(plan.code, 'yearly');
+    const amount = isAnnual ? yearly : monthly;
+    const frequency = isAnnual ? 'yearly' : 'monthly';
+
     if (!isAuthenticated) {
-      navigate('/login');
+      saveCheckoutIntent({
+        plan: plan.code as WavePlanId,
+        frequency,
+        amount,
+      });
+      navigate(`/login?plan=${plan.code}&frequency=${frequency}&redirect=/subscription`);
       return;
     }
 
@@ -62,14 +82,10 @@ export default function PricingSection() {
     window.localStorage.removeItem(WAVE_PAYMENT_SUCCESS_FLAG);
     setRecentSuccess(null);
 
-    const monthly = planAmount(plan.code, 'monthly');
-    const yearly = planAmount(plan.code, 'yearly');
-    const amount = isAnnual ? yearly : monthly;
-
     try {
       const result = await startWaveCheckout({
         plan: plan.code as WavePlanId,
-        frequency: isAnnual ? 'yearly' : 'monthly',
+        frequency,
         amount,
       });
       if (!result.wave_launch_url) {
@@ -125,6 +141,28 @@ export default function PricingSection() {
               Économisez jusqu'à 2 mois
             </p>
           )}
+        </div>
+
+        {/* Bannière Essai Gratuit 14 Jours sans paiement */}
+        <div className="mx-auto mb-10 max-w-[800px] rounded-2xl border border-amber-300/80 bg-gradient-to-r from-amber-50 via-orange-50/70 to-amber-50 p-6 text-center shadow-sm">
+          <div className="inline-flex items-center gap-2 rounded-full bg-[#C89B3C]/15 px-3.5 py-1 text-xs font-bold uppercase tracking-wider text-amber-900 mb-3">
+            <Sparkles className="h-3.5 w-3.5 text-[#C89B3C]" />
+            Offre Découverte sans engagement
+          </div>
+          <h3 className="text-xl sm:text-2xl font-bold text-[#171717] mb-2">
+            Testez Inventa gratuitement pendant 14 jours
+          </h3>
+          <p className="text-sm sm:text-base text-[#55555C] max-w-xl mx-auto mb-5">
+            Accédez à toutes les fonctionnalités professionnelles (stocks, ventes, clients, reçus) sans sortir votre carte bancaire ni payer maintenant.
+          </p>
+          <Button
+            type="button"
+            onClick={handleStartFreeTrial}
+            className="h-11 px-6 rounded-xl font-semibold bg-[#0A1628] hover:bg-[#142642] text-white shadow-md transition-all hover:scale-[1.02]"
+          >
+            Démarrer mes 14 jours gratuits
+            <ArrowRight className="h-4 w-4 ml-2" />
+          </Button>
         </div>
 
         {recentSuccess && (

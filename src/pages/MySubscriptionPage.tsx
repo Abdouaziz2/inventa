@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   ArrowLeft,
   ArrowRight,
@@ -37,6 +37,7 @@ import type { PlanFrequency, WavePlanId } from '@/lib/wave';
 import { getErrorMessage } from '@/lib/errors';
 import { publicAsset } from '@/lib/assets';
 import { startWaveCheckout, WAVE_PAYMENT_SUCCESS_FLAG } from '@/services/subscriptions';
+import { getCheckoutIntent, clearCheckoutIntent } from '@/lib/checkoutIntent';
 
 const statusMeta: Record<string, { label: string; tone: 'default' | 'destructive' | 'outline' | 'secondary' }> = {
   trialing: { label: 'Essai gratuit', tone: 'secondary' },
@@ -51,9 +52,15 @@ const currencyLabel = (currency: string) => (currency.toUpperCase() === 'XOF' ? 
 
 export default function MySubscriptionPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const intent = useMemo(() => getCheckoutIntent(), []);
+  const requestedPlan = (searchParams.get('plan') as WavePlanId | null) || intent?.plan || null;
+  const requestedFrequency =
+    (searchParams.get('frequency') as PlanFrequency | null) || intent?.frequency;
+
   const { user, logout, hasAccess, isAdmin } = useAuth();
   const { data: catalogue, isLoading: catalogueLoading } = usePlanCatalogue();
-  const [isAnnual, setIsAnnual] = useState(false);
+  const [isAnnual, setIsAnnual] = useState(requestedFrequency === 'yearly');
   const [payState, setPayState] = useState<string | null>(null);
 
   const subscription = user?.subscription ?? null;
@@ -71,6 +78,11 @@ export default function MySubscriptionPage() {
     () => nextRecommendedPlan(catalogue ?? { plans: [], currency: 'XOF', trialEnabled: true, trialDurationDays: 14 }, currentCode),
     [catalogue, currentCode],
   );
+
+  const highlightedPlan = useMemo(() => {
+    if (!requestedPlan || !catalogue) return null;
+    return catalogue.plans.find((plan) => plan.code === requestedPlan) ?? null;
+  }, [catalogue, requestedPlan]);
 
   const live = isLiveSubscription(currentStatus, expiresAt);
   const trialOver = isTrialOver(currentStatus, trialEndsAt);
@@ -92,6 +104,7 @@ export default function MySubscriptionPage() {
     try {
       const result = await startWaveCheckout({ plan: plan.code as WavePlanId, frequency, amount });
       if (!result.wave_launch_url) throw new Error('Wave n’a pas retourné de lien de paiement.');
+      clearCheckoutIntent();
       window.location.href = result.wave_launch_url;
     } catch (error) {
       setPayState(null);
@@ -236,6 +249,49 @@ export default function MySubscriptionPage() {
           </div>
         </div>
 
+        {highlightedPlan && (
+          <div className="mb-8 rounded-2xl border-2 border-[#C89B3C] bg-gradient-to-r from-amber-50/90 via-white to-amber-50/60 p-6 shadow-sm">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+              <div className="space-y-1 text-left">
+                <div className="inline-flex items-center gap-1.5 rounded-full bg-[#C89B3C]/15 px-3 py-0.5 text-xs font-bold uppercase tracking-wider text-amber-900">
+                  <Sparkles className="h-3.5 w-3.5 text-[#C89B3C]" />
+                  Offre sélectionnée
+                </div>
+                <h3 className="text-xl font-bold text-[#171717]">
+                  Plan {highlightedPlan.name} — {formatMoney(highlightedPlan.prices[isAnnual ? 'yearly' : 'monthly']?.amount ?? 0)} {currencyLabel(catalogue?.currency ?? 'XOF')}
+                  <span className="text-sm font-normal text-muted-foreground ml-2">
+                    ({isAnnual ? 'Facturé annuellement' : 'Facturé mensuellement'})
+                  </span>
+                </h3>
+                <p className="text-sm text-[#55555C]">
+                  Finalisez votre souscription pour le compte <strong className="text-[#171717]">{user?.email}</strong>. Paiement direct et sécurisé via Wave Business.
+                </p>
+              </div>
+
+              <div className="shrink-0">
+                <Button
+                  size="lg"
+                  disabled={payState !== null}
+                  onClick={() => void pay(highlightedPlan, isAnnual ? 'yearly' : 'monthly')}
+                  className="h-12 px-6 rounded-xl font-bold bg-[#1DA1F2] hover:bg-[#0c85d0] text-white shadow-md transition-all hover:scale-[1.02]"
+                >
+                  {payState?.startsWith(highlightedPlan.code) ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Ouverture de Wave...
+                    </>
+                  ) : (
+                    <>
+                      <CreditCard className="h-4 w-4 mr-2" />
+                      Payer {formatMoney(highlightedPlan.prices[isAnnual ? 'yearly' : 'monthly']?.amount ?? 0)} FCFA sur Wave
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {catalogueLoading && activePlans.length === 0 ? (
           <div className="p-10 text-center text-muted-foreground">Chargement des offres...</div>
         ) : (
@@ -244,22 +300,29 @@ export default function MySubscriptionPage() {
               const price = plan.prices[isAnnual ? 'yearly' : 'monthly'];
               const frequency: PlanFrequency = isAnnual ? 'yearly' : 'monthly';
               const isCurrent = live && currentCode === plan.code;
+              const isHighlighted = requestedPlan === plan.code;
               const cta = ctaFor(plan);
               const processing = payState === `${plan.code}:${frequency}`;
               return (
                 <div
                   key={plan.code}
                   className={`relative flex flex-col rounded-2xl border bg-white p-6 transition-all ${
-                    plan.recommended
-                      ? 'border-[#C89B3C] shadow-[0_8px_40px_-12px_rgba(200,155,60,0.2)]'
-                      : 'border-[#E7E7EA]'
+                    isHighlighted
+                      ? 'border-2 border-[#C89B3C] ring-2 ring-[#C89B3C]/30 shadow-lg'
+                      : plan.recommended
+                        ? 'border-[#C89B3C] shadow-[0_8px_40px_-12px_rgba(200,155,60,0.2)]'
+                        : 'border-[#E7E7EA]'
                   }`}
                 >
-                  {plan.recommended && (
+                  {plan.recommended ? (
                     <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-[#C89B3C] px-3 py-1 text-xs font-semibold text-white">
                       Le plus populaire
                     </span>
-                  )}
+                  ) : isHighlighted ? (
+                    <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-[#171717] px-3 py-1 text-xs font-semibold text-white">
+                      Votre sélection
+                    </span>
+                  ) : null}
                   <div className="mb-4">
                     <h3 className="text-lg font-semibold">{plan.name}</h3>
                     {plan.description && (

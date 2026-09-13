@@ -1,8 +1,9 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, HashRouter, Route, Routes, Navigate } from "react-router-dom";
+import { BrowserRouter, HashRouter, Route, Routes, Navigate, useSearchParams } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { getCheckoutIntent } from "@/lib/checkoutIntent";
 import AppLayout from "@/components/AppLayout";
 import AppErrorBoundary from "@/components/AppErrorBoundary";
 import AppSpinner from "@/components/AppSpinner";
@@ -67,7 +68,30 @@ function SubscriptionRoute({ children }: { children: React.ReactNode }) {
 
 function HomeRedirect() {
   const { isSuperAdmin } = useAuth();
-  return <Navigate to={isSuperAdmin ? "/admin/users" : "/dashboard"} replace />;
+  const [searchParams] = useSearchParams();
+  const intent = getCheckoutIntent();
+  const redirect = searchParams.get("redirect");
+  const plan = searchParams.get("plan") || intent?.plan;
+  const frequency = searchParams.get("frequency") || intent?.frequency;
+
+  if (isSuperAdmin) {
+    return <Navigate to="/admin/users" replace />;
+  }
+
+  if (plan && (redirect === "/subscription" || intent?.plan)) {
+    return (
+      <Navigate
+        to={`/subscription?plan=${plan}&frequency=${frequency || "monthly"}`}
+        replace
+      />
+    );
+  }
+
+  if (redirect) {
+    return <Navigate to={redirect} replace />;
+  }
+
+  return <Navigate to="/dashboard" replace />;
 }
 
 function DemoAware({ children, dashboard = false }: { children: React.ReactNode; dashboard?: boolean }) {
