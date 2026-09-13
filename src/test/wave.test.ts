@@ -243,3 +243,21 @@ describe('Wave signature format (webhook + request signing)', () => {
     expect((await verifyWaveSignature({ header: null, rawBody: body, secret, now })).valid).toBe(false);
   });
 });
+
+describe('Wave merchant payment link', () => {
+  it('generates the direct Wave merchant URL with the specified dynamic amount', async () => {
+    const { buildWaveMerchantUrl, startWaveCheckout } = await import('@/services/subscriptions');
+    expect(buildWaveMerchantUrl(11500)).toBe('https://pay.wave.com/m/M_sn_rcEoxhsoOgeM/c/sn/?amount=11500');
+    expect(buildWaveMerchantUrl(7500)).toBe('https://pay.wave.com/m/M_sn_rcEoxhsoOgeM/c/sn/?amount=7500');
+    expect(buildWaveMerchantUrl(25000)).toBe('https://pay.wave.com/m/M_sn_rcEoxhsoOgeM/c/sn/?amount=25000');
+
+    const result = await startWaveCheckout({
+      plan: 'business',
+      frequency: 'monthly',
+      amount: 11500,
+    });
+    expect(result.wave_launch_url).toBe('https://pay.wave.com/m/M_sn_rcEoxhsoOgeM/c/sn/?amount=11500');
+    expect(result.amount).toBe(11500);
+    expect(result.currency).toBe('XOF');
+  });
+});

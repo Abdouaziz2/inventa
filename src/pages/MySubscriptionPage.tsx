@@ -87,8 +87,10 @@ export default function MySubscriptionPage() {
     const key = `${plan.code}:${frequency}`;
     setPayState(key);
     window.localStorage.removeItem(WAVE_PAYMENT_SUCCESS_FLAG);
+    const price = plan.prices[frequency];
+    const amount = price?.amount;
     try {
-      const result = await startWaveCheckout({ plan: plan.code as WavePlanId, frequency });
+      const result = await startWaveCheckout({ plan: plan.code as WavePlanId, frequency, amount });
       if (!result.wave_launch_url) throw new Error('Wave n’a pas retourné de lien de paiement.');
       window.location.href = result.wave_launch_url;
     } catch (error) {

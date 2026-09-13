@@ -62,10 +62,15 @@ export default function PricingSection() {
     window.localStorage.removeItem(WAVE_PAYMENT_SUCCESS_FLAG);
     setRecentSuccess(null);
 
+    const monthly = planAmount(plan.code, 'monthly');
+    const yearly = planAmount(plan.code, 'yearly');
+    const amount = isAnnual ? yearly : monthly;
+
     try {
       const result = await startWaveCheckout({
         plan: plan.code as WavePlanId,
         frequency: isAnnual ? 'yearly' : 'monthly',
+        amount,
       });
       if (!result.wave_launch_url) {
         throw new Error('Wave n’a pas retourné de lien de paiement.');

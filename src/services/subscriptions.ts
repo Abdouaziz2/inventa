@@ -1,10 +1,17 @@
 import { supabase } from '@/lib/supabase';
-import type { PlanFrequency, WavePlanId } from '@/lib/wave';
-import { buildCatalogue, fallbackCatalogue, type PlanCatalogue, type PlanInput } from '@/lib/plans';
+import { computeWaveAmount, type PlanFrequency, type WavePlanId } from '@/lib/wave';
+import {
+  buildCatalogue,
+  computeCatalogueAmount,
+  fallbackCatalogue,
+  type PlanCatalogue,
+  type PlanInput,
+} from '@/lib/plans';
 
 export type StartCheckoutInput = {
   plan: WavePlanId;
   frequency: PlanFrequency;
+  amount?: number;
 };
 
 export type StartCheckoutResult = {
@@ -37,6 +44,13 @@ export type PaymentStatusResult = {
 };
 
 export const WAVE_PAYMENT_SUCCESS_FLAG = 'inventa.payment.success';
+export const WAVE_MERCHANT_BASE_URL = 'https://pay.wave.com/m/M_sn_rcEoxhsoOgeM/c/sn/';
+
+export function buildWaveMerchantUrl(amount: number): string {
+  const base = (import.meta.env.VITE_WAVE_MERCHANT_URL as string | undefined) || WAVE_MERCHANT_BASE_URL;
+  const separator = base.includes('?') ? '&' : '?';
+  return `${base}${separator}amount=${Math.round(amount)}`;
+}
 
 type PlanRow = {
   id: string;
@@ -104,36 +118,40 @@ export async function fetchPlanCatalogue(): Promise<PlanCatalogue> {
   });
 }
 
-async function readInvokeError(error: unknown): Promise<string> {
-  const context = (error as { context?: unknown })?.context;
-  if (context instanceof Response) {
-    try {
-      const body = (await context.clone().json()) as {
-        error?: string;
-        message?: string;
-        wave_message?: string;
-        wave_status?: number;
-      };
-      if (body.wave_message) {
-        return `Wave (${body.wave_status ?? 'erreur'}) : ${body.wave_message}`;
-      }
-      return body.error ?? body.message ?? 'La demande de paiement a échoué.';
-    } catch {
-      return 'La demande de paiement a échoué.';
-    }
-  }
-  if (error instanceof Error && error.message) return error.message;
-  return 'Le paiement Wave est indisponible pour le moment. Réessayez dans quelques instants.';
-}
-
 export async function startWaveCheckout(
   input: StartCheckoutInput,
 ): Promise<StartCheckoutResult> {
-  const { data, error } = await supabase.functions.invoke('wave-checkout', {
-    body: input,
-  });
-  if (error) throw new Error(await readInvokeError(error));
-  return (data as StartCheckoutResult | null) ?? {};
+  let amount = input.amount;
+  if (!amount || amount <= 0) {
+    try {
+      const catalogue = await fetchPlanCatalogue();
+      amount = computeCatalogueAmount(catalogue, input.plan, input.frequency);
+    } catch {
+      amount = computeWaveAmount(input.plan, input.frequency);
+    }
+  }
+
+  const waveLaunchUrl = buildWaveMerchantUrl(amount);
+
+  try {
+    window.localStorage.setItem(
+      'inventa.pending_payment',
+      JSON.stringify({
+        plan: input.plan,
+        frequency: input.frequency,
+        amount,
+        at: new Date().toISOString(),
+      }),
+    );
+  } catch {
+    // ignore
+  }
+
+  return {
+    wave_launch_url: waveLaunchUrl,
+    amount,
+    currency: 'XOF',
+  };
 }
 
 export async function getPaymentStatus(input: {
@@ -143,6 +161,8 @@ export async function getPaymentStatus(input: {
   const { data, error } = await supabase.functions.invoke('subscription-status', {
     body: input,
   });
-  if (error) throw new Error(await readInvokeError(error));
+  if (error) {
+    return {};
+  }
   return (data as PaymentStatusResult | null) ?? {};
 }
