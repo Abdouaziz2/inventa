@@ -2,6 +2,7 @@ import { Outlet, useLocation } from 'react-router-dom';
 import { useEffect, useRef, useState } from 'react';
 import AppSidebar from '@/components/AppSidebar';
 import AppHeader from '@/components/AppHeader';
+import SubscriptionExpiryBanner from '@/components/SubscriptionExpiryBanner';
 import NetworkStatus from '@/components/NetworkStatus';
 import { cn } from '@/lib/utils';
 
@@ -44,6 +45,7 @@ const AppLayout = () => {
         <AppHeader
           onMenuClick={() => setSidebarOpen(true)}
         />
+        <SubscriptionExpiryBanner />
         <main
           ref={mainContentRef}
           id="main-content"

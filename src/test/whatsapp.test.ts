@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
+  buildSubscriptionReminderWhatsAppMessage,
+  buildSubscriptionReminderWhatsAppUrl,
   buildWhatsAppDocumentMessage,
   buildWhatsAppUrl,
   normalizeWhatsAppPhone,
@@ -31,5 +33,28 @@ describe('WhatsApp document sharing', () => {
     expect(url).toContain('https://wa.me/22376123456?text=');
     expect(decodeURIComponent(url)).toContain('DEP-20260620-000001');
     expect(decodeURIComponent(url)).toContain('50 000 FCFA');
+  });
+
+  it('builds a subscription reminder message and WhatsApp URL with payment link', () => {
+    const params = {
+      clientName: 'Moussa Diop',
+      companyName: 'Bijouterie Keur Gui',
+      planName: 'Business',
+      amount: 11500,
+      expiresAt: '2026-09-20T12:00:00.000Z',
+      daysRemaining: 3,
+      paymentUrl: 'https://pay.wave.com/m/M_sn_rcEoxhsoOgeM/c/sn/?amount=11500',
+    };
+
+    const message = buildSubscriptionReminderWhatsAppMessage(params);
+    expect(message).toContain('Inventa · Rappel de renouvellement');
+    expect(message).toContain('Moussa Diop (Bijouterie Keur Gui)');
+    expect(message).toContain('échéance dans 3 jours');
+    expect(message).toContain('11\u202F500 FCFA');
+    expect(message).toContain('https://pay.wave.com/m/M_sn_rcEoxhsoOgeM/c/sn/?amount=11500');
+
+    const url = buildSubscriptionReminderWhatsAppUrl('76 12 34 56', params);
+    expect(url).toContain('https://wa.me/22376123456?text=');
+    expect(decodeURIComponent(url)).toContain('11\u202F500 FCFA');
   });
 });

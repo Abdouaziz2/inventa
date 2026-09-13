@@ -10,6 +10,7 @@ export type SubscriptionAdminRow = {
   starts_at: string;
   expires_at: string | null;
   updated_at: string;
+  amount?: number | null;
 };
 
 const subscriptionsKey = ['subscriptions'] as const;
@@ -21,6 +22,7 @@ export function useSubscriptions() {
       const { data, error } = await supabase
         .from('subscriptions')
         .select('user_id, email, plan_code, status, starts_at, expires_at, updated_at')
+        .select('user_id, email, plan_code, status, starts_at, expires_at, updated_at, amount')
         .order('email');
 
       if (error) throw error;

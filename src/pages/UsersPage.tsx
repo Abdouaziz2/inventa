@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { CheckCircle2, Clock3, Loader2, Mail, Plus, Search, ShieldCheck, UserRound, X } from 'lucide-react';
+import { CheckCircle2, Clock3, Loader2, Mail, Plus, Search, ShieldCheck, UserRound, X, BellRing } from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -14,6 +15,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import PaymentReminderModal, { type PaymentReminderTarget } from '@/components/PaymentReminderModal';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { getErrorMessage } from '@/lib/errors';
@@ -30,6 +32,8 @@ type UserRow = {
   company_name: string;
   subscription_status: SubscriptionStatus | null;
   expires_at: string | null;
+  phone?: string;
+  amount?: number | null;
 };
 
 type AccessRequestRow = {
@@ -51,11 +55,11 @@ async function fetchUsers(): Promise<UserRow[]> {
     await Promise.all([
       supabase
         .from('profiles')
-        .select('id, email, full_name, role, is_active, created_at, company_id')
+        .select('id, email, full_name, role, is_active, created_at, company_id, phone')
         .order('created_at', { ascending: false }),
       supabase
         .from('subscriptions')
-        .select('user_id, status, expires_at'),
+        .select('user_id, status, expires_at, amount'),
     ]);
 
   if (profileError) throw profileError;
@@ -83,6 +87,8 @@ async function fetchUsers(): Promise<UserRow[]> {
       company_name: profile.company_id ? companyById.get(profile.company_id) ?? '' : '',
       subscription_status: (subscription?.status as SubscriptionStatus | undefined) ?? null,
       expires_at: subscription?.expires_at ?? null,
+      phone: profile.phone ?? '',
+      amount: subscription?.amount ?? null,
     };
   });
 }
@@ -93,6 +99,7 @@ const UsersPage = () => {
   const updateSubscription = useUpdateSubscription();
   const [search, setSearch] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [reminderTarget, setReminderTarget] = useState<PaymentReminderTarget | null>(null);
   const [form, setForm] = useState({
     fullName: '',
     companyName: '',
@@ -310,14 +317,36 @@ const UsersPage = () => {
                     {user.company_name ? <p className="truncate text-xs text-muted-foreground">{user.company_name}</p> : null}
                   </div>
                   {user.role !== 'super_admin' ? (
-                    <Button
-                      variant={hasAccess ? 'outline' : 'default'}
-                      onClick={() => void setAccess(user, !hasAccess)}
-                      disabled={updateSubscription.isPending}
-                    >
-                      {hasAccess ? <X className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />}
-                      {hasAccess ? 'Bloquer' : 'Valider'}
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="border-amber-500/40 text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-950/30 gap-1.5"
+                        onClick={() =>
+                          setReminderTarget({
+                            id: user.id,
+                            email: user.email,
+                            fullName: user.full_name,
+                            companyName: user.company_name,
+                            phone: user.phone,
+                            expiresAt: user.expires_at,
+                            subscriptionStatus: user.subscription_status,
+                            amount: user.amount,
+                          })
+                        }
+                      >
+                        <BellRing className="h-3.5 w-3.5 text-amber-600" />
+                        Rappel
+                      </Button>
+                      <Button
+                        variant={hasAccess ? 'outline' : 'default'}
+                        onClick={() => void setAccess(user, !hasAccess)}
+                        disabled={updateSubscription.isPending}
+                      >
+                        {hasAccess ? <X className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />}
+                        {hasAccess ? 'Bloquer' : 'Valider'}
+                      </Button>
+                    </div>
                   ) : null}
                 </div>
               );
@@ -370,6 +399,11 @@ const UsersPage = () => {
           </form>
         </DialogContent>
       </Dialog>
+      <PaymentReminderModal
+        open={!!reminderTarget}
+        onOpenChange={(open) => !open && setReminderTarget(null)}
+        target={reminderTarget}
+      />
     </div>
   );
 };

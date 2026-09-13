@@ -213,6 +213,125 @@ Deno.serve(async (request: Request) => {
     return json({ error: "Action réservée au super-administrateur." }, 403);
   }
 
+  if (action === "payment-reminder") {
+    const targetUserId = String(payload.user_id ?? "").trim();
+    if (!targetUserId) {
+      return json({ error: "Identifiant utilisateur requis." }, 400);
+    }
+
+    const { data: targetProfile, error: targetError } = await admin
+      .from("profiles")
+      .select("id, email, full_name, phone, company_id")
+      .eq("id", targetUserId)
+      .single();
+
+    if (targetError || !targetProfile) {
+      return json({ error: "Utilisateur introuvable." }, 404);
+    }
+
+    let companyName = "";
+    if (targetProfile.company_id) {
+      const { data: company } = await admin
+        .from("companies")
+        .select("name")
+        .eq("id", targetProfile.company_id)
+        .maybeSingle();
+      companyName = company?.name ?? "";
+    }
+
+    const { data: targetSub } = await admin
+      .from("subscriptions")
+      .select("status, expires_at, starts_at, amount, plan_code, frequency")
+      .eq("user_id", targetUserId)
+      .maybeSingle();
+
+    const expiresAt = targetSub?.expires_at ?? null;
+    let daysRemaining = 0;
+    let isExpired = false;
+    if (expiresAt) {
+      const diff = new Date(expiresAt).getTime() - Date.now();
+      daysRemaining = Math.ceil(diff / (24 * 60 * 60 * 1000));
+      isExpired = daysRemaining <= 0;
+    } else if (targetSub?.status === "expired" || targetSub?.status === "past_due") {
+      isExpired = true;
+    }
+
+    const planAmount = Number(payload.amount || targetSub?.amount || 11500);
+    const waveUrl = `https://pay.wave.com/m/M_sn_rcEoxhsoOgeM/c/sn/?amount=${Math.round(planAmount)}`;
+    const formattedAmount = `${new Intl.NumberFormat("fr-FR").format(planAmount)} FCFA`;
+    const formattedDate = expiresAt
+      ? new Intl.DateTimeFormat("fr-FR", { dateStyle: "long" }).format(new Date(expiresAt))
+      : "bientôt";
+
+    const subject = isExpired
+      ? `[Inventa] Renouvellement de votre abonnement - ${companyName || targetProfile.full_name}`
+      : `[Rappel] Expiration de votre abonnement Inventa dans ${daysRemaining} jour${daysRemaining > 1 ? "s" : ""} - ${companyName || targetProfile.full_name}`;
+
+    const mail = await sendEmail({
+      to: [targetProfile.email],
+      subject,
+      text: [
+        `Bonjour ${targetProfile.full_name || ""},`,
+        "",
+        isExpired
+          ? `Votre abonnement Inventa pour ${companyName || "votre bijouterie"} a expiré le ${formattedDate}.`
+          : `Votre abonnement Inventa pour ${companyName || "votre bijouterie"} arrive à expiration le ${formattedDate} (${daysRemaining} jour${daysRemaining > 1 ? "s" : ""} restant${daysRemaining > 1 ? "s" : ""}).`,
+        "",
+        `Montant à régler : ${formattedAmount}`,
+        "",
+        "Pour renouveler immédiatement votre accès et éviter toute interruption de service, effectuez votre paiement Wave en un clic :",
+        waveUrl,
+        "",
+        "Ou connectez-vous directement sur votre espace Inventa :",
+        "https://inventa.bayecode.com/subscription",
+        "",
+        "L'équipe Inventa reste à votre entière disposition.",
+      ].join("\n"),
+      idempotencyKey: `payment-reminder-${targetProfile.id}-${Date.now()}`,
+      html: `
+        <div style="background:#f4f6f8;padding:32px 16px;font-family:Arial,sans-serif;color:#0A1628">
+          <div style="max-width:600px;margin:auto;background:#ffffff;border:1px solid #e5e7eb;border-radius:14px;padding:32px">
+            <p style="margin:0 0 16px;color:#C9972A;font-weight:700;letter-spacing:1px">INVENTA</p>
+            <h1 style="margin:0 0 20px;font-size:24px;color:#0A1628">
+              ${isExpired ? "Votre abonnement Inventa a expiré" : "Rappel : expiration imminente de votre abonnement"}
+            </h1>
+            <p>Bonjour <strong>${escapeHtml(targetProfile.full_name || "")}</strong>,</p>
+            <p>
+              ${
+                isExpired
+                  ? `Votre abonnement Inventa pour <strong>${escapeHtml(companyName || "votre bijouterie")}</strong> est arrivé à échéance le <strong>${formattedDate}</strong>.`
+                  : `Votre abonnement pour <strong>${escapeHtml(companyName || "votre bijouterie")}</strong> arrive à expiration le <strong>${formattedDate}</strong> (plus que <strong>${daysRemaining} jour${daysRemaining > 1 ? "s" : ""}</strong>).`
+              }
+            </p>
+            <div style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:10px;padding:18px;margin:24px 0">
+              <p style="margin:0 0 8px;font-size:13px;color:#64748B;text-transform:uppercase;font-weight:600">Montant du renouvellement</p>
+              <p style="margin:0;font-size:26px;font-weight:bold;color:#0A1628">${formattedAmount}</p>
+            </div>
+            <p style="margin:28px 0;text-align:center">
+              <a href="${waveUrl}" style="display:inline-block;background:#1DA1F2;color:#ffffff;text-decoration:none;padding:14px 28px;border-radius:8px;font-weight:bold;font-size:16px;box-shadow:0 2px 4px rgba(0,0,0,0.1)">
+                Payer avec Wave (${formattedAmount})
+              </a>
+            </p>
+            <p style="font-size:13px;color:#64748B;text-align:center">
+              Lien sécurisé Wave direct : <a href="${waveUrl}" style="color:#1DA1F2;word-break:break-all">${waveUrl}</a>
+            </p>
+            <hr style="border:none;border-top:1px solid #E2E8F0;margin:28px 0" />
+            <p style="font-size:13px;color:#64748B">
+              Vous pouvez également gérer votre abonnement directement depuis l'application : <a href="https://inventa.bayecode.com/subscription" style="color:#0A1628">Gérer mon abonnement</a>.
+            </p>
+          </div>
+        </div>
+      `,
+    });
+
+    return json({
+      success: true,
+      email_sent: mail.sent,
+      email_reason: mail.reason ?? null,
+      wave_url: waveUrl,
+    });
+  }
+
   if (!["approve", "reject"].includes(action)) {
     return json({ error: "Action invalide." }, 400);
   }

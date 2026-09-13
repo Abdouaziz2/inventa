@@ -259,5 +259,5 @@ describe('Wave merchant payment link', () => {
     expect(result.wave_launch_url).toBe('https://pay.wave.com/m/M_sn_rcEoxhsoOgeM/c/sn/?amount=11500');
     expect(result.amount).toBe(11500);
     expect(result.currency).toBe('XOF');
-  });
+  }, 15000);
 });

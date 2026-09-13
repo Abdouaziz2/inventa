@@ -30,7 +30,7 @@ interface AuthContextType {
   isAdmin: boolean;
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+export const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<AppUser | null>(null);
@@ -131,3 +131,5 @@ export const useAuth = () => {
   }
   return context;
 };
+
+export const useOptionalAuth = () => useContext(AuthContext);

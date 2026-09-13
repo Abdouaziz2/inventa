@@ -1,8 +1,10 @@
 import { useMemo, useState } from 'react';
 import { CalendarPlus, Search, ShieldCheck, Trash2 } from 'lucide-react';
+import { BellRing, CalendarPlus, Search, ShieldCheck, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import PaymentReminderModal, { type PaymentReminderTarget } from '@/components/PaymentReminderModal';
 import { Input } from '@/components/ui/input';
 import {
   Select,
@@ -44,6 +46,7 @@ const SubscriptionsPage = () => {
   const updateSubscription = useUpdateSubscription();
   const deleteUser = useDeleteUser();
   const [userToDelete, setUserToDelete] = useState<{ id: string; email: string } | null>(null);
+  const [reminderTarget, setReminderTarget] = useState<PaymentReminderTarget | null>(null);
 
   const filteredSubscriptions = useMemo(() => {
     const normalizedSearch = search.trim().toLowerCase();
@@ -166,7 +169,23 @@ const SubscriptionsPage = () => {
                       </SelectContent>
                     </Select>
 
-                    <div className="flex gap-2">
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        variant="outline"
+                        className="border-amber-500/40 text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-950/30 gap-1.5"
+                        onClick={() =>
+                          setReminderTarget({
+                            id: subscription.user_id,
+                            email: subscription.email,
+                            expiresAt: subscription.expires_at,
+                            subscriptionStatus: subscription.status,
+                            amount: subscription.amount,
+                          })
+                        }
+                      >
+                        <BellRing className="h-4 w-4 text-amber-600" />
+                        Rappel
+                      </Button>
                       <Button
                         variant="outline"
                         onClick={() =>
@@ -228,6 +247,11 @@ const SubscriptionsPage = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      <PaymentReminderModal
+        open={!!reminderTarget}
+        onOpenChange={(open) => !open && setReminderTarget(null)}
+        target={reminderTarget}
+      />
     </div>
   );
 };

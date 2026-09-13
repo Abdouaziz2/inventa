@@ -56,3 +56,4 @@ describe('signup duplicate email protection', () => {
     expect(isDuplicate).toBe(false);
   });
 });
+
