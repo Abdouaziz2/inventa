@@ -35,8 +35,15 @@ describe('WhatsApp document sharing', () => {
     expect(decodeURIComponent(url)).toContain('50 000 FCFA');
   });
 
-  it('builds a subscription reminder message and WhatsApp URL with payment link', () => {
+  it('adds the Senegal country code (221) to a nine-digit number', () => {
+    expect(normalizeWhatsAppPhone('77 240 68 74')).toBe('221772406874');
+    expect(normalizeWhatsAppPhone('772406874')).toBe('221772406874');
+    expect(normalizeWhatsAppPhone('+221 77 240 68 74')).toBe('221772406874');
+  });
+
+  it('builds a subscription reminder message and WhatsApp URL with payment link and object signature', () => {
     const params = {
+      phone: '77 240 68 74',
       clientName: 'Moussa Diop',
       companyName: 'Bijouterie Keur Gui',
       planName: 'Business',
@@ -51,10 +58,18 @@ describe('WhatsApp document sharing', () => {
     expect(message).toContain('Moussa Diop (Bijouterie Keur Gui)');
     expect(message).toContain('échéance dans 3 jours');
     expect(message).toContain('11\u202F500 FCFA');
+    expect(message).toContain('77 240 68 74');
     expect(message).toContain('https://pay.wave.com/m/M_sn_rcEoxhsoOgeM/c/sn/?amount=11500');
 
     const url = buildSubscriptionReminderWhatsAppUrl('76 12 34 56', params);
     expect(url).toContain('https://wa.me/22376123456?text=');
     expect(decodeURIComponent(url)).toContain('11\u202F500 FCFA');
+    // Test calling with object
+    const urlFromObject = buildSubscriptionReminderWhatsAppUrl(params);
+    expect(urlFromObject).toContain('https://wa.me/221772406874?text=');
+
+    // Test calling with separate phone argument
+    const urlFromArgs = buildSubscriptionReminderWhatsAppUrl('772406874', params);
+    expect(urlFromArgs).toContain('https://wa.me/221772406874?text=');
   });
 });

@@ -16,13 +16,24 @@ type WhatsAppDocumentMessage = {
   items: WhatsAppDocumentItem[];
 };
 
-export const normalizeWhatsAppPhone = (value: string, defaultCountryCode = '223') => {
+export const normalizeWhatsAppPhone = (value: string, defaultCountryCode = '221') => {
   let digits = value.replace(/\D/g, '');
 
   if (digits.startsWith('00')) digits = digits.slice(2);
-  if (digits.length === 8) digits = `${defaultCountryCode}${digits}`;
-  if (digits.startsWith('0') && digits.length === 9) {
-    digits = `${defaultCountryCode}${digits.slice(1)}`;
+
+  // Senegal 9-digit numbers (e.g. 77..., 78..., 76..., 70..., 75..., 33...)
+  if (digits.length === 9 && !digits.startsWith('0')) {
+    digits = `221${digits}`;
+  } else if (digits.startsWith('0') && digits.length === 10) {
+    // 0772406874 -> 221772406874
+    digits = `221${digits.slice(1)}`;
+  } else if (digits.length === 8) {
+    // 8-digit numbers (e.g. Mali 223)
+    const code = defaultCountryCode === '221' ? '223' : defaultCountryCode;
+    digits = `${code}${digits}`;
+  } else if (digits.startsWith('0') && digits.length === 9) {
+    const code = defaultCountryCode === '221' ? '223' : defaultCountryCode;
+    digits = `${code}${digits.slice(1)}`;
   }
 
   return digits.length >= 8 && digits.length <= 15 ? digits : '';
@@ -105,14 +116,20 @@ export const buildSubscriptionReminderWhatsAppMessage = ({
     paymentUrl,
     '',
     `Paiement rapide et sécurisé via Wave Business.`,
+    '',
+    `Besoin d'aide ? Contactez notre support : +221 77 240 68 74`,
     `L'équipe Inventa vous remercie !`,
   ].join('\n');
 };
 
-export const buildSubscriptionReminderWhatsAppUrl = (
-  phone: string,
-  params: SubscriptionReminderParams,
-) => {
-  const message = buildSubscriptionReminderWhatsAppMessage(params);
-  return buildWhatsAppUrl(phone, message);
-};
+export function buildSubscriptionReminderWhatsAppUrl(
+  phoneOrParams: string | (SubscriptionReminderParams & { phone: string }),
+  maybeParams?: SubscriptionReminderParams,
+): string {
+  if (typeof phoneOrParams === 'string') {
+    const message = buildSubscriptionReminderWhatsAppMessage(maybeParams!);
+    return buildWhatsAppUrl(phoneOrParams, message);
+  }
+  const message = buildSubscriptionReminderWhatsAppMessage(phoneOrParams);
+  return buildWhatsAppUrl(phoneOrParams.phone, message);
+}

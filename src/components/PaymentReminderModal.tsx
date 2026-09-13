@@ -27,6 +27,7 @@ import { buildWaveMerchantUrl } from '@/services/subscriptions';
 import {
   buildSubscriptionReminderWhatsAppMessage,
   buildSubscriptionReminderWhatsAppUrl,
+  normalizeWhatsAppPhone,
 } from '@/lib/whatsapp';
 
 export type PaymentReminderTarget = {
@@ -104,31 +105,62 @@ export default function PaymentReminderModal({
     return buildSubscriptionReminderWhatsAppMessage({
       clientName: target.fullName || target.companyName || 'Client',
       companyName: target.companyName || 'Inventa',
+      planName: 'Business',
+      amount,
+      expiresAt: target.expiresAt ?? null,
+      daysRemaining,
+      paymentUrl: waveUrl,
+    });
+  }, [target, daysRemaining, amount, waveUrl]);
+
+  const computedWhatsAppUrl = useMemo(() => {
+    if (!target) return '';
+    const rawPhone = phone.trim() || '772406874';
+    const cleanPhone = normalizeWhatsAppPhone(rawPhone);
+    if (!cleanPhone) return '';
+
+    return buildSubscriptionReminderWhatsAppUrl(cleanPhone, {
+      clientName: target.fullName || target.companyName || 'Client',
+      companyName: target.companyName || 'Inventa',
+      planName: 'Business',
+      amount,
+      expiresAt: target.expiresAt ?? null,
       daysRemaining,
       isExpired,
       expiresAtFormatted: formattedDate,
-      amount,
-      waveUrl,
+      paymentUrl: waveUrl,
     });
-  }, [target, daysRemaining, isExpired, formattedDate, amount, waveUrl]);
+  }, [phone, target, amount, daysRemaining, isExpired, formattedDate, waveUrl]);
 
   if (!target) return null;
 
   const handleSendWhatsApp = () => {
-    const cleanPhone = phone.trim().replace(/\s+/g, '');
-    const url = buildSubscriptionReminderWhatsAppUrl({
-      phone: cleanPhone,
+    const rawPhone = phone.trim() || '772406874';
+    if (!phone.trim()) {
+      setPhone('772406874');
+    }
+    const cleanPhone = normalizeWhatsAppPhone(rawPhone);
+    if (!cleanPhone) {
+      toast.error('Numéro WhatsApp invalide.');
+      return;
+    }
+
+    const url = buildSubscriptionReminderWhatsAppUrl(cleanPhone, {
       clientName: target.fullName || target.companyName || 'Client',
       companyName: target.companyName || 'Inventa',
+      planName: 'Business',
+      amount,
+      expiresAt: target.expiresAt ?? null,
       daysRemaining,
       isExpired,
       expiresAtFormatted: formattedDate,
-      amount,
-      waveUrl,
+      paymentUrl: waveUrl,
     });
 
-    window.open(url, '_blank', 'noopener,noreferrer');
-    toast.success('Discussion WhatsApp ouverte');
+    if (url) {
+      window.open(url, '_blank', 'noopener,noreferrer');
+      toast.success('Discussion WhatsApp ouverte');
+    }
   };
 
   const handleSendEmail = async () => {
@@ -217,10 +249,19 @@ export default function PaymentReminderModal({
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="reminder-phone">Numéro WhatsApp</Label>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="reminder-phone">Numéro WhatsApp</Label>
+                <button
+                  type="button"
+                  className="text-[11px] text-primary hover:underline font-medium"
+                  onClick={() => setPhone('772406874')}
+                >
+                  Admin : 77 240 68 74
+                </button>
+              </div>
               <Input
                 id="reminder-phone"
-                placeholder="+221770000000"
+                placeholder="Ex: 77 240 68 74 ou +221772406874"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
               />
@@ -274,17 +315,22 @@ export default function PaymentReminderModal({
           </Button>
 
           <div className="flex items-center gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              className="border-green-600 text-green-700 hover:bg-green-50 hover:text-green-800 dark:hover:bg-green-950/50 gap-1.5"
-              onClick={handleSendWhatsApp}
-              disabled={!phone.trim()}
+            <a
+              href={computedWhatsAppUrl || '#'}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => {
+                if (!phone.trim()) {
+                  setPhone('772406874');
+                }
+                toast.success('Discussion WhatsApp ouverte');
+              }}
+              className="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors border border-green-600 bg-background text-green-700 hover:bg-green-50 hover:text-green-800 dark:hover:bg-green-950/50 h-9 px-4 py-2 gap-1.5 cursor-pointer"
             >
               <MessageSquare className="h-4 w-4 text-green-600" />
               Envoyer par WhatsApp
               <ExternalLink className="h-3 w-3 opacity-60" />
-            </Button>
+            </a>
 
             <Button
               type="button"
@@ -305,4 +351,3 @@ export default function PaymentReminderModal({
     </Dialog>
   );
 }
-

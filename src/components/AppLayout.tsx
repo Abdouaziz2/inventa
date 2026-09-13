@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import AppSidebar from '@/components/AppSidebar';
 import AppHeader from '@/components/AppHeader';
 import SubscriptionExpiryBanner from '@/components/SubscriptionExpiryBanner';
+import SubscriptionExpiryAlertModal from '@/components/SubscriptionExpiryAlertModal';
 import NetworkStatus from '@/components/NetworkStatus';
 import { cn } from '@/lib/utils';
 
@@ -46,6 +47,7 @@ const AppLayout = () => {
           onMenuClick={() => setSidebarOpen(true)}
         />
         <SubscriptionExpiryBanner />
+        <SubscriptionExpiryAlertModal />
         <main
           ref={mainContentRef}
           id="main-content"

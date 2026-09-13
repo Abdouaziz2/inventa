@@ -50,6 +50,9 @@ async function sendEmail(input: {
       },
     });
 
+    const cleanIdempotencyKey = input.idempotencyKey.replace(/[^a-zA-Z0-9_-]/g, "");
+    const messageId = `<${cleanIdempotencyKey || Date.now()}@bayecode.com>`;
+
     await transporter.sendMail({
       from,
       to: input.to,
@@ -57,12 +60,16 @@ async function sendEmail(input: {
       subject: input.subject,
       text: input.text,
       html: input.html,
+      messageId,
       envelope: {
         from: user,
         to: input.to,
       },
       headers: {
         "X-Inventa-Message-ID": input.idempotencyKey,
+        "X-Entity-Ref-ID": input.idempotencyKey,
+        "Auto-Submitted": "auto-generated",
+        "X-Auto-Response-Suppress": "All",
       },
     });
 
@@ -264,8 +271,8 @@ Deno.serve(async (request: Request) => {
       : "bientôt";
 
     const subject = isExpired
-      ? `[Inventa] Renouvellement de votre abonnement - ${companyName || targetProfile.full_name}`
-      : `[Rappel] Expiration de votre abonnement Inventa dans ${daysRemaining} jour${daysRemaining > 1 ? "s" : ""} - ${companyName || targetProfile.full_name}`;
+      ? `Renouvellement de votre compte Inventa · ${companyName || targetProfile.full_name}`
+      : `Échéance de votre abonnement Inventa (${daysRemaining} j restant${daysRemaining > 1 ? "s" : ""}) · ${companyName || targetProfile.full_name}`;
 
     const mail = await sendEmail({
       to: [targetProfile.email],
@@ -286,6 +293,11 @@ Deno.serve(async (request: Request) => {
         "https://inventa.bayecode.com/subscription",
         "",
         "L'équipe Inventa reste à votre entière disposition.",
+        "Besoin d'aide ? Contactez notre support au +221 77 240 68 74 (Appel / WhatsApp).",
+        "",
+        "---",
+        "Inventa · Bayecode Tech (Dakar, Sénégal)",
+        "Solution professionnelle de gestion pour bijouteries",
       ].join("\n"),
       idempotencyKey: `payment-reminder-${targetProfile.id}-${Date.now()}`,
       html: `
@@ -319,6 +331,11 @@ Deno.serve(async (request: Request) => {
             <p style="font-size:13px;color:#64748B">
               Vous pouvez également gérer votre abonnement directement depuis l'application : <a href="https://inventa.bayecode.com/subscription" style="color:#0A1628">Gérer mon abonnement</a>.
             </p>
+            <div style="margin-top:32px;padding-top:20px;border-top:1px solid #e2e8f0;font-size:12px;color:#64748b;line-height:1.6">
+              <p style="margin:0 0 4px"><strong>Inventa</strong> · Système de gestion pour bijouteries</p>
+              <p style="margin:0 0 4px">Bayecode Tech · Dakar, Sénégal · Support client : +221 77 240 68 74 (Appel / WhatsApp)</p>
+              <p style="margin:0">Cet email automatique concerne la gestion de votre compte sur la plateforme <a href="https://inventa.bayecode.com" style="color:#64748b">inventa.bayecode.com</a>.</p>
+            </div>
           </div>
         </div>
       `,
